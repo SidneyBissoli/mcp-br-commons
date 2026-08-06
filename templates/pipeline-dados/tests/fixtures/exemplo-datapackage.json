@@ -1,0 +1,45 @@
+{
+  "$schema": "https://datapackage.org/profiles/2.0/datapackage.json",
+  "name": "sih-sus-cubos",
+  "title": "Cubos agregados do SIH-SUS (internações hospitalares, ICSAP, população)",
+  "version": "1.0.0",
+  "created": "2026-08-06T12:00:00Z",
+  "licenses": [
+    {
+      "path": "https://datasus.saude.gov.br/transferencia-de-arquivos/",
+      "title": "Dados públicos do DATASUS/Ministério da Saúde — uso livre com atribuição da fonte."
+    }
+  ],
+  "sources": [
+    {
+      "title": "DATASUS — Sistema de Informações Hospitalares do SUS (SIH/SUS)",
+      "path": "https://datasus.saude.gov.br"
+    }
+  ],
+  "resources": [
+    {
+      "name": "sih_causas_2023",
+      "path": "sih_causas_2023.parquet",
+      "format": "parquet",
+      "mediatype": "application/vnd.apache.parquet",
+      "bytes": 1234567,
+      "hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sih:records": 250000
+    },
+    {
+      "name": "pop_municipios",
+      "path": "pop_municipios.parquet",
+      "format": "parquet",
+      "mediatype": "application/vnd.apache.parquet",
+      "bytes": 54321,
+      "hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sih:records": 5570
+    }
+  ],
+  "sih:schemaVersion": "1.0.0",
+  "sih:changelog": "CHANGELOG-dataset.md",
+  "sih:citation": "CITATION.cff",
+  "sih:caveats": [
+    "Cubos agregados por residência do paciente (MUNIC_RES), não por local de internação."
+  ]
+}

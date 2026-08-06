@@ -1,0 +1,59 @@
+{
+  "name": "ecidadania-participacao",
+  "title": "Dataset de participação do e-Cidadania (Senado Federal)",
+  "schemaVersion": "1.0.0",
+  "license": "Dados Abertos do Senado Federal — uso livre com atribuição da fonte.",
+  "source": "Senado Federal — Portal e-Cidadania (www12.senado.leg.br/ecidadania) + acervo Arquimedes",
+  "generatedAt": "2026-07-02T16:14:00.182Z",
+  "sample": null,
+  "envelope": [
+    "value",
+    "sourceEndpoint",
+    "sourceField",
+    "retrievedAt",
+    "license",
+    "schemaVersion"
+  ],
+  "entities": [
+    {
+      "entidade": "consultas",
+      "titulo": "Consultas públicas (Apoie)",
+      "file": "consultas.ndjson",
+      "recordCount": 7773,
+      "corpusTotal": 7773,
+      "hasFirstSeen": true
+    },
+    {
+      "entidade": "ideias",
+      "titulo": "Ideias legislativas",
+      "file": "ideias.ndjson",
+      "recordCount": 113704,
+      "corpusTotal": 113704,
+      "hasFirstSeen": true
+    },
+    {
+      "entidade": "eventos",
+      "titulo": "Eventos interativos (audiências)",
+      "file": "eventos.ndjson",
+      "recordCount": 5443,
+      "corpusTotal": 5443,
+      "hasFirstSeen": true
+    },
+    {
+      "entidade": "consultas_votos",
+      "titulo": "Votos históricos por UF (acervo Arquimedes)",
+      "file": "consultas_votos.ndjson",
+      "recordCount": 15085,
+      "corpusTotal": 15085,
+      "hasFirstSeen": false
+    }
+  ],
+  "caveats": [
+    "Piso duro da série = 14/06/2026 (criação da base D1).",
+    "firstSeenAt censurado à esquerda: baseline 16/06/2026 (~98,6%) deve ser excluído; série interpretável a partir de 22/06/2026.",
+    "consultas_votos é acervo de vintage único (série = 1); único campo temporal = referencePeriod.",
+    "Não existe data de abertura de consulta upstream (Recon Parte II).",
+    "Status de eventos dobra REGISTRADO/'sem data prevista' em 'agendado' (Recon §4.1) — declarado, não corrigido.",
+    "CSV Arquimedes transcodificado de windows-1252 para UTF-8 na leitura."
+  ]
+}

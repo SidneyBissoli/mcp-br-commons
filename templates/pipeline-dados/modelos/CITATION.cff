@@ -1,0 +1,36 @@
+# Citation File Format 1.2.0 — https://citation-file-format.github.io/
+# Modelo do portfólio (Fase 0, E4). CITA O DATASET (o objeto científico citável), não o
+# servidor MCP. A spec Frictionless não cobre citação dedicada — este arquivo permanece
+# ao lado do datapackage.json (contributors+sources do descriptor não substituem CFF).
+#
+# TODO(humano, antes de cortar dataset-v1.0.0): (1) preencher o ORCID real do autor;
+# (2) após o depósito cunhar, substituir os DOIs PENDENTE pelo concept-DOI (em
+# `identifiers`) e citar o version-DOI do snapshot no paper.
+cff-version: 1.2.0
+message: >-
+  Se você usar este dataset, cite-o usando os metadados abaixo. Cite o version-DOI do snapshot
+  específico que utilizou; o concept-DOI identifica o dataset através de todas as versões.
+title: <título do dataset>
+abstract: >-
+  <Resumo do dataset: o que cobre, de onde vem, o que carrega de proveniência,
+  qual lacuna preenche. Mencione que a licença do dado está em LICENSE-DATA.md,
+  separada da licença de código.>
+type: dataset
+version: 1.0.0
+date-released: "<AAAA-MM-DD>"
+authors:
+  - given-names: Sidney
+    family-names: Bissoli
+    orcid: "https://orcid.org/0000-0000-0000-0000" # TODO(humano): ORCID real
+    affiliation: Independent researcher
+license-url: "<URL dos termos da licença do dado>"
+url: "<URL do repositório>"
+repository-code: "<URL do repositório>"
+keywords:
+  - <palavra-chave 1>
+  - dados abertos
+  - Brazil
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.PENDENTE" # TODO(humano): concept-DOI (estável entre versões)
+    description: Concept-DOI (todas as versões do dataset)

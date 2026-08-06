@@ -1,0 +1,23 @@
+{
+  "name": "mcp-template-pipeline-dados",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Padrão de pipeline de dados do portfólio (R → parquet versionado → consulta) com descriptor Frictionless Data Package v2 — copiar esta pasta, não importar (Fase 0, Entregável 4)",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate": "tsx src/cli-validate.ts",
+    "migrate:senado": "tsx src/cli-migrate-senado.ts"
+  },
+  "dependencies": {
+    "ajv": "^8.17.0",
+    "ajv-formats": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.9"
+  }
+}

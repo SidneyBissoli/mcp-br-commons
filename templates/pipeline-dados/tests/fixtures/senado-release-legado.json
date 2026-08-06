@@ -1,0 +1,71 @@
+{
+  "name": "ecidadania-participacao",
+  "title": "Dataset de participação do e-Cidadania (Senado Federal)",
+  "releaseVersion": "1.0.0",
+  "edition": "Inaugural — bootstrap 2026 (piso 14/06/2026)",
+  "schemaVersion": "1.0.0",
+  "conceptDoi": "10.5281/zenodo.PENDENTE",
+  "versionDoi": "10.5281/zenodo.PENDENTE",
+  "license": "Dados Abertos do Senado Federal — uso livre com atribuição da fonte.",
+  "licenseUrl": "https://www12.senado.leg.br/dados-abertos",
+  "source": "Senado Federal — Portal e-Cidadania (www12.senado.leg.br/ecidadania) + acervo Arquimedes",
+  "gitCommit": "0d3a73ed9442fcf66c91542d2fa9c2b8cab8e70b",
+  "generatedAt": "2026-07-03T00:00:00.000Z",
+  "envelope": [
+    "value",
+    "sourceEndpoint",
+    "sourceField",
+    "retrievedAt",
+    "license",
+    "schemaVersion"
+  ],
+  "totalRecords": 142005,
+  "files": [
+    {
+      "file": "consultas.ndjson",
+      "sha256": "fa99e5ed74c01e7eb3904b04b5fc81bc66a857f692c1fdc046ef91eea4a1576d",
+      "bytes": 26244431,
+      "records": 7773
+    },
+    {
+      "file": "ideias.ndjson",
+      "sha256": "4dfbee5daa5a17df1531b5ad41b98e363f00954164823c22f07513879fb6b09d",
+      "bytes": 276125914,
+      "records": 113704
+    },
+    {
+      "file": "eventos.ndjson",
+      "sha256": "48f772853ed57b7a60baab5c9c80a20723d102d80b06867bcd9dd6b7738e1c46",
+      "bytes": 14663252,
+      "records": 5443
+    },
+    {
+      "file": "consultas_votos.ndjson",
+      "sha256": "4e45d5a5321db0d1a763b796890d417297d1742fd254bc7a61e751fb251dedc6",
+      "bytes": 59477608,
+      "records": 15085
+    },
+    {
+      "file": "datapackage.json",
+      "sha256": "40edc11ab20c95b5f5d72961f727893dd07245bbb7583b20074e9c3872c952e1",
+      "bytes": 1994
+    },
+    {
+      "file": "dictionary.md",
+      "sha256": "b7cdbfe913b79675875309cdbe47731a0602b45edb717c3a5b6535c8d6abc293",
+      "bytes": 14858
+    }
+  ],
+  "changelog": "CHANGELOG-dataset.md",
+  "citation": "CITATION.cff",
+  "caveats": [
+    "Piso duro da série = 14/06/2026 (criação da base D1); nada anterior é capturável.",
+    "firstSeenAt é censurado à esquerda, baseline por entidade (consultas 16/06/2026; ideias/eventos 29/06/2026) — o vintage de baseline deve ser excluído de análises de ritmo; série interpretável a partir de 22/06/2026 (consultas) / 30/06/2026 (ideias, eventos).",
+    "Antes da entrada em produção do cron diário, a resolução do first-seen foi IRREGULAR (gaps de 2–6 dias): a série é interpretável, não uniforme, no período de bootstrap — ver CHANGELOG-dataset.md.",
+    "consultas_votos é acervo de vintage único (série = 1); único campo temporal = referencePeriod.",
+    "Não existe data de abertura de consulta upstream (Recon Parte II).",
+    "Status de eventos dobra REGISTRADO/'sem data prevista' em 'agendado' (Recon §4.1) — declarado, não corrigido.",
+    "eventos: comentarios/hora/data são só-listagem, com caveat PROVISÓRIO (A3) até o estudo de reconciliação listagem×detalhe.",
+    "CSV Arquimedes transcodificado de windows-1252 para UTF-8 na leitura."
+  ]
+}

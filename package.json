@@ -1,0 +1,18 @@
+{
+  "name": "mcp-br-commons",
+  "private": true,
+  "description": "Componentes compartilhados do portfólio de servidores MCP (Fase 0)",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.9"
+  }
+}

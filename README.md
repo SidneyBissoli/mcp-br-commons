@@ -13,8 +13,8 @@ terminologias médicas).
 
 | Pacote | O quê | Status |
 |---|---|---|
-| [`@sbissoli/mcp-provenance`](packages/mcp-provenance) | Contrato de proveniência: todo retorno de tool carrega fonte, endpoint, período, data de extração e licença, em dois modos (`concise`/`detailed`) | em desenvolvimento |
-| `@sbissoli/mcp-stats` | Motor de estatísticas (média/mediana/distribuição/topN/agruparPor) para tools tabulares | planejado |
+| [`@sbissoli/mcp-provenance`](packages/mcp-provenance) | Contrato de proveniência: todo retorno de tool carrega fonte, endpoint, período, data de extração e licença, em dois modos (`concise`/`detailed`) | 0.1.0 (não publicado) |
+| [`@sbissoli/mcp-stats`](packages/mcp-stats) | Motor de estatísticas (média/mediana/distribuição/topN/agruparPor) para tools tabulares, exibição por idioma | 0.1.0 (não publicado) |
 | `@sbissoli/mcp-evals` | Harness de evals de seleção de tool (catálogo + fixtures + scorer + gate) | planejado |
 
 Além dos pacotes, o monorepo abrigará como **pastas copiáveis** (não importáveis):

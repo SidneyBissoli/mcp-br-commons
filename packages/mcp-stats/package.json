@@ -1,0 +1,32 @@
+{
+  "name": "@sbissoli/mcp-stats",
+  "version": "0.1.0",
+  "description": "Motor de estatísticas para tools MCP tabulares: média/mediana/distribuição/percentis/topN/agruparPor computados no servidor, com camada de exibição por idioma. Zero dependências.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "mcp",
+    "statistics",
+    "percentiles",
+    "aggregation",
+    "open-data"
+  ],
+  "author": "Sidney Bissoli <sbissoli76@gmail.com>",
+  "license": "MIT"
+}

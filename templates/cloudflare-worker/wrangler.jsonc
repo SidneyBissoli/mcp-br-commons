@@ -1,0 +1,34 @@
+// Configuração do Worker. Ao instanciar: trocar "name" e revisar os comentários TODO.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // TODO(instância): nome do Worker (vira <name>.<conta>.workers.dev)
+  "name": "exemplo-mcp",
+  "main": "src/index.ts",
+  // Data recente na criação do template (06/08/2026). Ao instanciar, subir para a data corrente.
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+
+  // Domínio próprio (opcional). Ao ativar, adicionar o hostname em
+  // SERVER_CONFIG.extraAllowedHostnames (src/config.ts) — o createMcpHandler valida Host.
+  // "routes": [{ "pattern": "meu-servidor.exemplo.com", "custom_domain": true }],
+
+  "vars": {
+    "ALLOWED_ORIGIN": "*"
+  },
+
+  // Estatísticas de uso — Durable Object singleton com storage SQLite (src/usage.ts).
+  // Nenhum recurso precisa ser criado manualmente: a migration abaixo provisiona a classe no deploy.
+  "durable_objects": {
+    "bindings": [{ "name": "USAGE", "class_name": "UsageTracker" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UsageTracker"] }],
+
+  // Metadados do último deploy (id/tag/timestamp) — expostos em GET /status para que
+  // a liveness e o build corrente sejam verificáveis sem o handshake MCP. Binding
+  // embutido do runtime; nada a criar.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+
+  // Logs estruturados no painel da Cloudflare (Workers Logs).
+  "observability": { "enabled": true }
+}

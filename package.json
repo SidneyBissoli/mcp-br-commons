@@ -3,7 +3,8 @@
   "private": true,
   "description": "Componentes compartilhados do portfólio de servidores MCP (Fase 0)",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "templates/*"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",

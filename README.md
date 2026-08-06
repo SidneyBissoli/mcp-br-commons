@@ -17,10 +17,13 @@ terminologias médicas).
 | [`@sbissoli/mcp-stats`](packages/mcp-stats) | Motor de estatísticas (média/mediana/distribuição/topN/agruparPor) para tools tabulares, exibição por idioma | 0.1.0 (não publicado) |
 | `@sbissoli/mcp-evals` | Harness de evals de seleção de tool (catálogo + fixtures + scorer + gate) | planejado |
 
-Além dos pacotes, o monorepo abrigará como **pastas copiáveis** (não importáveis):
+Além dos pacotes, o monorepo abriga como **pastas copiáveis** (não importáveis):
 
-- `templates/cloudflare-worker/` — esqueleto de hosting Cloudflare (Worker +
-  Streamable HTTP + rate limit + estatísticas de uso + health/status) — planejado
+- [`templates/cloudflare-worker/`](templates/cloudflare-worker) — esqueleto de
+  hosting Cloudflare: Worker + Streamable HTTP (`createMcpHandler`, MCP SDK v2) +
+  rate limit + Durable Object de estatísticas de uso + health/status + tool de
+  exemplo com proveniência — **entregue** (instruções de instanciação no README
+  da pasta)
 - `templates/pipeline-dados/` — receita R → parquet versionado → consulta, com
   `datapackage.json` (Frictionless v2), CHANGELOG de dataset, licença e citação — planejado
 

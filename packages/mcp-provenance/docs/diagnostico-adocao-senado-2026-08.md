@@ -3,7 +3,7 @@
 | Campo | Valor |
 |:--|:--|
 | Data | 2026-08-07 (sessão de adoção Fase 1 no senado) |
-| Veredito | **DIVERGENTE — adoção adiada, pendente de decisão do decisor** |
+| Veredito | **DIVERGENTE — decisor escolheu a Opção A (2026-08-07): release menor dedicado, EXECUTADO no senado v3.5.0** |
 | Envelope real | `senado-br-mcp-cloudflare/src/utils/provenance.ts` (nível-1, em produção nas 67 tools) |
 | Contrato | `contrato-proveniencia-v1.md` + `@sbissoli/mcp-provenance` (schema/render) |
 
@@ -46,14 +46,16 @@ do espelho em `_meta` e do rodapé de texto de **todas as 67 tools** — exatame
 de mudança que o harness de evals e o widget do ChatGPT App leem. Conforme o plano da
 sessão (ADOCAO_SENADO_PROMPT_SESSAO.md, escopo 3): não adotar em silêncio.
 
-## Decisão pendente (decisor)
+## Decisão (decisor, 2026-08-07): Opção A — executada
 
-- **Opção A**: release menor dedicado do senado (bump de versão + nota no README) que
-  migra o envelope ao v1.0 (modo `concise` como padrão preserva o "peso" atual da
-  resposta; `reference_period`→`data_vintage` é a única quebra visível no modo padrão,
-  além dos nulls explícitos e da perda de `dataset_id`/`api_version` no bloco padrão).
-- **Opção B**: adiar para a fase do congresso-br (primeiro servidor novo a nascer já no
-  v1.0), mantendo o senado no envelope nível-1 até lá.
+- **Opção A (escolhida)**: release menor dedicado do senado migrando o envelope ao v1.0.
+  Executada como **senado-br-mcp v3.5.0**: `src/utils/provenance.ts` virou adaptador
+  pt-BR sobre `@sbissoli/mcp-provenance` (aceita os nomes de entrada históricos
+  `dataset_id`/`reference_period` e emite a projeção `concise` — 6 chaves fixas, nulls
+  explícitos, rodapé com a redação fixada do contrato, espelho `concise` em `_meta`;
+  `attribution` inalterada). Pacote publicado no npm (`@sbissoli/mcp-provenance@0.1.0`).
+  Fuso mantido: `{ offset: "-03:00", label: "horário de Brasília" }`.
+- ~~Opção B: adiar para a fase do congresso-br.~~ (não escolhida)
 
-A adoção de `@sbissoli/mcp-stats` e `@sbissoli/mcp-evals` no senado **não depende** desta
-decisão (concluída em 2026-08-07).
+Com isso, os TRÊS pacotes da Fase 0 estão adotados no senado e publicados no npm; o
+gatilho "publicar quando o primeiro servidor adotar" está integralmente cumprido.

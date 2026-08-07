@@ -15,7 +15,7 @@ terminologias médicas).
 |---|---|---|
 | [`@sbissoli/mcp-provenance`](packages/mcp-provenance) | Contrato de proveniência: todo retorno de tool carrega fonte, endpoint, período, data de extração e licença, em dois modos (`concise`/`detailed`) | 0.1.0 (não publicado) |
 | [`@sbissoli/mcp-stats`](packages/mcp-stats) | Motor de estatísticas (média/mediana/distribuição/topN/agruparPor) para tools tabulares, exibição por idioma | 0.1.0 (não publicado) |
-| `@sbissoli/mcp-evals` | Harness de evals de seleção de tool (catálogo + fixtures + scorer + gate) | planejado |
+| [`@sbissoli/mcp-evals`](packages/mcp-evals) | Harness de evals de seleção de tool: extrator de catálogo (fake McpServer, captura `.tool` e `.registerTool`), validação de fixtures, scorer offline (top-1/top-k/por-área), gate de acurácia e runner via Anthropic Messages API | 0.1.0 (não publicado) |
 
 Além dos pacotes, o monorepo abriga como **pastas copiáveis** (não importáveis):
 
@@ -24,8 +24,9 @@ Além dos pacotes, o monorepo abriga como **pastas copiáveis** (não importáve
   rate limit + Durable Object de estatísticas de uso + health/status + tool de
   exemplo com proveniência — **entregue** (instruções de instanciação no README
   da pasta)
-- `templates/pipeline-dados/` — receita R → parquet versionado → consulta, com
-  `datapackage.json` (Frictionless v2), CHANGELOG de dataset, licença e citação — planejado
+- [`templates/pipeline-dados/`](templates/pipeline-dados) — receita R → parquet
+  versionado → consulta, com `datapackage.json` (Frictionless v2), CHANGELOG de
+  dataset, licença e citação — **entregue** (receita no README da pasta)
 
 ## Desenvolvimento
 

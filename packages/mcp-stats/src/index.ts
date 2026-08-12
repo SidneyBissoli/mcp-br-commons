@@ -12,6 +12,13 @@ export {
   type SummaryStats,
 } from "./core.js";
 export {
+  computeCorrelation,
+  type CorrelationMethod,
+  type CorrelationOptions,
+  type CorrelationStats,
+  type CorrelationUndefinedReason,
+} from "./correlation.js";
+export {
   formatEntries,
   formatGrouped,
   formatStats,

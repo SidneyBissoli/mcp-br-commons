@@ -46,6 +46,34 @@ const g = computeGroupedStats(linhas, (r) => parseBRL(r.valor), (r) => r.uf);
 return formatGrouped(g);                 // { totalGrupos, aviso?, grupos: [...] }
 ```
 
+### Correlação entre duas séries
+
+```ts
+import { computeCorrelation } from "@sbissoli/mcp-stats";
+
+// `linhas` já vem PAREADA por quem chama (mesma data, mesma grade):
+const c = computeCorrelation(linhas, (r) => r.ipca ?? NaN, (r) => r.selic ?? NaN, {
+  method: "spearman",                    // default: "pearson"
+});
+// { method, n, dropped, coefficient: number | null, reason? }
+```
+
+Este módulo **não pareia**, de propósito: alinhar grades temporais é trabalho de
+domínio e erra de formas específicas de cada fonte. Quem alinha é quem conhece a fonte.
+
+Três convenções que evitam número plausível e errado:
+
+- **Spearman é Pearson sobre os postos**, com posto médio nos empates — não o atalho
+  `1 - 6Σd²/n(n²-1)`, que só vale sem empate e não avisa quando há;
+- **descarte aos pares**, com `n` (usados) e `dropped` (fora) na resposta — sem isso,
+  um coeficiente calculado sobre 7 de 250 pontos passaria despercebido;
+- **coeficiente indefinido é `null` com `reason`**, nunca 0: zero é "medi e não há
+  relação", `null` é "não dá para medir" (menos de 2 pares, ou série constante).
+
+Não há formatador de exibição para correlação: os consumidores atuais montam o bloco
+de resposta com as próprias chaves. Quando o segundo consumidor aparecer, ele entra em
+`display.ts` como os demais.
+
 ### Outro idioma / outra unidade
 
 ```ts
@@ -59,9 +87,10 @@ modelo e repassados ao leitor — devem estar no idioma do servidor; o cálculo,
 
 ## API
 
-Núcleo: `computeStats`, `computeGroupedStats`, `percentile` — recebem **funções de
-acesso** (`valueOf`, `identify`, `tieBreak`, `groupBy`), não nomes de campo, porque o
-valor canônico costuma ser computado ou precisar de parsing.
+Núcleo: `computeStats`, `computeGroupedStats`, `percentile`, `computeCorrelation` —
+recebem **funções de acesso** (`valueOf`, `identify`, `tieBreak`, `groupBy`, `xOf`,
+`yOf`), não nomes de campo, porque o valor canônico costuma ser computado ou precisar
+de parsing.
 Exibição: `formatStats`, `formatGrouped`, `formatEntries`, `labeledPercentiles`,
 locales `ptBR`/`en` (`StatsLocale` customizável), `formatBRL`, `formatNumberEn`.
 Parsing: `parseBRL` ("1.234,56" → 1234.56; números nativos passam inalterados).

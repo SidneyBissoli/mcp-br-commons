@@ -27,6 +27,13 @@
   // Metadados do último deploy (id/tag/timestamp) — expostos em GET /status para que
   // a liveness e o build corrente sejam verificáveis sem o handshake MCP. Binding
   // embutido do runtime; nada a criar.
+  // Telemetria de tool calls — tool/desfecho/país/AS/marcador self por chamada,
+  // consultável via SQL API do Analytics Engine. O dataset é criado no primeiro
+  // writeDataPoint; troque o nome ao instanciar o template.
+  "analytics_engine_datasets": [
+    { "binding": "ANALYTICS", "dataset": "TROCAR_mcp_tool_calls" }
+  ],
+
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
 
   // Logs estruturados no painel da Cloudflare (Workers Logs).

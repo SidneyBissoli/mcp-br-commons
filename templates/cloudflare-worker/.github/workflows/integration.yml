@@ -1,0 +1,40 @@
+name: Integration tests (live source APIs)
+
+# Contrato de constantes externas contra a fonte REAL (ver
+# tests/catalog-contract.integration.test.ts — inclusive o porquê).
+# Cron semanal, não gateia PRs: também captura o dia em que a fonte
+# aposenta/substitui um recurso referenciado.
+#
+# Ao instanciar o template, este arquivo é copiado junto (a pasta .github/
+# dentro de templates/ é inativa no monorepo). A falha do cron deve aparecer
+# como pendência no painel do portfolio-monitor (workflow_watch).
+
+on:
+  # segunda 08:00 UTC = 05:00 BRT, antes da rodada semanal do monitor (09:00 BRT)
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Contract tests against live source APIs
+        env:
+          INTEGRATION_TESTS: '1'
+        run: npx vitest run tests/catalog-contract.integration.test.ts

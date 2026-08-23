@@ -40,6 +40,18 @@ Transversais:
 - **Anotações obrigatórias** em toda tool (`title`, `readOnlyHint`,
   `destructiveHint`; nome ≤ 64 chars; descrição diz o que a tool NÃO faz) —
   critério pass/fail do diretório Anthropic, demonstrado em `src/server.ts`.
+- **Contrato de constantes externas** (esqueleto a preencher) — REGRA DE
+  AUTORIA do portfólio (caso ibge-br-mcp, 2026-08: ~13 códigos de tabela
+  SIDRA errados desde o commit inicial, invisíveis a teste offline porque a
+  API responde 200 com dados válidos de outra coisa): nenhum código de
+  tabela/série/dataflow/release/URL entra no código sem uma expectativa
+  semântica validada contra o endpoint de METADADOS da fonte real.
+  `tests/catalog-contract.integration.test.ts` (gate `INTEGRATION_TESTS`,
+  com teste de completude que obriga expectativa para todo código novo) +
+  `.github/workflows/integration.yml` (cron semanal + dispatch; a falha
+  vira pendência no painel via workflow_watch do portfolio-monitor).
+  Instâncias de referência: ibge-br-mcp (tabelas SIDRA), bcb-br-mcp
+  (séries SGS), ilo-mcp-server (dataflows SDMX).
 
 ## Instanciar um servidor novo
 

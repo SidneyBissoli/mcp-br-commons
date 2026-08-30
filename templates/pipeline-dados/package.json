@@ -15,7 +15,7 @@
     "ajv-formats": "^3.0.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.4.0",
     "tsx": "^4.19.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.9"

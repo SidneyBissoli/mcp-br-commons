@@ -1,0 +1,63 @@
+name: CI
+
+# Este repositório passou a ter CI em 30/08/2026. Até então NADA rodava em push:
+# os 188 testes das cinco workspaces só existiam para quem lembrasse de chamá-los
+# à mão. É a peça de maior alcance do portfólio — os três `@sbissoli/*` são
+# consumidos pelos seis servidores MCP —, então uma regressão aqui sai em release
+# e chega em bcb, ibge e senado ao mesmo tempo.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      # Matriz, ao contrário dos servidores que fixam uma versão: isto é
+      # BIBLIOTECA. Quem consome roda em 20 e em 22, então é nas duas que
+      # precisa compilar e passar — não na que o autor tem instalada.
+      fail-fast: false
+      matrix:
+        node-version: ["20", "22"]
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      # `npm ci` e não `npm install`: é a instalação estrita, a única que recusa
+      # conflito de peer em vez de resolvê-lo em silêncio. Um lockfile que só
+      # funciona com install passa despercebido em tudo que vem depois, porque
+      # typecheck, teste e build rodam sobre a árvore já acomodada.
+      - run: npm ci
+
+      # Os três comandos abrem `--workspaces --if-present`, então cobrem os três
+      # pacotes publicados E os dois templates. Os templates entram de propósito:
+      # são semente de servidor novo, e semente quebrada só aparece no dia em que
+      # alguém a usa.
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      # O que vai ao npm é `dist/`, alcançado pelo `exports` de cada pacote — e
+      # nada acima prova que esse caminho resolve. Build verde com `files` ou
+      # `exports` errado publica um pacote que não importa, e o erro só aparece
+      # no consumidor. Roda DEPOIS do build, pelo nome público (as workspaces
+      # estão ligadas em node_modules/@sbissoli), que é exatamente como os seis
+      # servidores importam.
+      - name: entrypoints publicados carregam e exportam
+        run: |
+          node --input-type=module -e '
+          const pacotes = ["@sbissoli/mcp-evals", "@sbissoli/mcp-provenance", "@sbissoli/mcp-stats"];
+          for (const nome of pacotes) {
+            const m = await import(nome);
+            const exportados = Object.keys(m).filter((k) => k !== "default");
+            if (exportados.length === 0) throw new Error(`${nome} carrega mas não exporta nada`);
+            console.log(`${nome}: ${exportados.length} exports`);
+          }
+          '

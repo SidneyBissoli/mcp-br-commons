@@ -36,13 +36,21 @@ jobs:
       # typecheck, teste e build rodam sobre a árvore já acomodada.
       - run: npm ci
 
+      # BUILD PRIMEIRO, e a ordem não é gosto. O template cloudflare-worker
+      # importa `@sbissoli/mcp-provenance` pelo nome público, e o que resolve
+      # esse nome é o `dist/` do pacote irmão. Em clone limpo o dist ainda não
+      # existe, então typechecar antes de compilar falha com TS2307 — foi o que
+      # derrubou a primeira execução deste workflow, em 30/08/2026. Na máquina
+      # do autor passava, porque lá sempre havia dist de uma rodada anterior:
+      # o defeito era do repositório, não do CI, e só um checkout limpo o mostra.
+      - run: npm run build
+
       # Os três comandos abrem `--workspaces --if-present`, então cobrem os três
       # pacotes publicados E os dois templates. Os templates entram de propósito:
       # são semente de servidor novo, e semente quebrada só aparece no dia em que
       # alguém a usa.
       - run: npm run typecheck
       - run: npm test
-      - run: npm run build
 
       # O que vai ao npm é `dist/`, alcançado pelo `exports` de cada pacote — e
       # nada acima prova que esse caminho resolve. Build verde com `files` ou

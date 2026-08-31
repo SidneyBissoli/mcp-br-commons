@@ -20,6 +20,12 @@ export const SERVER_CONFIG = {
    * veem no User-Agent — precisa resolver para identificação humana + contato.
    */
   contactEmail: "sbissoli76@gmail.com",
+  /**
+   * Site do servidor no handshake (`serverInfo.websiteUrl`) e base canônica da
+   * landing. É o DOMÍNIO PRÓPRIO, não o repositório: é o que o `server.json`
+   * declara e o que serve o ícone. TODO(instância).
+   */
+  websiteUrl: "https://exemplo.sidneybissoli.com",
   /** Rota do endpoint MCP (Streamable HTTP). */
   mcpRoute: "/mcp",
   /**
@@ -34,6 +40,43 @@ export const SERVER_CONFIG = {
    * Obrigatório listar aqui o domínio próprio quando "routes" for ativado no wrangler.jsonc.
    */
   extraAllowedHostnames: [] as string[],
+} as const;
+
+/**
+ * Texto da LANDING PAGE — a única superfície própria do produto, e por isso a
+ * única que responde por ele numa busca. TODO(instância): trocar tudo.
+ *
+ * `lang` segue o PÚBLICO do produto, não a língua do código: produto de dado
+ * brasileiro é `pt-BR`, produto internacional é `en`. O bloco `emOutroIdioma`
+ * garante que quem chega pela outra ponta entenda o que é isto.
+ */
+export const LANDING = {
+  /** Idioma principal da página. */
+  lang: "pt-BR" as "pt-BR" | "en",
+  /**
+   * UMA frase, no idioma principal: o que o servidor serve e de qual fonte.
+   * Vira a `meta description` e o parágrafo de abertura — até ~155 caracteres,
+   * que é o que o resultado de busca mostra sem cortar.
+   */
+  resumo: "Servidor MCP de exemplo — template da Fase 0 do portfólio.",
+  /** Perguntas REAIS que o produto responde, no idioma principal. Três ou quatro. */
+  exemplos: ["“Pergunta de exemplo?”"] as readonly string[],
+  /** O que ele faz de diferente. Três a cinco itens curtos. */
+  destaques: ["Item de exemplo."] as readonly string[],
+  /** Links canônicos. `npmUrl` e `docsUrl` são opcionais. */
+  repoUrl: "https://github.com/SidneyBissoli/exemplo-mcp",
+  npmUrl: "" as string,
+  docsUrl: "" as string,
+  /**
+   * O MESMO produto no outro idioma. Não é rodapé de cortesia: é seção com
+   * resumo e exemplos próprios, porque é texto indexável — e a lacuna medida
+   * pelo monitor GEO era justamente a ausência dele.
+   */
+  emOutroIdioma: {
+    lang: "en" as "pt-BR" | "en",
+    resumo: "In English: this is an example MCP server.",
+    exemplos: ["“Example question?”"] as readonly string[],
+  },
 } as const;
 
 /**

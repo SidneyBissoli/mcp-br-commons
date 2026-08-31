@@ -26,6 +26,13 @@ export const SERVER_CONFIG = {
    * declara e o que serve o ícone. TODO(instância).
    */
   websiteUrl: "https://exemplo.sidneybissoli.com",
+  /**
+   * Chave do IndexNow. É PÚBLICA por desenho: ela prova posse do domínio por
+   * estar servida em `/<chave>.txt`, então versionar aqui não é vazamento.
+   * TODO(instância): gerar uma própria — 32 caracteres hexadecimais,
+   * `node -e "console.log(crypto.randomUUID().replace(/-/g,''))"`.
+   */
+  indexNowKey: "8a3ad6502e06ff93acda4f210960da59",
   /** Rota do endpoint MCP (Streamable HTTP). */
   mcpRoute: "/mcp",
   /**

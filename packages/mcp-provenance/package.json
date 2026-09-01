@@ -4,7 +4,7 @@
   "description": "Contrato de proveniência para servidores MCP: todo retorno de tool carrega fonte, endpoint, período, data de extração e licença, em dois modos (concise/detailed), com serialização determinística",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

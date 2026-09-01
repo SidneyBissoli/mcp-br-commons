@@ -5,7 +5,7 @@
   "description": "Template de hosting Cloudflare para servidores MCP do portfólio — copiar esta pasta, não importar (Fase 0, Entregável 2)",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "wrangler dev",

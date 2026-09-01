@@ -3,7 +3,7 @@
   "private": true,
   "description": "Componentes compartilhados do portfólio de servidores MCP (Fase 0)",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "workspaces": [
     "packages/*",

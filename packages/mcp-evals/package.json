@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Harness de evals de seleção de tool para servidores MCP: extrator de catálogo (fake McpServer), validação de fixtures, scorer offline (top-1/top-k/por-área), gate de acurácia e runner via Anthropic Messages API.",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

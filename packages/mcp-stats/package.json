@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "description": "Motor de estatísticas para tools MCP tabulares: média/mediana/distribuição/percentis/topN/agruparPor computados no servidor, com camada de exibição por idioma. Zero dependências.",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "description": "Template de hosting Cloudflare para servidores MCP do portfólio — copiar esta pasta, não importar (Fase 0, Entregável 2)",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

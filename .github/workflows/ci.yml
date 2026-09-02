@@ -47,8 +47,8 @@ jobs:
       # o defeito era do repositório, não do CI, e só um checkout limpo o mostra.
       - run: npm run build
 
-      # Os três comandos abrem `--workspaces --if-present`, então cobrem os três
-      # pacotes publicados E os dois templates. Os templates entram de propósito:
+      # Os três comandos abrem `--workspaces --if-present`, então cobrem os
+      # pacotes publicados E os templates. Os templates entram de propósito:
       # são semente de servidor novo, e semente quebrada só aparece no dia em que
       # alguém a usa.
       - run: npm run typecheck
@@ -63,7 +63,13 @@ jobs:
       - name: entrypoints publicados carregam e exportam
         run: |
           node --input-type=module -e '
-          const pacotes = ["@sbissoli/mcp-evals", "@sbissoli/mcp-provenance", "@sbissoli/mcp-stats"];
+          // A lista é derivada de packages/*: pacote novo entra sozinho e não
+          // fica de fora da verificação por esquecimento (foi assim que o
+          // mcp-search quase ficou de fora, em 02/09/2026).
+          import { readdirSync, readFileSync } from "node:fs";
+          const pacotes = readdirSync("packages").map(
+            (dir) => JSON.parse(readFileSync(`packages/${dir}/package.json`, "utf8")).name,
+          );
           for (const nome of pacotes) {
             const m = await import(nome);
             const exportados = Object.keys(m).filter((k) => k !== "default");

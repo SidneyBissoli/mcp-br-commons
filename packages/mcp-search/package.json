@@ -1,0 +1,46 @@
+{
+  "name": "@sbissoli/mcp-search",
+  "version": "0.1.0",
+  "description": "As tools `search` e `fetch` do contrato Deep Research da OpenAI para servidores MCP: tipos e schemas do contrato, envelope (JSON em content + structuredContent), índice de busca em memória com ranking simples (acentos, tokens, peso por campo) e a fábrica registerDeepResearchTools — cada servidor fornece só o índice e o renderizador.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "mcp",
+    "deep-research",
+    "chatgpt",
+    "search",
+    "fetch",
+    "open-data"
+  ],
+  "author": "Sidney Bissoli <sbissoli76@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^4.5.4"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0"
+  }
+}

@@ -29,8 +29,11 @@ em 2026-09-02):
 - **`content` tem um bloco só, o JSON compacto do objeto.** O envelope de
   proveniência (`@sbissoli/mcp-provenance`) emite dois blocos; aqui o rodapé
   fica de fora porque a doc descreve `content[0].text` como o objeto e nada
-  além. A proveniência entra pelos outros dois canais — `structuredContent`
-  (`decorate`) e `_meta` — e chaves extras ali não atrapalham o Deep Research.
+  além. A proveniência entra pelos outros dois canais — `structuredContent` e
+  `_meta`, via os `extras` que `search`/`fetch` devolvem junto com o
+  resultado — e chaves extras ali não atrapalham o Deep Research. É a
+  chamada que entrega a proveniência, não um decorador de fora: o instante
+  real da extração e a chave de cache só existem dentro dela.
 - **As chaves do contrato vencem em colisão** com os extras anexados.
 - **`search` corta no `limit`** (padrão 10) mesmo que o índice devolva mais.
 - **Erro nunca sobe cru**: `search`/`fetch` que lançam viram resultado
@@ -44,7 +47,7 @@ em 2026-09-02):
 import {
   createIndex,
   registerDeepResearchTools,
-  type FetchDocument,
+  type FetchReply,
   type IndexEntry,
 } from "@sbissoli/mcp-search";
 
@@ -61,21 +64,25 @@ const entradas: IndexEntry[] = [
 ];
 const indice = createIndex(entradas);
 
-// 2. O renderizador: dado um id, o documento inteiro (texto Markdown legível).
-async function documento(id: string): Promise<FetchDocument | null> {
+// 2. O renderizador: dado um id, o documento inteiro (texto Markdown legível),
+//    com os extras do envelope quando houver proveniência a anexar.
+async function documento(id: string): Promise<FetchReply | null> {
   const e = entradas.find((x) => x.id === id);
-  return e ? { id, title: e.title, url: e.url, text: `# ${e.title}\n…` } : null;
+  if (!e) return null;
+  return {
+    document: { id, title: e.title, url: e.url, text: `# ${e.title}\n…` },
+    extras: { structured: { provenance, attribution }, meta: { [chaveMeta]: provenance } },
+  };
 }
 
 // 3. Dentro do registro central de tools do servidor:
 registerDeepResearchTools(server, {
-  search: async (query) => indice.search(query),
+  search: async (query) => indice.search(query), // ou { results, extras }
   fetch: documento,
   corpus: "IBGE official statistics (SIDRA tables, municipalities, indicators)",
   richTools: "the `ibge_*` tools",
   annotations: READ_ONLY,
   extendOutputSchema: comProveniencia, // acrescenta o bloco de proveniência ao schema
-  decorate: (tool, objeto) => ({ structured: projetado, meta: { ... } }),
   record, // telemetria tool_call/tool_error, como o `handle` do servidor
 });
 ```
@@ -99,7 +106,7 @@ Contrato: `DEEP_RESEARCH_TOOLS`, `searchInputSchema`, `searchOutputSchema`,
 `tokenize`, `DEFAULT_LIMIT`, tipos `IndexEntry`, `SearchIndex`,
 `SearchOptions`. Envelope: `deepResearchResult`, `deepResearchError`,
 `EnvelopeExtras`. Fábrica: `registerDeepResearchTools`,
-`DeepResearchToolsOptions`, `UsageRecorder`.
+`DeepResearchToolsOptions`, `SearchReply`, `FetchReply`, `UsageRecorder`.
 
 Dependências: `zod` (schemas); `@modelcontextprotocol/server` ^2 como peer
 (só tipos — o servidor que registra é o do chamador).

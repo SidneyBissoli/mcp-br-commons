@@ -137,26 +137,40 @@ describe("registerDeepResearchTools — chamadas", () => {
     await client.close();
   });
 
-  it("decorate anexa proveniência a structuredContent e _meta sem tocar no texto do contrato", async () => {
+  it("extras devolvidos pela chamada vão a structuredContent e _meta sem tocar no texto do contrato", async () => {
+    const meta = { "br.com.x/provenance": { source: "IBGE" } };
     const client = await conectar(
       opcoes({
         extendOutputSchema: (schema) => schema.extend({ provenance: z.object({ source: z.string() }) }),
-        decorate: (tool, objeto) => ({
-          structured: { provenance: { source: `IBGE/${tool}/${Object.keys(objeto).join(",")}` } },
-          meta: { "br.com.x/provenance": { source: "IBGE" } },
+        search: async (query) => ({
+          results: indice.search(query),
+          extras: { structured: { provenance: { source: "IBGE/indice" } }, meta },
+        }),
+        fetch: async (id) => ({
+          document: { id, title: "T", text: "x", url: "https://x/t" },
+          extras: { structured: { provenance: { source: `IBGE/${id}` } }, meta },
         }),
       })
     );
-    const r = await client.callTool({ name: "search", arguments: { query: "paulo" } });
-    expect(r.isError).toBeFalsy();
-    const objeto = JSON.parse(texto(r)) as Record<string, unknown>;
+    const busca = await client.callTool({ name: "search", arguments: { query: "paulo" } });
+    expect(busca.isError).toBeFalsy();
+    const objeto = JSON.parse(texto(busca)) as Record<string, unknown>;
     expect(Object.keys(objeto)).toEqual(["results"]);
-    expect(r.structuredContent).toEqual({ ...objeto, provenance: { source: "IBGE/search/results" } });
-    expect(r._meta).toEqual({ "br.com.x/provenance": { source: "IBGE" } });
+    expect(busca.structuredContent).toEqual({ ...objeto, provenance: { source: "IBGE/indice" } });
+    expect(busca._meta).toEqual(meta);
+
+    const doc = await client.callTool({ name: "fetch", arguments: { id: "sidra:6579" } });
+    expect(doc.isError).toBeFalsy();
+    const documento = JSON.parse(texto(doc)) as Record<string, unknown>;
+    expect(Object.keys(documento).sort()).toEqual(["id", "text", "title", "url"]);
+    expect(doc.structuredContent).toEqual({ ...documento, provenance: { source: "IBGE/sidra:6579" } });
+    expect(doc._meta).toEqual(meta);
 
     const { tools } = await client.listTools();
-    const search = tools.find((t) => t.name === "search");
-    expect(Object.keys(search?.outputSchema?.properties ?? {})).toEqual(["results", "provenance"]);
+    for (const nome of ["search", "fetch"]) {
+      const tool = tools.find((t) => t.name === nome);
+      expect(Object.keys(tool?.outputSchema?.properties ?? {})).toContain("provenance");
+    }
     await client.close();
   });
 

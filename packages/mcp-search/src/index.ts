@@ -26,5 +26,7 @@ export { deepResearchError, deepResearchResult, type EnvelopeExtras } from "./en
 export {
   registerDeepResearchTools,
   type DeepResearchToolsOptions,
+  type FetchReply,
+  type SearchReply,
   type UsageRecorder,
 } from "./register.js";

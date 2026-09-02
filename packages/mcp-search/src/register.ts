@@ -12,9 +12,12 @@
  *  - annotations somente-leitura (o chamador passa as suas, iguais às das
  *    outras tools, para os testes de superfície não distinguirem);
  *  - `extendOutputSchema` deixa o servidor acrescentar ao outputSchema o
- *    bloco de proveniência (`comProveniencia(...)` no ibge), e `decorate`
- *    anexa o bloco ao envelope de cada sucesso — o portão de proveniência
- *    de cada repositório continua valendo para as duas;
+ *    bloco de proveniência (`comProveniencia(...)` no ibge), e `search`/
+ *    `fetch` podem devolver os extras do envelope junto com o resultado
+ *    (`{ results, extras }` / `{ document, extras }`) — a proveniência nasce
+ *    dentro da chamada (instante real da extração, chave de cache), então é
+ *    a chamada que a entrega; o portão de proveniência de cada repositório
+ *    continua valendo para as duas;
  *  - `record` recebe `tool_call`/`tool_error` como o `handle` dos servidores
  *    (telemetria do Worker: nomes e contagens, nunca argumentos).
  */
@@ -35,11 +38,23 @@ import { DEFAULT_LIMIT } from "./rank.js";
 
 export type UsageRecorder = (kind: "tool_call" | "tool_error", name: string) => void;
 
+/** Resposta de `search` com extras do envelope (proveniência do índice). */
+export interface SearchReply {
+  results: readonly SearchResult[];
+  extras?: EnvelopeExtras;
+}
+
+/** Resposta de `fetch` com extras do envelope (proveniência do documento). */
+export interface FetchReply {
+  document: FetchDocument;
+  extras?: EnvelopeExtras;
+}
+
 export interface DeepResearchToolsOptions {
-  /** Busca no acervo; devolve os resultados já em ordem de relevância. */
-  search: (query: string) => Promise<readonly SearchResult[]>;
-  /** Renderiza o documento de um id devolvido por `search`; `null` = id desconhecido. */
-  fetch: (id: string) => Promise<FetchDocument | null>;
+  /** Busca no acervo; devolve os resultados já em ordem de relevância (a lista nua ou `{ results, extras }`). */
+  search: (query: string) => Promise<readonly SearchResult[] | SearchReply>;
+  /** Renderiza o documento de um id devolvido por `search` (o documento nu ou `{ document, extras }`); `null` = id desconhecido. */
+  fetch: (id: string) => Promise<FetchDocument | FetchReply | null>;
   /** O acervo, em inglês, para a description: "IBGE official statistics (SIDRA tables, municipalities, indicators)". */
   corpus: string;
   /** Como o modelo deve chamar as tools de dados: "the `ibge_*` tools". */
@@ -52,8 +67,6 @@ export interface DeepResearchToolsOptions {
   annotations?: ToolAnnotations;
   /** Estende os outputSchemas do contrato (p.ex. com o bloco de proveniência). */
   extendOutputSchema?: (schema: z.ZodObject<z.ZodRawShape>) => z.ZodType;
-  /** Extras do envelope por sucesso (proveniência em `structuredContent` e `_meta`). */
-  decorate?: (tool: DeepResearchToolName, objeto: Record<string, unknown>) => EnvelopeExtras | undefined;
   /** Telemetria por chamada, como o `handle` dos servidores. */
   record?: UsageRecorder;
   /** Mensagem pt-BR para id desconhecido em `fetch`. */
@@ -132,9 +145,13 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
     },
     async ({ query }) =>
       instrumented("search", async () => {
-        const results = (await opts.search(query)).slice(0, limit);
-        const objeto = { results };
-        return deepResearchResult(objeto, opts.decorate?.("search", objeto));
+        const resposta = await opts.search(query);
+        // `Array.isArray` não estreita `readonly T[]` — o guarda explícito sim.
+        const isReply = (r: typeof resposta): r is SearchReply => !Array.isArray(r);
+        const { results, extras } = isReply(resposta)
+          ? { results: resposta.results, extras: resposta.extras }
+          : { results: resposta, extras: undefined };
+        return deepResearchResult({ results: results.slice(0, limit) }, extras);
       })()
   );
 
@@ -149,10 +166,11 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
     },
     async ({ id }) =>
       instrumented("fetch", async () => {
-        const documento = await opts.fetch(id);
-        if (documento === null) return deepResearchError(notFound(id));
-        const objeto: Record<string, unknown> = { ...documento };
-        return deepResearchResult(objeto, opts.decorate?.("fetch", objeto));
+        const resposta = await opts.fetch(id);
+        if (resposta === null) return deepResearchError(notFound(id));
+        const { document, extras } =
+          "document" in resposta ? resposta : { document: resposta, extras: undefined };
+        return deepResearchResult({ ...document }, extras);
       })()
   );
 }

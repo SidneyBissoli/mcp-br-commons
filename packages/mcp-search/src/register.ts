@@ -118,7 +118,7 @@ function fetchDescription(opts: DeepResearchToolsOptions): string {
     "Returns the full document for an id obtained from `search`, as { id, title, text, url, metadata }: `text` is the readable content (Markdown) and `url` the canonical public page to cite.",
     "",
     `Companion of \`search\` in the OpenAI Deep Research contract, over the ${opts.corpus} catalog. Only ids returned by \`search\` are valid; an unknown id returns an error.`,
-    `${opts.richTools} remain the tools for data queries.`,
+    `${opts.richTools.charAt(0).toUpperCase()}${opts.richTools.slice(1)} remain the tools for data queries.`,
     "",
     "Behavior: read-only and idempotent — a live GET against the public source when the document needs it.",
   ].join("\n");

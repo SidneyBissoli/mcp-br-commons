@@ -96,6 +96,15 @@ os três de uma vez — `contractSchemas("en")` devolve os mesmos quatro schemas
 com as descrições em inglês, e `titles`/`notFound`/`onError` continuam
 sobrepondo o padrão do idioma quando passados.
 
+### Servidores que registram JSON Schema à mão
+
+A fábrica registra os schemas zod no `McpServer`. Um servidor cujas
+definições são JSON Schema escrito à mão (o bcb, com `TOOL_DEFINITIONS` e
+`dispatchTool` por `case`) não precisa derivar nada: `contractJsonSchemas(locale)`
+devolve os mesmos quatro schemas em JSON Schema draft-07 (sem `$schema`,
+referências inline), derivados uma vez aqui dos mesmos zod — e o servidor os
+embrulha com o seu próprio wrapper de proveniência sobre JSON.
+
 ### Ranking
 
 `createIndex` pré-computa os tokens e devolve um buscador determinístico:
@@ -110,9 +119,9 @@ desempate pela ordem do acervo. Consulta vazia ou sem casamento devolve `[]`.
 
 Contrato: `DEEP_RESEARCH_TOOLS`, `searchInputSchema`, `searchOutputSchema`,
 `searchResultSchema`, `fetchInputSchema`, `fetchDocumentSchema` (pt-BR),
-`contractSchemas(locale)` e os tipos `SearchInput`, `SearchResult`,
-`SearchOutput`, `FetchInput`, `FetchDocument`, `DeepResearchToolName`,
-`ContractLocale`. Ranking: `createIndex`, `rankEntries`, `normalizeText`,
+`contractSchemas(locale)`, `contractJsonSchemas(locale)` e os tipos
+`SearchInput`, `SearchResult`, `SearchOutput`, `FetchInput`, `FetchDocument`,
+`DeepResearchToolName`, `ContractLocale`, `JsonSchemaObject`. Ranking: `createIndex`, `rankEntries`, `normalizeText`,
 `tokenize`, `DEFAULT_LIMIT`, tipos `IndexEntry`, `SearchIndex`,
 `SearchOptions`. Envelope: `deepResearchResult`, `deepResearchError`,
 `EnvelopeExtras`. Fábrica: `registerDeepResearchTools`,

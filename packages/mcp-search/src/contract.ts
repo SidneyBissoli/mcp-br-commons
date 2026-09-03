@@ -94,6 +94,38 @@ export function contractSchemas(locale: ContractLocale = "pt-BR") {
   };
 }
 
+/** Um schema JSON (draft-07) como os servidores que escrevem schema à mão o registram. */
+export type JsonSchemaObject = Record<string, unknown>;
+
+// O tipo de retorno de `z.toJSONSchema` atravessa os genéricos marcados do zod
+// e dispara TS2589 ("type instantiation excessively deep"); apagar o tipo no
+// ponto de chamada resolve, sem mudar nada em tempo de execução.
+const toJsonSchema = z.toJSONSchema as (schema: unknown, options?: unknown) => JsonSchemaObject;
+
+function jsonSchemaOf(schema: z.ZodType, io: "input" | "output"): JsonSchemaObject {
+  const json = toJsonSchema(schema, { target: "draft-07", reused: "inline", io });
+  delete json.$schema;
+  return json;
+}
+
+/**
+ * Os quatro schemas do contrato em JSON Schema draft-07, para os servidores
+ * que registram schema JSON escrito à mão (o bcb, por exemplo) e não
+ * derivam de zod no fio. Derivados UMA vez, aqui, dos mesmos zod de
+ * `contractSchemas` — a forma e as descrições são as mesmas; `$schema` sai
+ * porque o MCP não o usa. Entrada e saída são projeções distintas do zod 4
+ * (`io`), por isso cada um pede a sua.
+ */
+export function contractJsonSchemas(locale: ContractLocale = "pt-BR") {
+  const s = contractSchemas(locale);
+  return {
+    searchInputSchema: jsonSchemaOf(s.searchInputSchema, "input"),
+    searchOutputSchema: jsonSchemaOf(s.searchOutputSchema, "output"),
+    fetchInputSchema: jsonSchemaOf(s.fetchInputSchema, "input"),
+    fetchDocumentSchema: jsonSchemaOf(s.fetchDocumentSchema, "output"),
+  };
+}
+
 const ptBR = contractSchemas("pt-BR");
 
 export const searchResultSchema = ptBR.searchResultSchema;

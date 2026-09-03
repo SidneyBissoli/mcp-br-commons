@@ -1,5 +1,6 @@
 export {
   DEEP_RESEARCH_TOOLS,
+  contractJsonSchemas,
   contractSchemas,
   fetchDocumentSchema,
   fetchInputSchema,
@@ -10,6 +11,7 @@ export {
   type DeepResearchToolName,
   type FetchDocument,
   type FetchInput,
+  type JsonSchemaObject,
   type SearchInput,
   type SearchOutput,
   type SearchResult,

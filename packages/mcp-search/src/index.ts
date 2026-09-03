@@ -1,10 +1,12 @@
 export {
   DEEP_RESEARCH_TOOLS,
+  contractSchemas,
   fetchDocumentSchema,
   fetchInputSchema,
   searchInputSchema,
   searchOutputSchema,
   searchResultSchema,
+  type ContractLocale,
   type DeepResearchToolName,
   type FetchDocument,
   type FetchInput,

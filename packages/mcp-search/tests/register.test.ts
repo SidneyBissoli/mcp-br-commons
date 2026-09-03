@@ -201,3 +201,73 @@ describe("registerDeepResearchTools — chamadas", () => {
     await client.close();
   });
 });
+
+describe("registerDeepResearchTools — locale", () => {
+  it("pt-BR é o padrão: títulos, describe() e mensagens em português", async () => {
+    const client = await conectar(opcoes());
+    const { tools } = await client.listTools();
+    const search = tools.find((t) => t.name === "search")!;
+    expect(search.title).toBe("Busca para Deep Research");
+    const query = (search.inputSchema.properties as Record<string, { description?: string }>).query;
+    expect(query?.description).toContain("Termos de busca");
+    const r = await client.callTool({ name: "fetch", arguments: { id: "nada" } });
+    expect(texto(r)).toContain("Documento não encontrado");
+    await client.close();
+  });
+
+  it('locale "en" troca títulos, describe() dos quatro schemas e mensagens padrão; a description do modelo não muda', async () => {
+    const client = await conectar(
+      opcoes({
+        locale: "en",
+        search: async () => {
+          throw new Error("boom");
+        },
+      })
+    );
+    const { tools } = await client.listTools();
+    const search = tools.find((t) => t.name === "search")!;
+    const fetch = tools.find((t) => t.name === "fetch")!;
+    expect(search.title).toBe("Deep Research Search");
+    expect(fetch.title).toBe("Deep Research Document");
+    // description (o que o modelo lê) é em inglês nos dois idiomas — igual.
+    expect(search.description).toContain("OpenAI Deep Research contract");
+
+    interface Prop {
+      description?: string;
+      items?: { properties?: Record<string, Prop> };
+    }
+    const prop = (s: unknown, nome: string): Prop =>
+      (s as { properties: Record<string, Prop> }).properties[nome] ?? {};
+    expect(prop(search.inputSchema, "query").description).toBe(
+      "Search terms, natural language or keywords (accents and case are ignored)"
+    );
+    expect(prop(fetch.inputSchema, "id").description).toBe(
+      "Identifier of a document returned by `search`"
+    );
+    expect(prop(search.outputSchema, "results").items?.properties?.url?.description).toContain(
+      "ChatGPT's citation"
+    );
+    expect(prop(fetch.outputSchema, "text").description).toBe(
+      "Full readable content of the document (Markdown)"
+    );
+    // Nenhum describe() em português sobrou na superfície.
+    const superficie = JSON.stringify([search, fetch]);
+    expect(superficie).not.toMatch(/documento|busca/i);
+
+    const naoAchou = await client.callTool({ name: "fetch", arguments: { id: "nada" } });
+    expect(naoAchou.isError).toBe(true);
+    expect(texto(naoAchou)).toBe('Document not found: "nada". Use an id returned by `search`.');
+    const falhou = await client.callTool({ name: "search", arguments: { query: "x" } });
+    expect(falhou.isError).toBe(true);
+    expect(texto(falhou)).toBe("`search` failed: boom");
+    await client.close();
+  });
+
+  it("títulos explícitos vencem o padrão do idioma", async () => {
+    const client = await conectar(opcoes({ locale: "en", titles: { search: "Catalog Search" } }));
+    const { tools } = await client.listTools();
+    expect(tools.find((t) => t.name === "search")!.title).toBe("Catalog Search");
+    expect(tools.find((t) => t.name === "fetch")!.title).toBe("Deep Research Document");
+    await client.close();
+  });
+});

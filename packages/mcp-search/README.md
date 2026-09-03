@@ -87,6 +87,15 @@ registerDeepResearchTools(server, {
 });
 ```
 
+### Idioma da superfície
+
+O padrão é pt-BR: títulos, `.describe()` dos schemas e mensagens de erro em
+português (a `description` que o modelo lê é sempre em inglês). Num servidor
+cuja superfície inteira é em inglês (medical, ilo, uis), `locale: "en"` troca
+os três de uma vez — `contractSchemas("en")` devolve os mesmos quatro schemas
+com as descrições em inglês, e `titles`/`notFound`/`onError` continuam
+sobrepondo o padrão do idioma quando passados.
+
 ### Ranking
 
 `createIndex` pré-computa os tokens e devolve um buscador determinístico:
@@ -100,9 +109,10 @@ desempate pela ordem do acervo. Consulta vazia ou sem casamento devolve `[]`.
 ## API
 
 Contrato: `DEEP_RESEARCH_TOOLS`, `searchInputSchema`, `searchOutputSchema`,
-`searchResultSchema`, `fetchInputSchema`, `fetchDocumentSchema` e os tipos
-`SearchInput`, `SearchResult`, `SearchOutput`, `FetchInput`, `FetchDocument`,
-`DeepResearchToolName`. Ranking: `createIndex`, `rankEntries`, `normalizeText`,
+`searchResultSchema`, `fetchInputSchema`, `fetchDocumentSchema` (pt-BR),
+`contractSchemas(locale)` e os tipos `SearchInput`, `SearchResult`,
+`SearchOutput`, `FetchInput`, `FetchDocument`, `DeepResearchToolName`,
+`ContractLocale`. Ranking: `createIndex`, `rankEntries`, `normalizeText`,
 `tokenize`, `DEFAULT_LIMIT`, tipos `IndexEntry`, `SearchIndex`,
 `SearchOptions`. Envelope: `deepResearchResult`, `deepResearchError`,
 `EnvelopeExtras`. Fábrica: `registerDeepResearchTools`,

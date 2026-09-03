@@ -9,6 +9,9 @@
  *  - `title` pt-BR (é o que o cliente mostra), `description` em inglês (é o
  *    que o modelo lê), dizendo explicitamente que as duas existem para o
  *    contrato do ChatGPT e que as tools ricas do servidor são as de dados;
+ *    `locale: "en"` troca para inglês tudo que é do idioma do servidor —
+ *    títulos, `.describe()` dos schemas e mensagens de erro padrão — nos
+ *    servidores cuja superfície inteira é em inglês (medical, ilo, uis);
  *  - annotations somente-leitura (o chamador passa as suas, iguais às das
  *    outras tools, para os testes de superfície não distinguirem);
  *  - `extendOutputSchema` deixa o servidor acrescentar ao outputSchema o
@@ -25,10 +28,8 @@
 import type { CallToolResult, McpServer, ToolAnnotations } from "@modelcontextprotocol/server";
 import type { z } from "zod";
 import {
-  fetchDocumentSchema,
-  fetchInputSchema,
-  searchInputSchema,
-  searchOutputSchema,
+  contractSchemas,
+  type ContractLocale,
   type DeepResearchToolName,
   type FetchDocument,
   type SearchResult,
@@ -61,7 +62,9 @@ export interface DeepResearchToolsOptions {
   richTools: string;
   /** Teto de resultados do `search` (padrão 10); o excedente é cortado aqui. */
   limit?: number;
-  /** Títulos pt-BR (padrão: "Busca para Deep Research" / "Documento para Deep Research"). */
+  /** Idioma dos textos que o cliente vê — títulos, `.describe()`, mensagens padrão (padrão pt-BR). */
+  locale?: ContractLocale;
+  /** Títulos (padrão por idioma: "Busca para Deep Research" / "Documento para Deep Research"). */
   titles?: { search?: string; fetch?: string };
   /** As mesmas annotations das outras tools do servidor (somente leitura). */
   annotations?: ToolAnnotations;
@@ -69,25 +72,33 @@ export interface DeepResearchToolsOptions {
   extendOutputSchema?: (schema: z.ZodObject<z.ZodRawShape>) => z.ZodType;
   /** Telemetria por chamada, como o `handle` dos servidores. */
   record?: UsageRecorder;
-  /** Mensagem pt-BR para id desconhecido em `fetch`. */
+  /** Mensagem para id desconhecido em `fetch` (padrão no idioma de `locale`). */
   notFound?: (id: string) => string;
-  /** Mensagem pt-BR quando `search`/`fetch` lançam (o erro nunca sobe ao cliente cru). */
+  /** Mensagem quando `search`/`fetch` lançam — o erro nunca sobe ao cliente cru (padrão no idioma de `locale`). */
   onError?: (error: unknown, tool: DeepResearchToolName) => string;
 }
 
-const DEFAULT_TITLES = {
-  search: "Busca para Deep Research",
-  fetch: "Documento para Deep Research",
-} as const;
-
-function defaultNotFound(id: string): string {
-  return `Documento não encontrado: "${id}". Use um id devolvido por \`search\`.`;
+interface LocaleDefaults {
+  titles: { search: string; fetch: string };
+  notFound: (id: string) => string;
+  onError: (error: unknown, tool: DeepResearchToolName) => string;
 }
 
-function defaultOnError(error: unknown, tool: DeepResearchToolName): string {
-  const detalhe = error instanceof Error ? error.message : String(error);
-  return `Falha em \`${tool}\`: ${detalhe}`;
-}
+const detalheDe = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const DEFAULTS: Record<ContractLocale, LocaleDefaults> = {
+  "pt-BR": {
+    titles: { search: "Busca para Deep Research", fetch: "Documento para Deep Research" },
+    notFound: (id) => `Documento não encontrado: "${id}". Use um id devolvido por \`search\`.`,
+    onError: (error, tool) => `Falha em \`${tool}\`: ${detalheDe(error)}`,
+  },
+  en: {
+    titles: { search: "Deep Research Search", fetch: "Deep Research Document" },
+    notFound: (id) => `Document not found: "${id}". Use an id returned by \`search\`.`,
+    onError: (error, tool) => `\`${tool}\` failed: ${detalheDe(error)}`,
+  },
+};
 
 function searchDescription(opts: DeepResearchToolsOptions, limit: number): string {
   return [
@@ -117,8 +128,11 @@ function fetchDescription(opts: DeepResearchToolsOptions): string {
 export function registerDeepResearchTools(server: McpServer, opts: DeepResearchToolsOptions): void {
   const limit = Math.max(1, Math.floor(opts.limit ?? DEFAULT_LIMIT));
   const extend = opts.extendOutputSchema ?? ((schema) => schema);
-  const notFound = opts.notFound ?? defaultNotFound;
-  const onError = opts.onError ?? defaultOnError;
+  const defaults = DEFAULTS[opts.locale ?? "pt-BR"];
+  const notFound = opts.notFound ?? defaults.notFound;
+  const onError = opts.onError ?? defaults.onError;
+  const { searchInputSchema, searchOutputSchema, fetchInputSchema, fetchDocumentSchema } =
+    contractSchemas(opts.locale);
 
   /** Mesmo protocolo de telemetria do `handle` dos servidores. */
   const instrumented =
@@ -137,7 +151,7 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
   server.registerTool(
     "search",
     {
-      title: opts.titles?.search ?? DEFAULT_TITLES.search,
+      title: opts.titles?.search ?? defaults.titles.search,
       description: searchDescription(opts, limit),
       inputSchema: searchInputSchema,
       outputSchema: extend(searchOutputSchema),
@@ -158,7 +172,7 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
   server.registerTool(
     "fetch",
     {
-      title: opts.titles?.fetch ?? DEFAULT_TITLES.fetch,
+      title: opts.titles?.fetch ?? defaults.titles.fetch,
       description: fetchDescription(opts),
       inputSchema: fetchInputSchema,
       outputSchema: extend(fetchDocumentSchema),

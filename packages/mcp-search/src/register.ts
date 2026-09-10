@@ -21,8 +21,10 @@
  *    dentro da chamada (instante real da extração, chave de cache), então é
  *    a chamada que a entrega; o portão de proveniência de cada repositório
  *    continua valendo para as duas;
- *  - `record` recebe `tool_call`/`tool_error` como o `handle` dos servidores
- *    (telemetria do Worker: nomes e contagens, nunca argumentos).
+ *  - `record` recebe `tool_call`/`tool_error` como o `handle` dos servidores,
+ *    agora com a FORMA da chamada: os NOMES dos parâmetros e, quando o servidor
+ *    passa `classifyError`, a classe do erro. Nunca o VALOR de um parâmetro —
+ *    `query` é texto livre e o que a pessoa digitou não entra na telemetria.
  */
 
 import type { CallToolResult, McpServer, ToolAnnotations } from "@modelcontextprotocol/server";
@@ -37,7 +39,44 @@ import {
 import { deepResearchError, deepResearchResult, type EnvelopeExtras } from "./envelope.js";
 import { DEFAULT_LIMIT } from "./rank.js";
 
-export type UsageRecorder = (kind: "tool_call" | "tool_error", name: string) => void;
+/**
+ * A FORMA da chamada — nomes de parâmetro e classe do erro, nunca valores.
+ *
+ * Os servidores do portfólio passaram a gravar isto em 10/09/2026, porque a
+ * telemetria dizia QUE uma ferramenta falhou e não por quê. `search` e `fetch`
+ * ficaram de fora sem que ninguém notasse: o gancho aqui tinha aridade 2, então
+ * a forma que os servidores montam não tinha por onde entrar, e as linhas de
+ * `fetch` chegaram na produção do ilo, do uis e do ibge com classe e parâmetros
+ * VAZIOS. Foi visto lendo o Analytics Engine, não pelos testes — os dois lados
+ * estavam certos e só faltava o argumento na costura.
+ */
+export interface FormaDaChamada {
+  /** Nomes dos parâmetros da chamada, em ordem, separados por vírgula. */
+  params: string;
+  /** Classe do erro; vazia quando a chamada deu certo ou quando não há classificador. */
+  classe: string;
+}
+
+export type UsageRecorder = (
+  kind: "tool_call" | "tool_error",
+  name: string,
+  forma?: FormaDaChamada,
+) => void;
+
+/** Nomes dos parâmetros presentes, em ordem. NUNCA os valores. */
+function nomesDeParametro(args: Record<string, unknown>): string {
+  return Object.keys(args)
+    .filter((k) => args[k] !== undefined)
+    .sort()
+    .join(",")
+    .slice(0, 200);
+}
+
+/** Texto de erro de um resultado, para o classificador do servidor. */
+function textoDoErro(result: CallToolResult): string {
+  const primeiro = result.content?.[0];
+  return primeiro && "text" in primeiro && typeof primeiro.text === "string" ? primeiro.text : "";
+}
 
 /** Resposta de `search` com extras do envelope (proveniência do índice). */
 export interface SearchReply {
@@ -72,6 +111,13 @@ export interface DeepResearchToolsOptions {
   extendOutputSchema?: (schema: z.ZodObject<z.ZodRawShape>) => z.ZodType;
   /** Telemetria por chamada, como o `handle` dos servidores. */
   record?: UsageRecorder;
+  /**
+   * Classifica a mensagem de erro num vocabulário fechado do servidor (o
+   * `classifyError` de `call-shape.ts`). Sem ele, a classe vai vazia e os nomes
+   * dos parâmetros continuam sendo gravados: o pacote conhece a chamada, mas o
+   * vocabulário é de cada servidor e não cabe aqui.
+   */
+  classifyError?: (message: string) => string;
   /** Mensagem para id desconhecido em `fetch` (padrão no idioma de `locale`). */
   notFound?: (id: string) => string;
   /** Mensagem quando `search`/`fetch` lançam — o erro nunca sobe ao cliente cru (padrão no idioma de `locale`). */
@@ -134,17 +180,33 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
   const { searchInputSchema, searchOutputSchema, fetchInputSchema, fetchDocumentSchema } =
     contractSchemas(opts.locale);
 
-  /** Mesmo protocolo de telemetria do `handle` dos servidores. */
+  /**
+   * Mesmo protocolo de telemetria do `handle` dos servidores, incluindo a FORMA
+   * da chamada. Os argumentos entram por parâmetro (e não por closure) porque é
+   * daqui que saem os NOMES deles — o pacote é o único ponto que enxerga a
+   * chamada destas duas tools.
+   */
   const instrumented =
-    (tool: DeepResearchToolName, run: () => Promise<CallToolResult>) => async () => {
+    (
+      tool: DeepResearchToolName,
+      args: Record<string, unknown>,
+      run: () => Promise<CallToolResult>,
+    ) =>
+    async () => {
       let result: CallToolResult;
       try {
         result = await run();
       } catch (error) {
         result = deepResearchError(onError(error, tool));
       }
-      opts.record?.("tool_call", tool);
-      if (result.isError === true) opts.record?.("tool_error", tool);
+      const forma: FormaDaChamada = { params: nomesDeParametro(args), classe: "" };
+      opts.record?.("tool_call", tool, forma);
+      if (result.isError === true) {
+        opts.record?.("tool_error", tool, {
+          ...forma,
+          classe: opts.classifyError?.(textoDoErro(result)) ?? "",
+        });
+      }
       return result;
     };
 
@@ -158,7 +220,7 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
       ...(opts.annotations !== undefined ? { annotations: opts.annotations } : {}),
     },
     async ({ query }) =>
-      instrumented("search", async () => {
+      instrumented("search", { query }, async () => {
         const resposta = await opts.search(query);
         // `Array.isArray` não estreita `readonly T[]` — o guarda explícito sim.
         const isReply = (r: typeof resposta): r is SearchReply => !Array.isArray(r);
@@ -179,7 +241,7 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
       ...(opts.annotations !== undefined ? { annotations: opts.annotations } : {}),
     },
     async ({ id }) =>
-      instrumented("fetch", async () => {
+      instrumented("fetch", { id }, async () => {
         const resposta = await opts.fetch(id);
         if (resposta === null) return deepResearchError(notFound(id));
         const { document, extras } =

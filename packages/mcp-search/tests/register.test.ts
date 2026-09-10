@@ -188,16 +188,48 @@ describe("registerDeepResearchTools — chamadas", () => {
     await client.close();
   });
 
-  it("record recebe tool_call em toda chamada e tool_error nos erros", async () => {
+  it("record recebe tool_call em toda chamada e tool_error nos erros, com a FORMA", async () => {
     const record = vi.fn();
     const client = await conectar(opcoes({ record }));
     await client.callTool({ name: "search", arguments: { query: "paulo" } });
     await client.callTool({ name: "fetch", arguments: { id: "nada" } });
     expect(record.mock.calls).toEqual([
-      ["tool_call", "search"],
-      ["tool_call", "fetch"],
-      ["tool_error", "fetch"],
+      ["tool_call", "search", { params: "query", classe: "" }],
+      ["tool_call", "fetch", { params: "id", classe: "" }],
+      ["tool_error", "fetch", { params: "id", classe: "" }],
     ]);
+    await client.close();
+  });
+
+  it("com classifyError, o erro chega classificado", async () => {
+    const record = vi.fn();
+    // O vocabulário é de cada servidor; o pacote só entrega a mensagem.
+    const classifyError = (m: string) => (/not found|não encontrad/i.test(m) ? "nao_encontrado" : "outro");
+    const client = await conectar(opcoes({ record, classifyError }));
+    await client.callTool({ name: "fetch", arguments: { id: "nada" } });
+    expect(record.mock.calls).toEqual([
+      ["tool_call", "fetch", { params: "id", classe: "" }],
+      ["tool_error", "fetch", { params: "id", classe: "nao_encontrado" }],
+    ]);
+    await client.close();
+  });
+
+  it("a forma NUNCA carrega valor de parâmetro", async () => {
+    // A linha que este pacote não pode cruzar: `query` é texto livre, e o que a
+    // pessoa digitou não entra na telemetria. Só o NOME do parâmetro entra.
+    const record = vi.fn();
+    const client = await conectar(opcoes({ record }));
+    await client.callTool({ name: "search", arguments: { query: "nome-de-uma-pessoa" } });
+    const forma = JSON.stringify(record.mock.calls);
+    expect(forma).not.toContain("nome-de-uma-pessoa");
+    expect(forma).toContain("query");
+    await client.close();
+  });
+
+  it("sem record, nada quebra (o gancho é opcional)", async () => {
+    const client = await conectar(opcoes());
+    const r = await client.callTool({ name: "fetch", arguments: { id: "nada" } });
+    expect(r.isError).toBe(true);
     await client.close();
   });
 });

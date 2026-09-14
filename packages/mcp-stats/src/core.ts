@@ -21,31 +21,52 @@
  * Números saem em precisão total; arredondar para exibição é papel de `display.ts`.
  */
 
+/**
+ * Motivo de uma estatística sair `null`. Mesmo desenho de `CorrelationUndefinedReason`
+ * em `correlation.ts`: valor `null` + razão tipada, nunca um número de mentira.
+ */
+export type StatsUndefinedReason =
+  /** Nenhum registro entrou no cálculo: não há distribuição a resumir. */
+  | "no-records";
+
+/**
+ * `null` em qualquer percentil quando o conjunto é vazio. Percentil de conjunto
+ * vazio não é zero — é indefinido, e zero é a única resposta errada que passa por
+ * toda validação e chega ao leitor como medida (ver EMPTY_STATS).
+ */
 export interface Percentiles {
-  p25: number;
-  p50: number;
-  p75: number;
-  p90: number;
-  p95: number;
-  p99: number;
+  p25: number | null;
+  p50: number | null;
+  p75: number | null;
+  p90: number | null;
+  p95: number | null;
+  p99: number | null;
 }
 
 /** Registro extremo/rankeado: os campos de identificação escolhidos + seu `value`. */
 export type StatEntry = Record<string, unknown> & { value: number };
 
 export interface SummaryStats {
+  /** Registros considerados. `0` é o único sinal que nunca mente. */
   n: number;
+  /** Soma dos valores. Zero num conjunto vazio é a soma vazia, e é correto. */
   sum: number;
-  min: number;
-  max: number;
-  mean: number;
-  median: number;
-  stdDev: number;
+  /**
+   * `null` quando `n === 0`: mínimo, máximo, média, mediana e desvio de um conjunto
+   * vazio são INDEFINIDOS, não zero. Ver `reason`.
+   */
+  min: number | null;
+  max: number | null;
+  mean: number | null;
+  median: number | null;
+  stdDev: number | null;
   percentiles: Percentiles;
   argMax: StatEntry | null;
   argMin: StatEntry | null;
   top: StatEntry[];
   bottom: StatEntry[];
+  /** Presente somente quando há estatística indefinida (hoje, só `n === 0`). */
+  reason?: StatsUndefinedReason;
 }
 
 export interface GroupStats extends SummaryStats {
@@ -82,10 +103,14 @@ interface Pair<T> {
 
 export const DEFAULT_MAX_GROUPS = 50;
 
-/** Percentil por interpolação linear (type 7 / numpy / Excel PERCENTILE.INC). `q` em [0,1]. */
-export function percentile(sortedAsc: number[], q: number): number {
+/**
+ * Percentil por interpolação linear (type 7 / numpy / Excel PERCENTILE.INC). `q` em [0,1].
+ * Conjunto vazio devolve `null` — não existe "o percentil 50 de nada", e devolver 0
+ * fazia a camada de exibição escrever "metade dos valores é igual ou inferior a R$ 0,00".
+ */
+export function percentile(sortedAsc: number[], q: number): number | null {
   const n = sortedAsc.length;
-  if (n === 0) return 0;
+  if (n === 0) return null;
   if (n === 1) return sortedAsc[0]!;
   const h = (n - 1) * q;
   const lo = Math.floor(h);
@@ -99,10 +124,23 @@ function entryOf<T>(pair: Pair<T>, identify?: (r: T) => Record<string, unknown>)
   return { ...base, value: pair.v };
 }
 
+/**
+ * Conjunto vazio. Até 0.2.0 este bloco saía com ZERO em todo campo, e era a origem
+ * de um defeito medido em produção no senado-br-mcp em 14/09/2026: uma consulta com
+ * filtro que não casava nenhum registro (ano válido, nome de senador inexistente)
+ * respondia `mediana: 0` e a camada de exibição a narrava por extenso — "mediana —
+ * metade dos valores é igual ou inferior a R$ 0,00" — com bloco de proveniência
+ * completo. O modelo que lê isso afirma ao leitor um valor que ninguém mediu.
+ *
+ * Zero é a resposta errada mais perigosa que existe aqui: atravessa qualquer
+ * validação de tipo, tem cara de medida e não deixa rastro. `null` obriga quem
+ * consome a decidir o que dizer, e `reason` diz por quê. `n` e `sum` continuam
+ * numéricos: zero registros é um fato, e a soma vazia é zero por definição.
+ */
 const EMPTY_STATS: SummaryStats = {
-  n: 0, sum: 0, min: 0, max: 0, mean: 0, median: 0, stdDev: 0,
-  percentiles: { p25: 0, p50: 0, p75: 0, p90: 0, p95: 0, p99: 0 },
-  argMax: null, argMin: null, top: [], bottom: [],
+  n: 0, sum: 0, min: null, max: null, mean: null, median: null, stdDev: null,
+  percentiles: { p25: null, p50: null, p75: null, p90: null, p95: null, p99: null },
+  argMax: null, argMin: null, top: [], bottom: [], reason: "no-records",
 };
 
 function compute<T>(pairs: Pair<T>[], topN: number, identify?: (r: T) => Record<string, unknown>): SummaryStats {

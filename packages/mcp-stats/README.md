@@ -19,6 +19,26 @@ byte-a-byte — a adoção lá não muda resposta nenhuma.
 - **Desempate estável** em argMax/argMin/ranking: menor `tieBreak` vence;
 - **Grupos** ordenados por soma decrescente, teto default de 50 com aviso;
 - Núcleo em precisão total; arredondamento (default 2 casas) só na exibição.
+- **Conjunto vazio é INDEFINIDO, nunca zero** (desde 0.3.0). `min`, `max`, `mean`,
+  `median`, `stdDev` e todos os percentis saem `null` com `reason: "no-records"`;
+  `n` e `sum` seguem numéricos (zero registro é um fato, e a soma vazia é zero por
+  definição). Na exibição, `formatStats` e `formatGrouped` trocam o bloco por um
+  aviso, e `labeledPercentiles` rotula sem citar valor.
+
+  Por quê: até a 0.2.0 o bloco vazio saía com zero em todo campo, e a camada de
+  exibição o NARRAVA — *"mediana — metade dos valores é igual ou inferior a
+  R$ 0,00"*. Medido em produção no senado-br-mcp em 14/09/2026, numa consulta com
+  ano válido e filtro que não casava nenhum registro: a resposta entregava ao
+  modelo uma frase pronta, com proveniência completa, afirmando um valor que
+  ninguém mediu. Zero é a resposta errada mais perigosa possível aqui — atravessa
+  qualquer validação de tipo, tem cara de medida e não deixa rastro. O ibge e o
+  bcb nunca exibiram o defeito, mas só porque os chamadores deles guardavam antes:
+  o motor era a arma carregada. Ver `tests/sem-registros.test.ts`.
+
+  **Migração da 0.2.x:** os campos passaram de `number` para `number | null`. Quem
+  arredonda ou formata o bloco cru precisa tratar o nulo — `Math.round(null)` é `0`
+  e reintroduz exatamente o defeito. Quem já guardava lista vazia antes de chamar
+  (ibge, bcb) não muda nada.
 
 ## Uso
 

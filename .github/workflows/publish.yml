@@ -1,0 +1,173 @@
+name: Publish package to npm
+
+# Publicação de UM pacote deste monorepo, por TRUSTED PUBLISHING.
+#
+# Este arquivo é o irmão do `publish.yml` dos MCPs do portfólio, com a única
+# diferença que importa: lá o pacote é a raiz do repositório, aqui a raiz é
+# `private: true` e os pacotes vivem em `packages/*`. Por isso tudo que lê
+# nome e versão lê de `packages/<pacote>/package.json`, e o `npm publish` roda
+# DE DENTRO daquela pasta.
+#
+# AUTENTICAÇÃO — trusted publishing, não token.
+# Com o trusted publisher configurado em npmjs.com (Package settings > Trusted
+# Publisher > GitHub Actions, apontando para ESTE repositório e para ESTE
+# arquivo, `publish.yml`), o npm autentica por OIDC com credencial de vida
+# curta: não há segredo para criar, colar, girar nem vazar, e a atestação SLSA
+# de proveniência sai sozinha. É a permissão `id-token: write` que habilita.
+#
+# A CONFIGURAÇÃO NO npmjs.com É POR PACOTE e é feita na interface web — nenhum
+# comando a cria. Até que ela exista para o pacote em questão, este workflow
+# falha no `npm publish` com erro de autenticação e NÃO publica nada: rodar é
+# uma sonda segura. Os quatro pacotes deste monorepo (mcp-stats, mcp-search,
+# mcp-provenance, mcp-evals) foram publicados à mão até 14/09/2026 e nenhum
+# tem atestação — cada um precisa da sua configuração, uma vez.
+#
+# O `NODE_AUTH_TOKEN` fica como FALLBACK, igual ao molde do portfólio: o npm
+# detecta o ambiente OIDC sozinho e só cai no token quando ele não existe.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pacote:
+        description: "Pasta em packages/ a publicar"
+        required: true
+        type: choice
+        options:
+          - mcp-stats
+          - mcp-search
+          - mcp-provenance
+          - mcp-evals
+  # Tag no formato `<pacote>-v<versão>` (ex.: `mcp-stats-v0.3.0`): o monorepo
+  # não pode usar `v*` porque a tag precisa dizer DE QUAL pacote se trata.
+  push:
+    tags: ["*-v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # O pacote vem do input (dispatch) ou do prefixo da tag. Um lugar só
+      # decide, e o passo seguinte confere que a pasta existe de verdade —
+      # tag com nome errado falha aqui, não no meio do publish.
+      - name: Qual pacote
+        id: alvo
+        run: |
+          if [ -n "${{ inputs.pacote }}" ]; then
+            PKG="${{ inputs.pacote }}"
+          else
+            PKG="${GITHUB_REF_NAME%-v*}"
+          fi
+          if [ ! -f "packages/$PKG/package.json" ]; then
+            echo "::error::packages/$PKG/package.json nao existe"
+            exit 1
+          fi
+          echo "dir=packages/$PKG" >> $GITHUB_OUTPUT
+          echo "pacote: $PKG"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm ci
+
+      # Os gates ANTES de publicar, e do monorepo inteiro: um pacote daqui é
+      # dependência dos outros e do portfólio, e publicar com o irmão quebrado
+      # é como o npm descobre por nós.
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
+
+      # O trusted publishing exige npm >= 11.5.1, e qual npm vem embutido muda
+      # a cada release do Node. Instalar explicitamente tira a dependência
+      # dessa coincidência — e o log registra a versão que de fato publicou.
+      - name: npm recente o bastante para trusted publishing
+        run: |
+          npm install -g npm@latest
+          echo "npm $(npm --version) / node $(node --version)"
+
+      # Falha CEDO e explicando. Pacote `private` recusa com mensagem que não
+      # diz o que fazer; e quando a publicação vem de tag, a versão da tag tem
+      # de bater com a do package.json, senão publica-se outra coisa com cara
+      # de acerto. A checagem compara ARQUIVO com ARQUIVO — nenhum número
+      # escrito aqui.
+      - name: Preflight
+        working-directory: ${{ steps.alvo.outputs.dir }}
+        run: |
+          if [ "$(node -p "require('./package.json').private === true")" = "true" ]; then
+            echo "::error::package.json tem \"private\": true — o pacote nao esta pronto para publicar"
+            exit 1
+          fi
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "$NAME@$VERSION"
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            TAGV="${GITHUB_REF_NAME##*-v}"
+            if [ "$TAGV" != "$VERSION" ]; then
+              echo "::error::tag diz $TAGV, package.json diz $VERSION"
+              exit 1
+            fi
+          fi
+          if [ ! -d dist ]; then
+            echo "::error::dist/ ausente depois do build — o pacote sairia vazio"
+            exit 1
+          fi
+
+      - name: Verificar conteúdo do pacote
+        working-directory: ${{ steps.alvo.outputs.dir }}
+        run: npm pack --dry-run
+
+      # `npm publish` não é idempotente: repetir dá EPUBLISHCONFLICT. Pular
+      # quando a versão já está lá deixa o workflow re-executável, que é o que
+      # destrava uma execução que falhou sem precisar inventar versão nova.
+      - name: Publicar no npm
+        working-directory: ${{ steps.alvo.outputs.dir }}
+        run: |
+          # Sem NPM_TOKEN, o .npmrc que o setup-node escreveu fica com
+          # `_authToken=` VAZIO — e o npm entende isso como tentativa de
+          # autenticar por token, devolvendo 401 em vez de usar o OIDC.
+          # Remover a linha e o trusted publishing assume. Com token, nada muda.
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "sem NPM_TOKEN — publicando por OIDC (trusted publishing)"
+            for f in "${NPM_CONFIG_USERCONFIG:-}" "$HOME/.npmrc" ".npmrc" "../../.npmrc"; do
+              if [ -n "$f" ] && [ -f "$f" ]; then
+                sed -i '/_authToken/d' "$f" && echo "  linha de auth vazia removida de $f"
+              fi
+            done
+          fi
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$(npm view "$NAME@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
+            echo "npm ja tem $NAME@$VERSION — pulando publish"
+          else
+            # sem --provenance: com trusted publishing a atestação sai
+            # automaticamente. --access public segue necessário para escopo.
+            npm publish --access public
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Confirmar no registro
+        working-directory: ${{ steps.alvo.outputs.dir }}
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          # O npm processa de forma assíncrona desde 2026 ("your package is
+          # being processed"): já levou ~3 min no portfólio. 5 min de janela.
+          for i in $(seq 1 20); do
+            if [ "$(npm view "$NAME@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
+              echo "npm confirmou $NAME@$VERSION"
+              npm view "$NAME@$VERSION" dist.attestations || echo "(sem atestacao — publicado por token, nao por OIDC)"
+              exit 0
+            fi
+            echo "tentativa $i: ainda nao visivel; aguardando 15s"
+            sleep 15
+          done
+          echo "::error::$NAME@$VERSION nao ficou visivel no npm apos 5 min"
+          exit 1

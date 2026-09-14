@@ -35,6 +35,14 @@ export interface StatsLocale {
   keys: StatsLocaleKeys;
   /** Rótulo por extenso de um percentil (p=50 é a mediana). */
   percentileLabel(percentile: number, formattedValue: string): string;
+  /**
+   * Rótulo de um percentil INDEFINIDO (conjunto vazio). Existe para que a lista de
+   * percentis jamais cite um valor que ninguém mediu — a redação não pode conter
+   * número nenhum.
+   */
+  percentileUndefinedLabel(percentile: number): string;
+  /** Aviso que substitui o bloco de distribuição quando não há registro nenhum. */
+  noRecordsNotice(): string;
   /** Aviso quando o teto de grupos corta a saída. */
   truncationNotice(shown: number, total: number): string;
   /** Formatador default de valores nos rótulos (injetável por chamada em display.ts). */
@@ -83,6 +91,17 @@ export const ptBR: StatsLocale = {
       ? `mediana — metade dos valores é igual ou inferior a ${formattedValue}`
       : `${percentile}% dos valores são iguais ou inferiores a ${formattedValue}`;
   },
+  percentileUndefinedLabel(percentile) {
+    return percentile === 50
+      ? "mediana indefinida: a consulta não encontrou nenhum registro"
+      : `percentil ${percentile} indefinido: a consulta não encontrou nenhum registro`;
+  },
+  noRecordsNotice() {
+    return (
+      "A consulta não encontrou nenhum registro, então não há distribuição a resumir. " +
+      "Confira o período e os filtros — este resultado NÃO significa que os valores sejam zero."
+    );
+  },
   truncationNotice(shown, total) {
     return `Exibindo ${shown} de ${total} grupos (ordenados por soma decrescente). Refine o filtro ou reduza a granularidade.`;
   },
@@ -111,6 +130,17 @@ export const en: StatsLocale = {
     return percentile === 50
       ? `median — half of the values are at or below ${formattedValue}`
       : `${percentile}% of the values are at or below ${formattedValue}`;
+  },
+  percentileUndefinedLabel(percentile) {
+    return percentile === 50
+      ? "median undefined: the query matched no records"
+      : `percentile ${percentile} undefined: the query matched no records`;
+  },
+  noRecordsNotice() {
+    return (
+      "The query matched no records, so there is no distribution to summarise. " +
+      "Check the period and the filters — this result does NOT mean the values are zero."
+    );
   },
   truncationNotice(shown, total) {
     return `Showing ${shown} of ${total} groups (sorted by descending total). Narrow the filter or reduce the granularity.`;

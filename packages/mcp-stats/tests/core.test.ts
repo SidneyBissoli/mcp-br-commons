@@ -10,8 +10,11 @@ describe("percentile (type 7 — interpolação linear)", () => {
     expect(percentile([15, 20, 35, 40, 50], 0)).toBe(15);
   });
 
-  it("casos degenerados: vazio → 0, singleton → o próprio valor", () => {
-    expect(percentile([], 0.5)).toBe(0);
+  it("casos degenerados: vazio → null, singleton → o próprio valor", () => {
+    // Até 0.2.0 isto devolvia 0, e era o começo da cadeia que fazia a camada de
+    // exibição escrever "metade dos valores é igual ou inferior a R$ 0,00" sobre
+    // uma consulta que não casou registro nenhum.
+    expect(percentile([], 0.5)).toBeNull();
     expect(percentile([7], 0.99)).toBe(7);
   });
 });
@@ -33,11 +36,24 @@ describe("computeStats", () => {
     expect(e.median).toBe(4.5);
   });
 
-  it("conjunto vazio → bloco zerado com extremos null", () => {
+  it("conjunto vazio → estatísticas INDEFINIDAS (null), não zeradas", () => {
     const e = computeStats([], () => 0);
     expect(e.n).toBe(0);
     expect(e.argMax).toBeNull();
     expect(e.top).toEqual([]);
+    // O que 0.3.0 mudou: mínimo, máximo, média, mediana e desvio de um conjunto
+    // vazio são indefinidos. Zero atravessa qualquer validação de tipo, tem cara
+    // de medida e não deixa rastro; null obriga quem consome a decidir.
+    expect(e.min).toBeNull();
+    expect(e.max).toBeNull();
+    expect(e.mean).toBeNull();
+    expect(e.median).toBeNull();
+    expect(e.stdDev).toBeNull();
+    expect(Object.values(e.percentiles)).toEqual([null, null, null, null, null, null]);
+    expect(e.reason).toBe("no-records");
+    // `n` e `sum` seguem numéricos: zero registro é um fato, e a soma vazia é zero
+    // por definição — são os dois campos em que o zero não mente.
+    expect(e.sum).toBe(0);
   });
 
   it("desempate estável: em valor igual, menor tieBreak vence em argMax e argMin", () => {

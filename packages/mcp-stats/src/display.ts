@@ -47,7 +47,19 @@ export function labeledPercentiles(p: Percentiles, opts: DisplayOptions = {}): A
   const k = locale.keys;
   return PERCENTILE_ORDER.map((key) => {
     const pct = Number(key.slice(1));
-    const value = round(p[key]);
+    const bruto = p[key];
+    // Percentil indefinido (conjunto vazio) sai com `valor: null` e um rótulo SEM
+    // número nenhum. Antes de 0.3.0 o núcleo entregava 0 aqui e esta função o
+    // narrava: "metade dos valores é igual ou inferior a R$ 0,00" — uma frase
+    // pronta, com cara de medida, sobre uma consulta que não casou nada.
+    if (bruto === null) {
+      return {
+        [k.percentile]: pct,
+        [k.value]: null,
+        [k.label]: locale.percentileUndefinedLabel(pct),
+      };
+    }
+    const value = round(bruto);
     return {
       [k.percentile]: pct,
       [k.value]: value,
@@ -64,14 +76,24 @@ export function labeledPercentiles(p: Percentiles, opts: DisplayOptions = {}): A
 export function formatStats(e: SummaryStats, opts: DisplayOptions = {}): Record<string, unknown> {
   const { locale, round } = resolve(opts);
   const k = locale.keys;
+
+  // Sem registro nenhum não existe distribuição, e o bloco não é emitido: em vez de
+  // uma fileira de campos indefinidos, um aviso que DIZ o que aconteceu. A forma da
+  // resposta muda de propósito — é o sinal mais difícil de ignorar para quem lê, e o
+  // mais difícil de repassar como número para um modelo.
+  if (e.n === 0) {
+    return { n: 0, [k.notice]: locale.noRecordsNotice() };
+  }
+
+  const num = (v: number | null) => (v === null ? null : round(v));
   return {
     n: e.n,
     [k.sum]: round(e.sum),
-    [k.min]: round(e.min),
-    [k.max]: round(e.max),
-    [k.mean]: round(e.mean),
-    [k.median]: round(e.median),
-    [k.stdDev]: round(e.stdDev),
+    [k.min]: num(e.min),
+    [k.max]: num(e.max),
+    [k.mean]: num(e.mean),
+    [k.median]: num(e.median),
+    [k.stdDev]: num(e.stdDev),
     [k.percentiles]: labeledPercentiles(e.percentiles, opts),
   };
 }
@@ -93,6 +115,12 @@ export function formatGrouped(g: GroupedStats, opts: DisplayOptions = {}): Recor
   const { locale } = resolve(opts);
   const k = locale.keys;
   const shown = g.groups.length;
+  // Nenhum grupo = nenhum registro casou o filtro. Uma lista vazia e sem explicação
+  // é a versão silenciosa do mesmo defeito: quem lê não sabe se o recorte está
+  // errado ou se o dado é que não existe.
+  if (g.totalGroups === 0) {
+    return { [k.totalGroups]: 0, [k.notice]: locale.noRecordsNotice(), [k.groups]: [] };
+  }
   return {
     [k.totalGroups]: g.totalGroups,
     ...(g.totalGroups > shown ? { [k.notice]: locale.truncationNotice(shown, g.totalGroups) } : {}),

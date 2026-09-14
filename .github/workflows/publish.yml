@@ -147,7 +147,14 @@ jobs:
             echo "npm ja tem $NAME@$VERSION — pulando publish"
           else
             # sem --provenance: com trusted publishing a atestação sai
-            # automaticamente. --access public segue necessário para escopo.
+            # automaticamente — MAS só quando o package.json declara
+            # `repository` (com `directory`, num monorepo). Medido em
+            # 14/09/2026: a 0.3.0 do mcp-stats publicou por OIDC
+            # (`_npmUser: GitHub Actions <npm-oidc-no-reply@github.com>`) e
+            # saiu SEM atestação, porque nenhum dos quatro pacotes daqui
+            # declarava repositório; os MCPs do portfólio, que declaram, têm
+            # atestação desde sempre. O campo entrou nos quatro no mesmo dia.
+            # --access public segue necessário para escopo.
             npm publish --access public
           fi
         env:

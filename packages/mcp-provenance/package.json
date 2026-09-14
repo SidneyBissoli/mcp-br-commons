@@ -2,6 +2,11 @@
   "name": "@sbissoli/mcp-provenance",
   "version": "0.1.0",
   "description": "Contrato de proveniência para servidores MCP: todo retorno de tool carrega fonte, endpoint, período, data de extração e licença, em dois modos (concise/detailed), com serialização determinística",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
+    "directory": "packages/mcp-provenance"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

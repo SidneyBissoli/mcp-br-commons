@@ -2,6 +2,11 @@
   "name": "@sbissoli/mcp-evals",
   "version": "0.1.0",
   "description": "Harness de evals de seleção de tool para servidores MCP: extrator de catálogo (fake McpServer), validação de fixtures, scorer offline (top-1/top-k/por-área), gate de acurácia e runner via Anthropic Messages API.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
+    "directory": "packages/mcp-evals"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

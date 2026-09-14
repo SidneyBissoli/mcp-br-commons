@@ -2,6 +2,11 @@
   "name": "@sbissoli/mcp-stats",
   "version": "0.3.0",
   "description": "Motor de estatísticas para tools MCP tabulares: média/mediana/distribuição/percentis/topN/agruparPor computados no servidor, com camada de exibição por idioma. Zero dependências.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
+    "directory": "packages/mcp-stats"
+  },
   "type": "module",
   "engines": {
     "node": ">=22"

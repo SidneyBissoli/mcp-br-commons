@@ -115,6 +115,43 @@ bônus por cobertura (cada token distinto casado) e por frase inteira no título
 desempate pela ordem do acervo. Consulta vazia ou sem casamento devolve `[]`.
 `rankEntries(entradas, consulta)` é o atalho para acervos pequenos.
 
+## Vocabulário da pergunta
+
+Toda busca por substring contra o nome que a fonte usa tem o mesmo defeito:
+quem pergunta com a palavra de todo dia, ou com a grafia de outro país, não
+recebe um resultado ruim — recebe **zero, calado**. Medido no portfólio em
+setembro de 2026: `labor` 0 × labour 176 no ILOSTAT; `enrollment` 0 × enrolment
+227 na UIS; `populacao` 0 × população 520 e `renda` 72 × rendimento 1.126 no
+IBGE; `câncer` 0 × neoplasia maligna 439 na CID-10; `calote` 0 × inadimplência
+484 no BCB. Desde a 0.5.0 a receita mora aqui; cada servidor traz só a tabela.
+
+```ts
+import { createVocabulary } from "@sbissoli/mcp-search";
+
+// Só par MEDIDO: a palavra perguntada ausente do catálogo, a da fonte presente.
+const vocab = createVocabulary({
+  locale: "pt-BR",            // stopwords, singular e a frase da nota
+  sourceName: "o IBGE",       // "a palavra que o IBGE usa" / en: "the wording ILOSTAT uses"
+  entries: [
+    { asked: "renda", source: ["rendimento"] },
+    { asked: "pressão alta", source: ["hipertens"] },   // frase: vira UM termo antes da quebra
+  ],
+});
+
+const expanded = vocab.expandQuery("renda média");       // [{ term, patterns, translated }]
+const hits = docs.filter((d) => vocab.matchesQuery(vocab.normalize(d.nome), expanded));
+const notes = vocab.vocabularyNotes(expanded);           // '"renda" também foi buscado como rendimento — …'
+// No índice de search: keywords: [...vocab.askedWordsFor(d.nome)]
+```
+
+Regras: os dois lados passam por `normalize` (NFD sem diacríticos, caixa
+baixa); frases da tabela casam antes da quebra em palavras; stopwords do idioma
+ficam fora do AND (consulta só de stopword continua valendo); cada termo vira um
+OR do próprio termo, do singular (regras por idioma que não fabricam caco) e das
+grafias da fonte; termos em AND. Expandir só aumenta o recall. Para SQL (D1),
+`patterns` de cada termo vira `(col LIKE ?1 OR col LIKE ?2 …)` e os termos se
+juntam com AND. Tabela vazia é expansão nula.
+
 ## API
 
 Contrato: `DEEP_RESEARCH_TOOLS`, `searchInputSchema`, `searchOutputSchema`,
@@ -124,7 +161,8 @@ Contrato: `DEEP_RESEARCH_TOOLS`, `searchInputSchema`, `searchOutputSchema`,
 `DeepResearchToolName`, `ContractLocale`, `JsonSchemaObject`. Ranking: `createIndex`, `rankEntries`, `normalizeText`,
 `tokenize`, `DEFAULT_LIMIT`, tipos `IndexEntry`, `SearchIndex`,
 `SearchOptions`. Envelope: `deepResearchResult`, `deepResearchError`,
-`EnvelopeExtras`. Fábrica: `registerDeepResearchTools`,
+`EnvelopeExtras`. Vocabulário: `createVocabulary`, tipos `Vocabulary`,
+`VocabularyOptions`, `VocabularyEntry`, `VocabularyLocale`, `ExpandedTerm`. Fábrica: `registerDeepResearchTools`,
 `DeepResearchToolsOptions`, `SearchReply`, `FetchReply`, `UsageRecorder`.
 
 Dependências: `zod` (schemas); `@modelcontextprotocol/server` ^2 como peer

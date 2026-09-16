@@ -28,6 +28,14 @@ export {
 } from "./rank.js";
 export { deepResearchError, deepResearchResult, type EnvelopeExtras } from "./envelope.js";
 export {
+  createVocabulary,
+  type ExpandedTerm,
+  type Vocabulary,
+  type VocabularyEntry,
+  type VocabularyLocale,
+  type VocabularyOptions,
+} from "./vocabulary.js";
+export {
   registerDeepResearchTools,
   type DeepResearchToolsOptions,
   type FetchReply,

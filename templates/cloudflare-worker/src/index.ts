@@ -7,7 +7,7 @@
  */
 
 import { createMcpHandler } from "agents/mcp/server";
-import { tagRequest, withAnalytics } from "./analytics.js";
+import { tagRequest, withAnalytics, recordProtocolMethods } from "./analytics.js";
 import { checkAuth } from "./auth.js";
 import { SERVER_CONFIG } from "./config.js";
 import { landingResponse } from "./landing.js";
@@ -81,7 +81,19 @@ export default {
 
     // Contexto da requisição (país/AS/marcador self) + escrita no Analytics
     // Engine pegando carona no hook de uso — ver src/analytics.ts.
-    const recordWithAnalytics = withAnalytics(record, env.ANALYTICS, tagRequest(request, env.SELF_MARKER));
+    const tag = tagRequest(request, env.SELF_MARKER);
+    const recordWithAnalytics = withAnalytics(record, env.ANALYTICS, tag);
+
+    // Cópia do corpo tirada ANTES de o handler consumir o stream — é dela que a
+    // telemetria lê os métodos de protocolo (recordProtocolMethods, ao final).
+    // Só para o POST do endpoint MCP; corpo que não é JSON não é assunto daqui.
+    const corpoMcp =
+      url.pathname === SERVER_CONFIG.mcpRoute && request.method === "POST"
+        ? await request
+            .clone()
+            .json()
+            .catch(() => undefined)
+        : undefined;
 
     const handler = createMcpHandler(() => buildServer(recordWithAnalytics), {
       route: SERVER_CONFIG.mcpRoute,
@@ -100,6 +112,12 @@ export default {
     });
 
     const response = await handler(request, env, ctx);
+    // Métodos de protocolo (initialize, tools/list, notifications/*...) não
+    // passam pelo hook de tools: vão para o Analytics Engine daqui, com o
+    // desfecho lido do HTTP da resposta. Ver recordProtocolMethods em
+    // src/analytics.ts.
+    recordProtocolMethods(env.ANALYTICS, tag, corpoMcp, response.status);
+
     logger.info("request", {
       method: request.method,
       path: url.pathname,

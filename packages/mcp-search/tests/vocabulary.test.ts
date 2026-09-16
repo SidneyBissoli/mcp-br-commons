@@ -103,13 +103,13 @@ describe("busca: OR dentro do termo, AND entre termos", () => {
     expect(busca("enrollment primary")).toHaveLength(1);
   });
 
-  it("AND entre termos: 'earnings age' não casa nada; termo sem correspondência segue em zero", () => {
-    expect(busca("earnings age")).toHaveLength(0);
+  it("AND entre termos: 'earnings hours' não casa nada; termo sem correspondência segue em zero", () => {
+    expect(busca("earnings hours")).toHaveLength(0);
     expect(busca("telework")).toHaveLength(0);
   });
 
   it("matchesTerm é a semântica do LIKE: substring de qualquer padrão", () => {
-    const [e] = en.expandQuery("labor");
+    const e = en.expandQuery("labor")[0]!;
     expect(en.matchesTerm("labour force", e)).toBe(true);
     expect(en.matchesTerm("earnings", e)).toBe(false);
   });

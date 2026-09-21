@@ -39,7 +39,7 @@
   "author": "Sidney Bissoli <sbissoli76@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "zod": "^4.6.2"
+    "zod": "^4.6.5"
   },
   "peerDependencies": {
     "@modelcontextprotocol/server": "^2.0.0"

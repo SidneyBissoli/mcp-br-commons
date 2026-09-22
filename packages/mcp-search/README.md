@@ -148,9 +148,30 @@ Regras: os dois lados passam por `normalize` (NFD sem diacríticos, caixa
 baixa); frases da tabela casam antes da quebra em palavras; stopwords do idioma
 ficam fora do AND (consulta só de stopword continua valendo); cada termo vira um
 OR do próprio termo, do singular (regras por idioma que não fabricam caco) e das
-grafias da fonte; termos em AND. Expandir só aumenta o recall. Para SQL (D1),
-`patterns` de cada termo vira `(col LIKE ?1 OR col LIKE ?2 …)` e os termos se
-juntam com AND. Tabela vazia é expansão nula.
+grafias da fonte; termos em AND. Tabela vazia é expansão nula.
+
+**Fronteira de palavra (desde a 0.6.0).** O padrão casa o **início** de uma
+palavra, nunca o miolo. Até a 0.5.0 era substring em qualquer posição, e
+substring sem fronteira inventa resultado sem dar erro: medido em 22/09/2026,
+`uber` casava 1 subclasse da CNAE e era dentro de `TUBÉRCULOS`; `ovo` casava 11
+e 9 eram `NOVOS`; `idade` casava 6.092 dos 9.336 agregados do SIDRA, quase
+todos dentro de `atividade`; e no catálogo da UIS `male` casava dentro de
+`female`, então perguntar por homens trazia mulheres. A fronteira é só no
+início porque as tabelas guardam RADICAIS de propósito (`ocupa` alcança
+ocupação/ocupadas, `odontolog` alcança odontológico/odontologia, `child`
+alcança children): exigir fronteira no fim levaria `ocupa` de 1.609 para 0.
+
+**Para SQL (D1/SQLite)** a mesma regra é `GLOB`, não `LIKE` — `LIKE '%p%'` é
+justamente o casamento sem fronteira. Cada padrão de `patterns` vira:
+
+```sql
+(col GLOB ?n OR col GLOB ?m)   --  ?n = 'p*'   ?m = '*[^a-z0-9]p*'
+```
+
+e os termos se juntam com AND. Higienize o padrão antes de ligá-lo
+(`p.replace(/[*?[\]]/g, "")`): `patterns[0]` é o texto que o USUÁRIO digitou, e
+`GLOB` não tem caractere de escape. A coluna precisa estar normalizada (é o que
+o sufixo `_lc` indica nos catálogos), senão a fronteira `[^a-z0-9]` não vale.
 
 ## API
 

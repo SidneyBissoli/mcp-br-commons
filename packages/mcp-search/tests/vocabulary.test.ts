@@ -156,3 +156,69 @@ describe("a ponta inversa, para o índice de search", () => {
     expect(en.askedWordsFor("Hours of work per week")).toEqual([]);
   });
 });
+
+describe("fronteira de palavra: o padrão casa o INÍCIO de uma palavra, nunca o miolo", () => {
+  const casa = (nome: string, termo: string, v = pt): boolean =>
+    v.matchesQuery(v.normalize(nome), v.expandQuery(termo));
+
+  // Nomes REAIS dos catálogos, e as contagens que a medição de 22/09/2026 deu
+  // com o casamento antigo (substring em qualquer posição).
+  it("o miolo de uma palavra deixa de casar — era 1 de 1 resultado errado", () => {
+    // CNAE 4633801, o único que "uber" achava: TUBÉRCULOS.
+    expect(
+      casa("COMÉRCIO ATACADISTA DE FRUTAS, VERDURAS, RAÍZES, TUBÉRCULOS, HORTALIÇAS", "uber")
+    ).toBe(false);
+    // CNAE: "ovo" achava 11, e 9 eram estes.
+    expect(casa("COMÉRCIO A VAREJO DE AUTOMÓVEIS, CAMIONETAS E UTILITÁRIOS NOVOS", "ovo")).toBe(false);
+    // SIDRA: "idade" achava 6.092 dos 9.336 agregados, quase todos assim.
+    expect(casa("Atividades de apoio à agricultura", "idade")).toBe(false);
+    // CNAE: "negro" chegava aqui por "preta", dentro de interPRETAção.
+    expect(casa("SERVIÇOS DE TRADUÇÃO, INTERPRETAÇÃO E SIMILARES", "preta")).toBe(false);
+  });
+
+  it("e o resultado CERTO continua vindo", () => {
+    expect(casa("PRODUÇÃO DE OVOS", "ovo")).toBe(true);
+    expect(casa("Pessoas de 10 anos ou mais de idade, por sexo", "idade")).toBe(true);
+    expect(casa("População residente, por cor ou raça — preta", "preta")).toBe(true);
+  });
+
+  it("no catálogo em inglês, 'male' deixa de casar dentro de 'female'", () => {
+    // O mais caro de perceber: perguntar por homens trazia mulheres, calado.
+    expect(casa("Employment by sex: female", "male", en)).toBe(false);
+    expect(casa("Employment by sex: male", "male", en)).toBe(true);
+  });
+
+  it("RADICAL da tabela segue valendo — é prefixo de palavra, não miolo", () => {
+    // Exigir fronteira também no FIM mataria estes: medido em 22/09/2026,
+    // `ocupa` cairia de 1.609 para 0 e `odontolog` de 5 para 0.
+    expect(casa("Taxa de desocupação das pessoas de 14 anos ou mais", "desemprego")).toBe(true);
+    expect(casa("Pessoas desocupadas na semana de referência", "desemprego")).toBe(true);
+    const med = createVocabulary({
+      entries: [{ asked: "dentista", source: ["odontolog"] }],
+      locale: "pt-BR",
+      sourceName: "a CNAE",
+    });
+    for (const nome of ["ATIVIDADE ODONTOLÓGICA", "FABRICAÇÃO DE MATERIAIS PARA MEDICINA E ODONTOLOGIA"]) {
+      expect(med.matchesQuery(med.normalize(nome), med.expandQuery("dentista")), nome).toBe(true);
+    }
+  });
+
+  it("frase da tabela também casa começando palavra, e não no miolo", () => {
+    expect(casa("Pessoas com hipertensão arterial diagnosticada", "pressão alta")).toBe(true);
+    expect(casa("Transações correntes do balanço de pagamentos", "conta corrente")).toBe(true);
+  });
+
+  it("a ponta inversa usa a MESMA fronteira — keyword não nasce de miolo", () => {
+    // Sem isto o índice de `search` ganharia a palavra perguntada por acidente,
+    // e o defeito voltaria pelo outro lado.
+    expect(pt.askedWordsFor("SERVIÇOS DE TRADUÇÃO, INTERPRETAÇÃO E SIMILARES")).toEqual([]);
+    expect(pt.askedWordsFor("Rendimento médio mensal real")).toEqual(["renda"]);
+  });
+
+  it("separador que não é espaço continua abrindo palavra", () => {
+    // Vírgula, parêntese, hífen e barra separam palavra como o espaço separa.
+    expect(casa("Rendimento nominal (renda)", "renda")).toBe(true);
+    expect(casa("Indicadores,rendimento", "renda")).toBe(true);
+    expect(casa("Taxa de desocupação/subutilização", "desemprego")).toBe(true);
+  });
+});

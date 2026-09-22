@@ -82,7 +82,11 @@ export interface Vocabulary {
   expandQuery(query: string): ExpandedTerm[];
   /** As frases que contam ao chamador que a palavra dele não é a da fonte. */
   vocabularyNotes(expanded: readonly ExpandedTerm[]): string[];
-  /** Um texto (JÁ normalizado) casa o termo expandido? (mesma semântica do LIKE %p%) */
+  /**
+   * Um texto (JÁ normalizado) casa o termo expandido? O padrão precisa COMEÇAR
+   * uma palavra — em SQL isso é `col GLOB 'p*' OR col GLOB '*[^a-z0-9]p*'`, e
+   * NÃO `col LIKE '%p%'`, que é o casamento sem fronteira que a 0.6.0 corrigiu.
+   */
   matchesTerm(normalizedText: string, expanded: ExpandedTerm): boolean;
   /** Um texto (JÁ normalizado) casa TODOS os termos da consulta expandida? */
   matchesQuery(normalizedText: string, expanded: readonly ExpandedTerm[]): boolean;
@@ -126,6 +130,54 @@ const NOTE: Readonly<Record<VocabularyLocale, (term: string, others: string, sou
   en: (term, others, source) => `"${term}" was also searched as ${others} — the wording ${source} uses.`,
   "pt-BR": (term, others, source) => `"${term}" também foi buscado como ${others} — a palavra que ${source} usa.`,
 };
+
+/**
+ * Depois de `normalizeText`, a palavra é `[a-z0-9]` — a mesma definição que
+ * `tokenize` usa no ranking, para a biblioteca não ter dois conceitos de
+ * palavra.
+ */
+function ehLetraOuDigito(codigo: number): boolean {
+  return (codigo >= 97 && codigo <= 122) || (codigo >= 48 && codigo <= 57);
+}
+
+/**
+ * O padrão aparece no texto COMEÇANDO uma palavra?
+ *
+ * Até a 0.5.0 o casamento era `texto.includes(padrao)`, substring em qualquer
+ * posição — e substring sem fronteira inventa resultado, sem dar erro. Medido
+ * em 22/09/2026 nas 1.332 subclasses da CNAE (IBGE):
+ *
+ *   perguntado   achados   e eram
+ *   uber         1         "…VERDURAS, RAÍZES, TUBÉRCULOS…"   (0 certos)
+ *   ovo          11        9 deles "NOVOS" / "RENOVO"
+ *   ar           611       de 1.332 — "passageiros", "artefatos", "farmácia"…
+ *
+ * e nos 9.336 agregados do SIDRA: `idade` casava 6.092, quase todos dentro de
+ * "atividade". No catálogo da UIS o estrago é pior de perceber: `male` casa
+ * dentro de `female`, então perguntar por homens trazia mulheres.
+ *
+ * A fronteira é só no INÍCIO, e isso é deliberado: as tabelas de vocabulário
+ * dos servidores guardam RADICAIS escolhidos a dedo — `ocupa` para alcançar
+ * ocupação/ocupadas, `odontolog` para odontológico/odontologia, `contabil`
+ * para contabilidade/contábil, `child` para children. Exigir fronteira também
+ * no fim mataria todos eles: medido no mesmo dia, `ocupa` cairia de 1.609 para
+ * 0, `odontolog` de 5 para 0, e `escola` perderia 197 nomes ("escolaridade",
+ * "escolar"). Casar prefixo de palavra é o mecanismo; casar o MIOLO de uma
+ * palavra é o defeito.
+ *
+ * Feito com `indexOf` em laço, e não com `RegExp`, por duas razões: é chamado
+ * uma vez por linha de catálogo (9.336 no maior deles) e o padrão vem de uma
+ * tabela, então escapá-lo seria mais uma coisa para errar.
+ */
+function comecaEmFronteira(texto: string, padrao: string): boolean {
+  if (padrao === "") return false;
+  let i = texto.indexOf(padrao);
+  while (i !== -1) {
+    if (i === 0 || !ehLetraOuDigito(texto.charCodeAt(i - 1))) return true;
+    i = texto.indexOf(padrao, i + 1);
+  }
+  return false;
+}
 
 export function createVocabulary(options: VocabularyOptions): Vocabulary {
   const { locale, sourceName } = options;
@@ -181,7 +233,7 @@ export function createVocabulary(options: VocabularyOptions): Vocabulary {
   }
 
   function matchesTerm(normalizedText: string, expanded: ExpandedTerm): boolean {
-    return expanded.patterns.some((p) => normalizedText.includes(p));
+    return expanded.patterns.some((p) => comecaEmFronteira(normalizedText, p));
   }
 
   function matchesQuery(normalizedText: string, expanded: readonly ExpandedTerm[]): boolean {
@@ -190,7 +242,9 @@ export function createVocabulary(options: VocabularyOptions): Vocabulary {
 
   function askedWordsFor(name: string): string[] {
     const n = normalize(name);
-    const out = entries.filter((e) => e.source.some((s) => n.includes(s))).map((e) => e.asked);
+    const out = entries
+      .filter((e) => e.source.some((s) => comecaEmFronteira(n, s)))
+      .map((e) => e.asked);
     return [...new Set(out)];
   }
 

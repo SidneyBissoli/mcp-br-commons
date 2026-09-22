@@ -146,16 +146,27 @@ jobs:
           if [ "$(npm view "$NAME@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
             echo "npm ja tem $NAME@$VERSION — pulando publish"
           else
-            # sem --provenance: com trusted publishing a atestação sai
-            # automaticamente — MAS só quando o package.json declara
-            # `repository` (com `directory`, num monorepo). Medido em
-            # 14/09/2026: a 0.3.0 do mcp-stats publicou por OIDC
-            # (`_npmUser: GitHub Actions <npm-oidc-no-reply@github.com>`) e
-            # saiu SEM atestação, porque nenhum dos quatro pacotes daqui
-            # declarava repositório; os MCPs do portfólio, que declaram, têm
-            # atestação desde sempre. O campo entrou nos quatro no mesmo dia.
+            # --provenance EXPLÍCITO. A versão anterior deste passo não o
+            # passava, apostando que "com trusted publishing a atestação sai
+            # automaticamente, desde que o package.json declare repository".
+            # Medido em 22/09/2026 e a aposta está ERRADA para este repo: a
+            # mcp-search 0.6.0 saiu por OIDC (`_npmUser: GitHub Actions
+            # <npm-oidc-no-reply@github.com>`), com `repository` + `directory`
+            # declarados e npm 12.0.2 — e MESMO ASSIM sem atestação, sem sequer
+            # a linha "Signed provenance statement" no log. No mesmo dia, o
+            # ibge-br-mcp publicou pelo molde irmão, SEM a flag, e saiu COM
+            # atestação. A diferença que resta entre os dois é esta: lá o
+            # pacote é a raiz do repositório, aqui o `npm publish` roda de
+            # dentro de `packages/<pacote>`, e o modo automático não pega.
+            #
+            # Pedir explicitamente tira a dependência de um comportamento
+            # implícito que não se sabe explicar: ou a atestação sai, ou o
+            # publish FALHA dizendo por quê — que é melhor que publicar calado
+            # sem proveniência, como vinha acontecendo desde a primeira versão
+            # dos quatro pacotes.
+            #
             # --access public segue necessário para escopo.
-            npm publish --access public
+            npm publish --access public --provenance
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

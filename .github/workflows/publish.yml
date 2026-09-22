@@ -146,30 +146,43 @@ jobs:
           if [ "$(npm view "$NAME@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
             echo "npm ja tem $NAME@$VERSION — pulando publish"
           else
-            # --provenance EXPLÍCITO. A versão anterior deste passo não o
-            # passava, apostando que "com trusted publishing a atestação sai
-            # automaticamente, desde que o package.json declare repository".
-            # Medido em 22/09/2026 e a aposta está ERRADA para este repo: a
-            # mcp-search 0.6.0 saiu por OIDC (`_npmUser: GitHub Actions
-            # <npm-oidc-no-reply@github.com>`), com `repository` + `directory`
-            # declarados e npm 12.0.2 — e MESMO ASSIM sem atestação, sem sequer
-            # a linha "Signed provenance statement" no log. No mesmo dia, o
-            # ibge-br-mcp publicou pelo molde irmão, SEM a flag, e saiu COM
-            # atestação. A diferença que resta entre os dois é esta: lá o
-            # pacote é a raiz do repositório, aqui o `npm publish` roda de
-            # dentro de `packages/<pacote>`, e o modo automático não pega.
+            # PROVENIÊNCIA depende da VISIBILIDADE DO REPOSITÓRIO, e só dela.
             #
-            # Pedir explicitamente tira a dependência de um comportamento
-            # implícito que não se sabe explicar: ou a atestação sai, ou o
-            # publish FALHA dizendo por quê — que é melhor que publicar calado
-            # sem proveniência, como vinha acontecendo desde a primeira versão
-            # dos quatro pacotes.
+            # Medido em 22/09/2026, com a flag `--provenance` explícita, o npm
+            # recusou com E422 e disse a causa por extenso:
+            #
+            #   Error verifying sigstore provenance bundle: Unsupported GitHub
+            #   Actions source repository visibility: "private". Only public
+            #   source repositories are supported when publishing with provenance.
+            #
+            # Ou seja: nenhum ajuste de workflow resolve. Não era `repository`
+            # ausente no package.json (está lá, com `directory`, desde 14/09),
+            # nem npm velho (12.0.2), nem permissão do job (`id-token: write`
+            # está), nem publicar de dentro de `packages/<pacote>`. É que este
+            # repositório é PRIVADO, e os seis MCPs do portfólio, que têm
+            # atestação, são públicos. Sem a flag o npm apenas PULAVA a
+            # assinatura, calado — foi por isso que os quatro pacotes daqui
+            # nunca tiveram proveniência e ninguém viu.
+            #
+            # Então: pede a atestação quando o repositório é público, e quando
+            # não é, publica sem ela DIZENDO por quê. Assim o publish não trava
+            # (com a flag fixa, E422 impedia publicar qualquer coisa) e o dia em
+            # que este repositório virar público a atestação passa a sair
+            # sozinha, sem mexer aqui.
             #
             # --access public segue necessário para escopo.
-            npm publish --access public --provenance
+            if [ "$REPO_PRIVADO" = "true" ]; then
+              echo "::warning::repositorio PRIVADO — publicando $NAME@$VERSION SEM atestacao de proveniencia. O npm so assina pacote cujo repositorio-fonte e publico; nenhum ajuste deste workflow muda isso."
+              npm publish --access public
+            else
+              npm publish --access public --provenance
+            fi
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # "true" enquanto este repositório for privado — é o que decide se dá
+          # para pedir proveniência ao npm (ver o comentário no passo acima).
+          REPO_PRIVADO: ${{ github.event.repository.private }}
 
       - name: Confirmar no registro
         working-directory: ${{ steps.alvo.outputs.dir }}

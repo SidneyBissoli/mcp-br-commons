@@ -1,6 +1,6 @@
 {
   "name": "@sbissoli/mcp-stats",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Motor de estatísticas para tools MCP tabulares: média/mediana/distribuição/percentis/topN/agruparPor computados no servidor, com camada de exibição por idioma. Zero dependências.",
   "repository": {
     "type": "git",

@@ -1,6 +1,6 @@
 {
   "name": "@sbissoli/mcp-search",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "As tools `search` e `fetch` do contrato Deep Research da OpenAI para servidores MCP: tipos e schemas do contrato, envelope (JSON em content + structuredContent), índice de busca em memória com ranking simples (acentos, tokens, peso por campo) e a fábrica registerDeepResearchTools — cada servidor fornece só o índice e o renderizador.",
   "repository": {
     "type": "git",

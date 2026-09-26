@@ -5,10 +5,17 @@ export {
   FieldSourceSchema,
   LicenseSchema,
   ProvenanceContractError,
+  RetrievalAnomalyKindSchema,
+  RetrievalInputSchema,
   SourceSchema,
+  normalizeRetrieval,
   type CanonicalProvenance,
   type FieldSource,
   type ProvenanceInput,
+  type Retrieval,
+  type RetrievalAnomaly,
+  type RetrievalAnomalyKind,
+  type RetrievalInput,
 } from "./schema.js";
 export {
   attributionList,

@@ -26,7 +26,7 @@ describe("build", () => {
     });
     expect(p.license.name).toMatch(/uso livre/);
     expect(p.license.id).toBeNull();
-    expect(p.contract_version).toBe("1.0");
+    expect(p.contract_version).toBe("1.1");
   });
 
   it("normaliza retrieved_at para o fuso do contexto", () => {

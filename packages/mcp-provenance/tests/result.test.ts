@@ -24,7 +24,8 @@ describe("result — os três canais", () => {
     expect(res.structuredContent.total).toBe(2);
     const block = res.structuredContent.provenance as ConciseBlock;
     expect(block.source).toBe("Senado Federal — Dados Abertos (Legislativo)");
-    expect(Object.keys(block)).toHaveLength(6);
+    expect(Object.keys(block)).toHaveLength(7);
+    expect(block.retrieval).toBeNull();
     expect(res.structuredContent.attribution).toEqual([
       "https://legis.senado.leg.br/dadosabertos/processo.json",
     ]);
@@ -45,7 +46,7 @@ describe("result — os três canais", () => {
   it("modo detailed embute o bloco canônico completo", () => {
     const det = ctx.result(data, prov, { mode: "detailed" });
     const block = det.structuredContent.provenance as DetailedBlock;
-    expect(block.contract_version).toBe("1.0");
+    expect(block.contract_version).toBe("1.1");
     expect(block.derived).toBe(false);
     expect(det.content[1]!.text).not.toMatch(/solicitada nesta própria conversa/);
   });

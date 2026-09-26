@@ -44,6 +44,75 @@ describe("rodapé pt-BR", () => {
   });
 });
 
+describe("rodapé e retrieval (v1.1)", () => {
+  it("obtenção limpa ou não medida: nenhuma linha extra (o leitor não vê ruído)", () => {
+    const naoMedido = ptCtx.footer(ptCtx.build(senadoInput));
+    const limpo = ptCtx.footer(ptCtx.build({ ...senadoInput, retrieval: { requests: 2, attempts: 2 } }));
+    expect(naoMedido).not.toMatch(/Obtenção/);
+    expect(limpo).not.toMatch(/Obtenção/);
+    expect(limpo).toBe(naoMedido);
+  });
+
+  it("obtenção instável: uma linha ao leitor, entre a licença e o aviso, sem jargão", () => {
+    const footer = ptCtx.footer(
+      ptCtx.build({
+        ...senadoInput,
+        retrieval: {
+          requests: 3,
+          attempts: 5,
+          anomalies: [
+            { kind: "timeout", count: 2 },
+            { kind: "malformed_body", count: 1 },
+          ],
+        },
+      }),
+    );
+    const lines = footer.split("\n");
+    expect(lines[2]).toBe("Licença: Dados Abertos do Senado Federal — uso livre com atribuição da fonte.");
+    expect(lines[3]).toBe(
+      "Obtenção instável: 5 tentativas para 3 consultas à origem (2 tempos de resposta esgotados, 1 resposta malformada).",
+    );
+    expect(lines[4]).toBe("A referência completa desta informação pode ser solicitada nesta própria conversa.");
+    expect(footer).not.toMatch(/retry|4xx|5xx|timeout/i);
+  });
+
+  it("instável sem anomalia classificada: só a contagem", () => {
+    const footer = ptCtx.footer(ptCtx.build({ ...senadoInput, retrieval: { requests: 1, attempts: 2 } }));
+    expect(footer).toContain("Obtenção instável: 2 tentativas para 1 consulta à origem.");
+  });
+
+  it("en: mesma regra, redação em inglês", () => {
+    const footer = enCtx.footer(
+      enCtx.build({
+        source: "ILOSTAT",
+        source_url: "https://sdmx.ilo.org/rest/a",
+        citation: "ILO.",
+        license: { id: "CC-BY-4.0" },
+        retrieved_at: "2026-08-04T14:32:07Z",
+        retrieval: { requests: 1, attempts: 3, anomalies: [{ kind: "http_5xx", count: 2 }] },
+      }),
+    );
+    expect(footer).toContain("Unstable retrieval: 3 attempts for 1 request to the source (2 errors at the source).");
+  });
+
+  it("LocaleSpec customizado sem retrievalNotice: a linha simplesmente não existe", () => {
+    const ctx = createProvenanceContext({
+      metaNamespace: "com.exemplo.teste",
+      locale: {
+        id: "x",
+        sourceLabel: "S",
+        vintagePrefix: "v",
+        retrievedPrefix: "r",
+        licenseLabel: "L",
+        requestNotice: "N",
+        formatTimestamp: (iso) => iso,
+      },
+    });
+    const footer = ctx.footer(ctx.build({ ...senadoInput, retrieval: { requests: 1, attempts: 2 } }));
+    expect(footer.split("\n")).toHaveLength(4); // ---, fonte, licença, aviso
+  });
+});
+
 describe("rodapé en", () => {
   it("usa os rótulos e o aviso em inglês", () => {
     const footer = enCtx.footer(

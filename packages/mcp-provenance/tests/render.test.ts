@@ -15,18 +15,21 @@ const input = {
 };
 
 describe("renderConcise", () => {
-  it("emite exatamente as 6 chaves do piso legal, em ordem fixa", () => {
+  it("emite exatamente as 7 chaves (piso legal + retrieval, v1.1), em ordem fixa", () => {
     const block = renderConcise(ctx.build(input));
     expect(Object.keys(block)).toEqual([
       "source",
       "source_url",
       "data_vintage",
       "retrieved_at",
+      "retrieval",
       "citation",
       "license",
     ]);
     expect(block.source).toBe("ILOSTAT");
     expect(block.license).toBe("CC-BY-4.0");
+    // não medido = null explícito, nunca omissão
+    expect(block.retrieval).toBeNull();
   });
 
   it("usa license.name quando não há id", () => {
@@ -53,9 +56,11 @@ describe("renderDetailed", () => {
       "derived",
       "derivation_note",
       "served_from_cache",
+      "retrieval",
       "field_sources",
     ]);
     expect(block.dimension_key).toBeNull();
+    expect(block.retrieval).toBeNull();
     expect(block.api_version).toBeNull();
     expect(block.license.verified_at).toBeNull();
     expect(Object.keys(block.license)).toEqual(["id", "name", "url", "terms_url", "verified_at"]);

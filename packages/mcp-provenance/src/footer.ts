@@ -6,8 +6,11 @@
  *   ---
  *   Fonte: {nome} · {url} · dados de {vintage} · extraído em {timestamp humano}
  *   Licença: {licença}.
+ *   Obtenção instável: {tentativas} para {consultas} à origem ({anomalias}).   ← só se unstable
  *   A referência completa desta informação pode ser solicitada nesta própria conversa.
  *
+ * A linha de obtenção (retrievalNotice, v1.1) só entra quando `retrieval.unstable` é
+ * true — obtenção limpa não vira ruído para o leitor; o agente já tem o bloco.
  * O aviso final (requestNotice) aparece UMA vez, apenas no modo `concise` — no modo
  * `detailed` a referência completa já está na própria resposta, e o aviso seria ruído.
  */
@@ -30,6 +33,7 @@ export function provenanceFooter(
     lines.push(parts.join(" · "));
     const license = conciseLicense(p.license);
     if (license) lines.push(`${locale.licenseLabel}: ${license.endsWith(".") ? license : `${license}.`}`);
+    if (p.retrieval?.unstable && locale.retrievalNotice) lines.push(locale.retrievalNotice(p.retrieval));
   }
   if (mode === "concise") lines.push(locale.requestNotice);
   return lines.join("\n");

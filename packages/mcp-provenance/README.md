@@ -43,6 +43,34 @@ return prov.result(shapedData, p, { mode: "detailed" }); // bloco canônico comp
 visível ao modelo), `_meta` namespaced (auditoria/UI, zero tokens) e rodapé de texto
 compacto para clientes text-only.
 
+### Diagnóstico de origem (`retrieval`, contrato v1.1)
+
+Como o dado foi obtido, para que o agente explique um dado instável em vez de inventar
+certeza. É a 7ª chave do modo `concise` (depois de `retrieved_at`) e entra no bloco
+canônico depois de `served_from_cache`. **Só o que foi medido**: servidor que não
+instrumenta suas idas à origem omite o campo e ele sai `null` — nunca `{attempts: 1}`
+inventado.
+
+```ts
+const p = prov.from(SENADO_LEGIS, {
+  source_url,
+  retrieved_at: fetchedAt,
+  retrieval: {
+    requests: 3,                                   // idas distintas à origem nesta chamada (fatias, páginas)
+    attempts: 5,                                   // tentativas somadas (>= requests)
+    anomalies: [{ kind: "timeout", count: 2 }],    // opcional; classes: timeout | network | http_4xx |
+  },                                               //   http_5xx | rate_limited | malformed_body
+});
+// → provenance.retrieval = { requests: 3, attempts: 5, anomalies: [{kind:"timeout",count:2}], unstable: true }
+```
+
+`unstable` é derivado pela lib (`attempts > requests` ou alguma anomalia); `anomalies` é
+somado por classe e ordenado no vocabulário, então a ordem de coleta não muda os bytes. No
+rodapé, uma linha ao leitor aparece **só quando instável**: *"Obtenção instável: 5
+tentativas para 3 consultas à origem (2 tempos de resposta esgotados)."* Semântica
+completa em [`docs/contrato-proveniencia-v1.md`](docs/contrato-proveniencia-v1.md) §3;
+regra de compatibilidade da linha 1.x em §8.
+
 ### Fonte estruturada (ex.: ILOSTAT/SDMX)
 
 ```ts

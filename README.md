@@ -13,7 +13,7 @@ terminologias médicas).
 
 | Pacote | O quê | Status |
 |---|---|---|
-| [`@sbissoli/mcp-provenance`](packages/mcp-provenance) | Contrato de proveniência: todo retorno de tool carrega fonte, endpoint, período, data de extração e licença, em dois modos (`concise`/`detailed`) | 0.1.1 (npm) |
+| [`@sbissoli/mcp-provenance`](packages/mcp-provenance) | Contrato de proveniência: todo retorno de tool carrega fonte, endpoint, período, data de extração, licença e diagnóstico de origem (`retrieval`, contrato v1.1), em dois modos (`concise`/`detailed`) | 0.2.0 (npm) |
 | [`@sbissoli/mcp-stats`](packages/mcp-stats) | Motor de estatísticas (média/mediana/distribuição/topN/agruparPor) para tools tabulares, exibição por idioma | 0.3.1 (npm) |
 | [`@sbissoli/mcp-evals`](packages/mcp-evals) | Harness de evals de seleção de tool: extrator de catálogo (fake McpServer, captura `.tool` e `.registerTool`), validação de fixtures, scorer offline (top-1/top-k/por-área), gate de acurácia e runner via Anthropic Messages API | 0.1.1 (npm) |
 | [`@sbissoli/mcp-search`](packages/mcp-search) | As tools `search`/`fetch` do contrato Deep Research do ChatGPT: schemas, envelope (JSON em `content` + `structuredContent`), índice em memória com ranking simples e a fábrica `registerDeepResearchTools` — o servidor fornece só o índice e o renderizador | 0.6.2 (npm) |

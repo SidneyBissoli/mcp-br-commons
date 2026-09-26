@@ -71,6 +71,31 @@ tentativas para 3 consultas à origem (2 tempos de resposta esgotados)."* Semân
 completa em [`docs/contrato-proveniencia-v1.md`](docs/contrato-proveniencia-v1.md) §3;
 regra de compatibilidade da linha 1.x em §8.
 
+### O `outputSchema` da tool: importe, não transcreva
+
+O SDK do MCP valida `structuredContent` contra o `outputSchema` em runtime. Um servidor
+que fecha o bloco de proveniência com as chaves transcritas à mão
+(`additionalProperties: false`) e sobe o pacote sem reescrever a transcrição **falha em
+toda chamada** — foi o que a medição de 26/09/2026 mostrou em quatro servidores. Desde a
+0.2.0 o pacote publica a projeção que ele mesmo emite:
+
+```ts
+import { CONCISE_BLOCK_JSON_SCHEMA, ConciseBlockSchema } from "@sbissoli/mcp-provenance";
+
+// outputSchema em JSON Schema verbatim (bcb, sih, medical):
+const outputSchema = {
+  type: "object",
+  properties: { total: { type: "integer" }, provenance: CONCISE_BLOCK_JSON_SCHEMA, attribution: ATTRIBUTION },
+  required: ["total", "provenance", "attribution"],
+};
+
+// outputSchema em zod (ibge):
+const outputSchema = z.object({ total: z.number().int(), provenance: ConciseBlockSchema, attribution: z.array(z.string()) });
+```
+
+`DETAILED_BLOCK_JSON_SCHEMA`/`DetailedBlockSchema` e `provenanceBlockJsonSchema(mode)`
+cobrem o modo `detailed`. Os testes do pacote prendem que schema e `render*` não divergem.
+
 ### Fonte estruturada (ex.: ILOSTAT/SDMX)
 
 ```ts

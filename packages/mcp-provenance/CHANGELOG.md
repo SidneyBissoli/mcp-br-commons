@@ -24,16 +24,28 @@ minor): cada servidor precisa de bump explícito no `package.json`.
 - Exports novos: `RetrievalInputSchema`, `RetrievalAnomalyKindSchema`,
   `normalizeRetrieval`, tipos `Retrieval`, `RetrievalInput`, `RetrievalAnomaly`,
   `RetrievalAnomalyKind`.
+- **JSON Schema e zod das projeções, para o `outputSchema` das tools:**
+  `CONCISE_BLOCK_JSON_SCHEMA`, `DETAILED_BLOCK_JSON_SCHEMA`, `RETRIEVAL_JSON_SCHEMA`,
+  `provenanceBlockJsonSchema(mode)` (JSON Schema verbatim, `additionalProperties: false`)
+  e `ConciseBlockSchema`, `DetailedBlockSchema` (zod estrito). Motivo: até aqui cada
+  servidor transcrevia a projeção `concise` à mão e fechava o objeto; o SDK do MCP valida
+  `structuredContent` contra o `outputSchema` em runtime, então subir o pacote sem
+  reescrever a transcrição derruba toda chamada (medido contra a 0.2.0: bcb 44 falhas,
+  ibge 48, sih 39, medical 64). Importar daqui faz o `outputSchema` subir de contrato
+  junto com o pacote; testes prendem que schema e `render*` não divergem.
 - Spec: §3 "Semântica de `retrieval`" e §8 "Compatibilidade do contrato (linha 1.x)" —
   minor só acrescenta chave nullable em posição fixa; `contract_version` sobe junto.
 
 ### Alterado
 - `CONTRACT_VERSION` / `contract_version`: `"1.0"` → `"1.1"`.
-- Modo `concise` passa de 6 para 7 chaves. **Testes de servidor que prendem a lista das 6
-  chaves** (ibge `tests/provenance.test.ts`, ilo `tests/tools-data.test.ts`, senado
-  `tests/utils/provenance.test.ts`) e os que prendem `contract_version` `"1.0"` (ibge,
-  ilo, senado, medical) quebram de propósito ao subir — ajuste de uma linha cada. O
-  template `cloudflare-worker` já foi ajustado neste release.
+- Modo `concise` passa de 6 para 7 chaves. Ao subir, cada servidor precisa de: (1)
+  `outputSchema` do bloco vindo do pacote (bcb `src/provenance.ts`, sih
+  `src/output-schemas.ts`, ibge `src/provenance.ts`, medical `src/evals/catalog.ts`
+  transcrevem à mão hoje — é o que derruba as chamadas); (2) testes que prendem a lista
+  das 6 chaves (ibge `tests/provenance.test.ts`, ilo `tests/tools-data.test.ts`, senado
+  `tests/utils/provenance.test.ts`) e `contract_version` `"1.0"` (ibge, ilo, senado,
+  medical) — uma linha cada. uis não precisa de nada. O template `cloudflare-worker` já
+  foi ajustado neste release.
 
 ## [0.1.1] — 2026-09-22
 

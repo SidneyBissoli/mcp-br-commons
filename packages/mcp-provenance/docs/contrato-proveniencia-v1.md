@@ -211,9 +211,20 @@ que foi preciso (v1.1).
 - **Testes que prendem a lista de chaves do `concise`** (há em ibge, ilo, senado e no
   template) quebram de propósito a cada minor — são o alarme de que o servidor subiu de
   contrato e precisa reler esta spec. Ajuste de uma linha.
+- **O `outputSchema` da tool tem de subir JUNTO com o pacote — e a forma de garantir isso
+  é não transcrevê-lo.** O SDK do MCP valida `structuredContent` contra o `outputSchema`
+  em runtime; um servidor que fecha o bloco (`additionalProperties: false`) com as chaves
+  transcritas à mão e sobe o pacote sem reescrever a transcrição **falha em toda chamada**
+  (medido em 26/09/2026 contra a 0.2.0: bcb 44 falhas, ibge 48, sih 39, medical 64, todas
+  "must NOT have additional properties"). Desde a 0.2.0 o pacote publica a projeção que
+  ele mesmo emite — `CONCISE_BLOCK_JSON_SCHEMA`/`DETAILED_BLOCK_JSON_SCHEMA`
+  (`provenanceBlockJsonSchema(mode)`) em JSON Schema verbatim e `ConciseBlockSchema`/
+  `DetailedBlockSchema` em zod estrito. O servidor **importa** e embute no
+  `outputSchema`; assim sobe de contrato pelo mesmo bump que sobe o pacote, e os testes
+  do pacote prendem que schema e `render*` não divergem.
 - **Major (2.0)** é para tudo o que esta regra proíbe.
 
 | Versão | Lib | Mudança |
 |:--|:--|:--|
 | 1.0 | 0.1.x | Contrato inicial: piso legal, modos `concise` (6 chaves)/`detailed`, três canais |
-| 1.1 | 0.2.x | `retrieval` (diagnóstico de origem) como 7ª chave do `concise` e no bloco canônico após `served_from_cache`; `contract_version: "1.1"`; esta seção |
+| 1.1 | 0.2.x | `retrieval` (diagnóstico de origem) como 7ª chave do `concise` e no bloco canônico após `served_from_cache`; `contract_version: "1.1"`; esta seção; JSON Schema e zod das projeções publicados pelo pacote para o `outputSchema` |

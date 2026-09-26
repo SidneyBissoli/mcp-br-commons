@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
-    "@sbissoli/mcp-provenance": "^0.1.0",
+    "@sbissoli/mcp-provenance": "^0.2.0",
     "agents": "^0.24.0",
     "zod": "^4.6.5"
   },

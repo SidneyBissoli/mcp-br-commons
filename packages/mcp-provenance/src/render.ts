@@ -1,10 +1,10 @@
 /**
  * Projeções por modo do bloco de proveniência (decisão 5 da Fase 0).
  *
- * - `concise` (padrão): piso legal + citação mínima — fonte, URL canônica, vintage,
- *   data de extração, citação/atribuição, licença. Seis chaves, sempre presentes,
- *   `null` explícito quando desconhecido.
- * - `detailed`: bloco canônico completo do contrato v1.0, todas as chaves em ordem
+ * - `concise` (padrão): piso legal + citação mínima + diagnóstico de origem — fonte,
+ *   URL canônica, vintage, data de extração, `retrieval`, citação/atribuição, licença.
+ *   Sete chaves (v1.1), sempre presentes, `null` explícito quando desconhecido.
+ * - `detailed`: bloco canônico completo do contrato v1.1, todas as chaves em ordem
  *   fixa, ausência = `null` explícito.
  *
  * DETERMINISMO: os objetos são construídos literalmente em ordem fixa de chaves —
@@ -13,18 +13,30 @@
  * (`retrieved_at`, citação que embute data). Não reordenar campos: a ordem é contrato.
  */
 
-import type { CanonicalProvenance, FieldSource } from "./schema.js";
+import type { CanonicalProvenance, FieldSource, Retrieval } from "./schema.js";
 
 export type ProvenanceMode = "concise" | "detailed";
 
-/** Projeção concise — chaves e ordem fazem parte do contrato. */
+/** Projeção concise — chaves e ordem fazem parte do contrato (v1.1: `retrieval` após `retrieved_at`). */
 export interface ConciseBlock {
   source: string;
   source_url: string;
   data_vintage: string | null;
   retrieved_at: string;
+  retrieval: Retrieval | null;
   citation: string;
   license: string | null;
+}
+
+/** Cópia literal do bloco `retrieval`, em ordem fixa de chaves (determinismo). */
+function renderRetrieval(r: Retrieval | null): Retrieval | null {
+  if (r === null) return null;
+  return {
+    requests: r.requests,
+    attempts: r.attempts,
+    anomalies: r.anomalies.map((a) => ({ kind: a.kind, count: a.count })),
+    unstable: r.unstable,
+  };
 }
 
 /** Rótulo curto da licença para o modo concise: `id` quando há, senão `name`. */
@@ -38,6 +50,7 @@ export function renderConcise(p: CanonicalProvenance): ConciseBlock {
     source_url: p.source_url,
     data_vintage: p.data_vintage,
     retrieved_at: p.retrieved_at,
+    retrieval: renderRetrieval(p.retrieval),
     citation: p.citation,
     license: conciseLicense(p.license),
   };
@@ -65,6 +78,7 @@ export interface DetailedBlock {
   derived: boolean;
   derivation_note: string | null;
   served_from_cache: boolean | null;
+  retrieval: Retrieval | null;
   field_sources: FieldSource[] | null;
 }
 
@@ -95,6 +109,7 @@ export function renderDetailed(p: CanonicalProvenance): DetailedBlock {
     derived: p.derived,
     derivation_note: p.derivation_note,
     served_from_cache: p.served_from_cache,
+    retrieval: renderRetrieval(p.retrieval),
     field_sources: p.field_sources
       ? p.field_sources.map((fs) => ({
           fields: [...fs.fields],

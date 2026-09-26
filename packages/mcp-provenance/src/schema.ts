@@ -1,5 +1,5 @@
 /**
- * Modelo canônico de proveniência — contrato v1.0 do portfólio.
+ * Modelo canônico de proveniência — contrato v1.1 do portfólio.
  *
  * Generalização de duas linhagens em produção/rascunho:
  *  - envelope nível-1 do senado-br-mcp-cloudflare (`src/utils/provenance.ts`) — vira a
@@ -16,10 +16,85 @@
 
 import { z } from "zod";
 
-/** Versão do contrato de proveniência implementado por esta lib. */
-export const CONTRACT_VERSION = "1.0";
+/**
+ * Versão do contrato de proveniência implementado por esta lib.
+ *
+ * Regra de compatibilidade (§8 da spec): dentro da linha 1.x um campo só se
+ * ACRESCENTA, sempre nullable, com posição fixa; nunca se renomeia, remove ou
+ * muda de tipo. Chave nova = minor do contrato (1.0 → 1.1: `retrieval`).
+ */
+export const CONTRACT_VERSION = "1.1";
 
 const nullableString = z.string().min(1).nullable().default(null);
+
+/**
+ * Classes de anomalia observáveis numa ida à origem. Vocabulário FECHADO e comum aos
+ * servidores: o agente lê o mesmo nome venha de onde vier. A ordem do enum é a ordem
+ * canônica de serialização de `retrieval.anomalies` (determinismo).
+ */
+export const RetrievalAnomalyKindSchema = z.enum([
+  "timeout",
+  "network",
+  "http_4xx",
+  "http_5xx",
+  "rate_limited",
+  "malformed_body",
+]);
+
+export type RetrievalAnomalyKind = z.infer<typeof RetrievalAnomalyKindSchema>;
+
+const RetrievalAnomalySchema = z.object({
+  kind: RetrievalAnomalyKindSchema,
+  count: z.number().int().min(1).describe("Quantas vezes esta anomalia ocorreu na chamada"),
+});
+
+export type RetrievalAnomaly = z.infer<typeof RetrievalAnomalySchema>;
+
+/**
+ * Diagnóstico de origem da chamada (contrato v1.1): como o dado foi obtido, agregado
+ * por CHAMADA da tool (uma chamada pode fazer várias idas à origem — fatias, páginas).
+ * É MEDIÇÃO REAL: servidor que não mede passa `null`, nunca `{ attempts: 1 }` inventado.
+ *
+ * `unstable` é DERIVADO pela lib (`attempts > requests || anomalies.length > 0`); o
+ * servidor não o informa. `anomalies` é normalizado: somado por `kind` e ordenado na
+ * ordem do enum, de modo que a ordem de coleta no servidor não altera os bytes.
+ */
+export const RetrievalInputSchema = z
+  .object({
+    requests: z.number().int().min(1).describe("Idas distintas à origem que compõem esta resposta"),
+    attempts: z.number().int().min(1).describe("Tentativas somadas, incluindo as repetidas (>= requests)"),
+    anomalies: z.array(RetrievalAnomalySchema).default([]).describe("Anomalias observadas, por classe"),
+  })
+  .refine((r) => r.attempts >= r.requests, {
+    message: "retrieval.attempts não pode ser menor que retrieval.requests",
+  });
+
+export type RetrievalInput = z.input<typeof RetrievalInputSchema>;
+
+/** Bloco `retrieval` canônico, já normalizado e com `unstable` derivado. */
+export interface Retrieval {
+  requests: number;
+  attempts: number;
+  anomalies: RetrievalAnomaly[];
+  unstable: boolean;
+}
+
+const RetrievalSchema = RetrievalInputSchema.transform(normalizeRetrieval);
+
+/** Soma por classe, ordena na ordem do enum e deriva `unstable`. */
+export function normalizeRetrieval(r: z.output<typeof RetrievalInputSchema>): Retrieval {
+  const byKind = new Map<RetrievalAnomalyKind, number>();
+  for (const a of r.anomalies) byKind.set(a.kind, (byKind.get(a.kind) ?? 0) + a.count);
+  const anomalies: RetrievalAnomaly[] = RetrievalAnomalyKindSchema.options
+    .filter((kind) => byKind.has(kind))
+    .map((kind) => ({ kind, count: byKind.get(kind)! }));
+  return {
+    requests: r.requests,
+    attempts: r.attempts,
+    anomalies,
+    unstable: r.attempts > r.requests || anomalies.length > 0,
+  };
+}
 
 /** Identidade da fonte. `name` é o nome humano oficial; os demais refinam quando existem. */
 export const SourceSchema = z.object({
@@ -92,6 +167,9 @@ export const CanonicalProvenanceSchema = z.object({
     .nullable()
     .default(null)
     .describe("true/false quando o servidor distingue cache de fetch; null quando não distingue"),
+  retrieval: RetrievalSchema.nullable()
+    .default(null)
+    .describe("Diagnóstico de origem da chamada (tentativas/anomalias); null quando o servidor não mede"),
   field_sources: z
     .array(FieldSourceSchema)
     .nullable()
@@ -117,6 +195,12 @@ export interface ProvenanceInput {
   derived?: boolean;
   derivation_note?: string | null;
   served_from_cache?: boolean | null;
+  /**
+   * Diagnóstico de origem da chamada — só o que foi MEDIDO. `unstable` é derivado pela
+   * lib; `anomalies` pode vir em qualquer ordem e com classes repetidas (é normalizado).
+   * Omitir ou passar `null` quando o servidor não mede as idas à origem.
+   */
+  retrieval?: RetrievalInput | null;
   field_sources?: Array<{
     fields: string[];
     source_url: string;

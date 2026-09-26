@@ -35,12 +35,13 @@ describe("exemploBuscarCatalogo", () => {
     expect(r.structuredContent.itens[0]?.id).toBe("beta");
     // Canal 1: bloco parseável + attribution com a URL canônica da fonte
     expect(r.structuredContent.attribution).toEqual(["https://exemplo.invalid/catalogo"]);
-    // Modo concise (default do contrato v1.0): exatamente 6 chaves em ordem fixa
+    // Modo concise (default do contrato v1.1): exatamente 7 chaves em ordem fixa
     expect(Object.keys(r.structuredContent.provenance as ConciseBlock)).toEqual([
       "source",
       "source_url",
       "data_vintage",
       "retrieved_at",
+      "retrieval",
       "citation",
       "license",
     ]);

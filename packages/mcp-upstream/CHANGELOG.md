@@ -4,6 +4,21 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.2.0] — 2026-09-27
+
+Primeira adoção (bcb-br-mcp) pediu um ajuste: o prazo justo de uma tentativa depende da
+FORMA do pedido, não só do servidor.
+
+### Adicionado
+- `timeoutMs` em `UpstreamRequestInit` (`call.json(url, { timeoutMs })`, idem `text` e
+  `response`): teto de UMA tentativa só para aquela ida, no lugar do `timeoutMs` da
+  política. Orçamento total (`budgetMs`) e `retries` continuam os da política; o valor
+  não vaza para o `init` do `fetch`. Caso de uso: o bcb dá 6 s a `ultimos/N` (resposta
+  real ≤ 0,4 s; código inexistente leva ~30 s para negar) e 30 s a uma janela diária
+  larga — na mesma chamada, no mesmo coletor. Sem isto a alternativa era um `signal` do
+  chamador, que o pacote classifica como `aborted` (não repete, não é anomalia) — errado
+  para um timeout.
+
 ## [0.1.0] — 2026-09-27
 
 Primeira versão. Nasce para os sete servidores TS do portfólio pararem de ter cada um o

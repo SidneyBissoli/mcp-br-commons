@@ -104,7 +104,17 @@ export interface UpstreamAccess {
   fromCache: boolean;
 }
 
-export type UpstreamRequestInit = Omit<RequestInit, "signal"> & { signal?: AbortSignal | undefined };
+export type UpstreamRequestInit = Omit<RequestInit, "signal"> & {
+  signal?: AbortSignal | undefined;
+  /**
+   * Teto de UMA tentativa só para esta ida, em ms, no lugar do `timeoutMs` da política.
+   * Existe porque o prazo justo depende da FORMA do pedido, não do servidor: o bcb dá 6 s
+   * a um pedido de 20 observações (resposta real ≤ 0,4 s; código inexistente leva ~30 s
+   * para negar) e 30 s a uma janela diária larga — na mesma chamada, no mesmo coletor.
+   * O orçamento total e o número de retries continuam os da política.
+   */
+  timeoutMs?: number | undefined;
+};
 
 export function resolveOptions(options: UpstreamOptions = {}): ResolvedUpstreamOptions {
   const backoff: BackoffSpec = { ...DEFAULT_BACKOFF, ...stripUndefined(options.backoff ?? {}) };
@@ -234,9 +244,14 @@ export class UpstreamCall {
     mode: "response" | "text" | "json",
   ): Promise<{ response: Response; body: string | undefined; parsed: unknown }> {
     const o = this.options;
+    const { timeoutMs: perRequestTimeoutMs, ...fetchInit } = init;
+    if (perRequestTimeoutMs !== undefined && (!Number.isFinite(perRequestTimeoutMs) || perRequestTimeoutMs < 0)) {
+      throw new RangeError(`mcp-upstream: timeoutMs da requisição deve ser um número >= 0 (recebido ${String(perRequestTimeoutMs)})`);
+    }
+    const attemptCeilingMs = perRequestTimeoutMs ?? o.timeoutMs;
     this.#requests++;
     const started = o.now();
-    const headers = new Headers(init.headers);
+    const headers = new Headers(fetchInit.headers);
     if (o.userAgent !== undefined && !headers.has("user-agent")) headers.set("user-agent", o.userAgent);
 
     let attempt = 0;
@@ -250,7 +265,7 @@ export class UpstreamCall {
       attempt++;
       this.#attempts++;
 
-      const outcome = await this.#attempt(url, init, headers, mode, Math.min(o.timeoutMs, remaining));
+      const outcome = await this.#attempt(url, fetchInit, headers, mode, Math.min(attemptCeilingMs, remaining));
       if (outcome.ok) {
         this.#accesses.push({ url, retrievedAt: new Date(o.now()), fromCache: false });
         return { response: outcome.response, body: outcome.body, parsed: outcome.parsed };

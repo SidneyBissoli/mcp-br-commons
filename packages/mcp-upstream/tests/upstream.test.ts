@@ -242,6 +242,25 @@ describe("orçamento e timeout", () => {
     expect(err.transport).toBe(true);
   });
 
+  it("timeoutMs por requisição substitui o da política só naquela ida, no MESMO coletor", async () => {
+    // O prazo justo depende da forma do pedido (bcb: 6 s para `ultimos/N`, 30 s para
+    // janela larga). A política diz 30 s; a ida pequena pede 20 ms e é ela que estoura.
+    const hang = (_u: string, init: RequestInit) =>
+      new Promise<Response>((_, reject) =>
+        init.signal!.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))),
+      );
+    const h = harness([hang, ok("pequena"), ok("larga")], { timeoutMs: 30_000 });
+    const call = h.upstream.call();
+    expect(await call.json(URL_A, { timeoutMs: 20 })).toBe("pequena");
+    expect(await call.json(URL_B)).toBe("larga");
+    // Uma contagem só: 2 idas, 3 tentativas, o timeout da pequena.
+    expect(call.retrieval()).toEqual({ requests: 2, attempts: 3, anomalies: [{ kind: "timeout", count: 1 }] });
+    // O override é do pacote, não do fetch: nunca vaza para o `init` da origem.
+    for (const c of h.calls) expect("timeoutMs" in c.init).toBe(false);
+    // Valor inválido falha alto, como as opções da política.
+    await expect(call.json(URL_A, { timeoutMs: -1 })).rejects.toThrow(RangeError);
+  });
+
   it("timeout lendo o CORPO é timeout, mas não é transporte (a resposta chegou)", async () => {
     const h = harness(
       [

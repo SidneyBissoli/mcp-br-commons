@@ -56,7 +56,9 @@ vez (cache puro, dado local) — o contrato manda `null`, não `{ attempts: 1 }`
 | `call.text(url, init?)` | lido | sim | corpo rejeitado |
 | `call.response(url, init?)` | **não consumido** | não | nunca (o corpo é seu) |
 
-`init` é um `RequestInit` normal; um `signal` seu é combinado com o do timeout.
+`init` é um `RequestInit` normal; um `signal` seu é combinado com o do timeout. `init.timeoutMs`
+troca o teto de UMA tentativa só naquela ida (o bcb dá 6 s a um pedido de 20 observações e
+30 s a uma janela larga, no mesmo coletor); orçamento e retries seguem os da política.
 
 ### Classificação e repetição
 

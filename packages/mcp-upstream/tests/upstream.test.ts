@@ -207,6 +207,66 @@ describe("contagem por chamada", () => {
   });
 });
 
+describe("política por ida (retries, backoff, retryOn por requisição)", () => {
+  // A repetição justa depende da forma do pedido, como o timeout: o ibge dá 4 retries a
+  // uma consulta principal e 2 a um enriquecimento de melhor esforço, no mesmo coletor.
+  it("retries por requisição valem só naquela ida; a política segue nas outras", async () => {
+    const h = harness([status(500), status(500), status(500), status(500), ok("principal")], { retries: 4 });
+    const call = h.upstream.call();
+    const err = await fails(call.json(URL_A, { retries: 1 }));
+    expect(err.attempts).toBe(2);
+    expect(err.retryable).toBe(true);
+    // Sobraram 3 respostas: 500, 500, ok — a política de 4 retries absorve as duas.
+    expect(await call.json(URL_B)).toBe("principal");
+    expect(call.retrieval()).toEqual({ requests: 2, attempts: 5, anomalies: [{ kind: "http_5xx", count: 4 }] });
+    for (const c of h.calls) expect("retries" in c.init).toBe(false);
+  });
+
+  it("backoff por requisição é parcial e mesclado sobre o da política", async () => {
+    const h = harness([status(503), status(503), ok(1), status(503), ok(2)]);
+    const call = h.upstream.call();
+    expect(await call.json(URL_A, { backoff: { baseMs: 500 } })).toBe(1);
+    expect(await call.json(URL_B)).toBe(2);
+    // 500, 1000 (base 500 dobrando, teto 8000 da política); depois 1000 da política.
+    expect(h.waits).toEqual([500, 1_000, 1_000]);
+    for (const c of h.calls) expect("backoff" in c.init).toBe(false);
+  });
+
+  it("retryOn por requisição veta o 500 de uma ida sem mudar a política", async () => {
+    // O caso do ibge: a API de Agregados responde 500 a parâmetro inválido — determinístico,
+    // repetir só gasta tempo — mas o 500 de outra API continua transitório.
+    const h = harness([status(500), status(500), ok("outra")]);
+    const call = h.upstream.call();
+    const err = await fails(call.json(URL_A, { retryOn: (ctx) => ctx.status !== 500 }));
+    expect(err.attempts).toBe(1);
+    expect(err.retryable).toBe(false);
+    expect(await call.json(URL_B)).toBe("outra");
+    expect(h.waits).toEqual([1_000]);
+    for (const c of h.calls) expect("retryOn" in c.init).toBe(false);
+  });
+
+  it("o `cause` chega ao retryOn: só a rejeição que É rede se repete", async () => {
+    const vistos: unknown[] = [];
+    const h = harness([throws(new Error("HTTP 404: Not Found")), ok(1)], {
+      retryOn: (ctx) => {
+        vistos.push(ctx.cause);
+        return ctx.cause instanceof Error && /ECONNRESET|fetch failed/.test(ctx.cause.message);
+      },
+    });
+    const err = await fails(h.upstream.call().json(URL_A));
+    expect(err.kind).toBe("network");
+    expect(err.attempts).toBe(1);
+    expect(vistos).toHaveLength(1);
+    expect((vistos[0] as Error).message).toBe("HTTP 404: Not Found");
+    expect(h.waits).toEqual([]);
+  });
+
+  it("retries inválido na requisição falha alto, como o timeoutMs", async () => {
+    const h = harness([ok(1)]);
+    await expect(h.upstream.call().json(URL_A, { retries: -1 })).rejects.toThrow(RangeError);
+  });
+});
+
 describe("orçamento e timeout", () => {
   it("Retry-After maior que o que sobra do orçamento desiste na hora, sem dormir", async () => {
     const h = harness([status(429, "", { "retry-after": "60" })], { budgetMs: 10_000 });

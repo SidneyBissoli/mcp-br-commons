@@ -29,6 +29,14 @@ export interface RetryContext {
   response: Response | undefined;
   /** Corpo lido, quando o modo lê corpo. */
   body: string | undefined;
+  /**
+   * O que o `fetch` lançou (`network`, `timeout` no corpo) ou o que o parse lançou
+   * (`malformed_body`). Existe porque "o fetch lançou" não é sempre rede: o ibge
+   * distingue `ECONNRESET` (repete) de um `Error` que outra camada lançou dentro do
+   * fetch (não repete), e só o `cause` separa os dois. `undefined` quando a falha
+   * veio de um status.
+   */
+  cause?: unknown;
 }
 
 export interface UpstreamOptions {
@@ -111,9 +119,21 @@ export type UpstreamRequestInit = Omit<RequestInit, "signal"> & {
    * Existe porque o prazo justo depende da FORMA do pedido, não do servidor: o bcb dá 6 s
    * a um pedido de 20 observações (resposta real ≤ 0,4 s; código inexistente leva ~30 s
    * para negar) e 30 s a uma janela diária larga — na mesma chamada, no mesmo coletor.
-   * O orçamento total e o número de retries continuam os da política.
+   * O orçamento total continua o da política.
    */
   timeoutMs?: number | undefined;
+  /**
+   * Política de repetição só para esta ida, no lugar da política do coletor: `retries`
+   * (além da primeira tentativa), `backoff` (parcial, mesclado sobre o da política) e
+   * `retryOn`. Existe pelo mesmo motivo do `timeoutMs`: a repetição justa também depende
+   * da FORMA do pedido. O ibge dá 4 retries de 2→16 s a uma consulta principal e 2 de
+   * 0,5→2 s a um enriquecimento de melhor esforço, e NÃO repete o 500 da API de
+   * Agregados (que ela responde a parâmetro inválido, determinístico) — três políticas
+   * numa chamada, num coletor só. `budgetMs` continua o da política, por cima de tudo.
+   */
+  retries?: number | undefined;
+  backoff?: Partial<BackoffSpec> | undefined;
+  retryOn?: ((ctx: RetryContext) => boolean) | undefined;
 };
 
 export function resolveOptions(options: UpstreamOptions = {}): ResolvedUpstreamOptions {
@@ -244,11 +264,22 @@ export class UpstreamCall {
     mode: "response" | "text" | "json",
   ): Promise<{ response: Response; body: string | undefined; parsed: unknown }> {
     const o = this.options;
-    const { timeoutMs: perRequestTimeoutMs, ...fetchInit } = init;
-    if (perRequestTimeoutMs !== undefined && (!Number.isFinite(perRequestTimeoutMs) || perRequestTimeoutMs < 0)) {
-      throw new RangeError(`mcp-upstream: timeoutMs da requisição deve ser um número >= 0 (recebido ${String(perRequestTimeoutMs)})`);
+    const {
+      timeoutMs: perRequestTimeoutMs,
+      retries: perRequestRetries,
+      backoff: perRequestBackoff,
+      retryOn: perRequestRetryOn,
+      ...fetchInit
+    } = init;
+    for (const [k, v] of Object.entries({ timeoutMs: perRequestTimeoutMs, retries: perRequestRetries })) {
+      if (v !== undefined && (!Number.isFinite(v) || v < 0)) {
+        throw new RangeError(`mcp-upstream: ${k} da requisição deve ser um número >= 0 (recebido ${String(v)})`);
+      }
     }
     const attemptCeilingMs = perRequestTimeoutMs ?? o.timeoutMs;
+    const retries = perRequestRetries ?? o.retries;
+    const backoff: BackoffSpec = perRequestBackoff ? { ...o.backoff, ...stripUndefined(perRequestBackoff) } : o.backoff;
+    const retryOn = perRequestRetryOn ?? o.retryOn;
     this.#requests++;
     const started = o.now();
     const headers = new Headers(fetchInit.headers);
@@ -280,14 +311,22 @@ export class UpstreamCall {
       // fatia e responde parcial: e aí a resposta É instável, e o bloco tem de dizer.
       this.#anomalies.set(f.kind, (this.#anomalies.get(f.kind) ?? 0) + 1);
 
-      const retryable = o.retryOn({ url, attempt, kind: f.kind, status: f.status, response: f.response, body: f.body });
+      const retryable = retryOn({
+        url,
+        attempt,
+        kind: f.kind,
+        status: f.status,
+        response: f.response,
+        body: f.body,
+        cause: f.cause,
+      });
       const retryAfterMs = o.honorRetryAfter ? f.retryAfterMs : undefined;
       const fail = (): never => {
         throw new UpstreamError({ ...f, url, retryable, attempts: attempt });
       };
-      if (!retryable || attempt > o.retries) fail();
+      if (!retryable || attempt > retries) fail();
 
-      const wait = retryWaitMs(attempt - 1, retryAfterMs ?? null, o.backoff, o.random);
+      const wait = retryWaitMs(attempt - 1, retryAfterMs ?? null, backoff, o.random);
       const left = o.budgetMs - (o.now() - started);
       // Esperar mais do que sobra do orçamento só adiaria o mesmo timeout: desiste já,
       // com o erro repetível — é o desenho do senado, e é o que o pacote tem de honrar.

@@ -56,9 +56,13 @@ vez (cache puro, dado local) — o contrato manda `null`, não `{ attempts: 1 }`
 | `call.text(url, init?)` | lido | sim | corpo rejeitado |
 | `call.response(url, init?)` | **não consumido** | não | nunca (o corpo é seu) |
 
-`init` é um `RequestInit` normal; um `signal` seu é combinado com o do timeout. `init.timeoutMs`
-troca o teto de UMA tentativa só naquela ida (o bcb dá 6 s a um pedido de 20 observações e
-30 s a uma janela larga, no mesmo coletor); orçamento e retries seguem os da política.
+`init` é um `RequestInit` normal; um `signal` seu é combinado com o do timeout. Quatro chaves
+a mais trocam a política **só naquela ida**, no mesmo coletor, porque prazo e repetição justos
+dependem da FORMA do pedido, não do servidor: `timeoutMs` (teto de UMA tentativa — o bcb dá
+6 s a um pedido de 20 observações e 30 s a uma janela larga), `retries`, `backoff` (parcial,
+mesclado sobre o da política) e `retryOn` (o ibge dá 4 retries de 2→16 s à consulta principal,
+2 de 0,5→2 s a um enriquecimento de melhor esforço, e não repete o 500 determinístico da API
+de Agregados). Nenhuma delas vaza para o `fetch`; `budgetMs` segue o da política, por cima.
 
 ### Classificação e repetição
 
@@ -76,7 +80,10 @@ troca o teto de UMA tentativa só naquela ida (o bcb dá 6 s a um pedido de 20 o
 Os seis primeiros são o vocabulário fechado de `retrieval.anomalies`. **`not_found` e
 `aborted` não são anomalias**: ausência é resposta da origem, e cancelamento é decisão
 do chamador. `retryOn(ctx)` troca a política de repetição (ex.: repetir um 4xx que a
-origem usa como "tente de novo"); `retries` e `budgetMs` continuam valendo por cima.
+origem usa como "tente de novo"); `retries` e `budgetMs` continuam valendo por cima. O `ctx`
+traz `url`, `attempt`, `kind`, `status`, `response`, `body` e `cause` (o que o `fetch` ou o
+parse lançou) — é pelo `cause` que um servidor separa `ECONNRESET` de um erro que outra camada
+lançou dentro do fetch.
 
 **Toda tentativa falha conta como anomalia** — a superada e a final. Como `retrieval`
 só sai no sucesso da tool, a diferença só aparece quando o servidor engole a falha de

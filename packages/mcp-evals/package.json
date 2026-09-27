@@ -1,7 +1,7 @@
 {
   "name": "@sbissoli/mcp-evals",
-  "version": "0.1.1",
-  "description": "Harness de evals de seleção de tool para servidores MCP: extrator de catálogo (fake McpServer), validação de fixtures, scorer offline (top-1/top-k/por-área), gate de acurácia e runner via Anthropic Messages API.",
+  "version": "0.2.0",
+  "description": "Harness de evals para servidores MCP: seleção de tool em turno único (catálogo, fixtures, scorer, gate, runner via Messages API) e SESSÃO LONGA (loop client-side por stdio, A/B do bloco `retrieval`, métrica de chamadas ruins por tarefa, teto de gasto, NDJSON com resume).",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
@@ -17,11 +17,16 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./session": {
+      "types": "./dist/session/index.d.ts",
+      "default": "./dist/session/index.js"
     }
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -33,14 +38,26 @@
     "evals",
     "tool-selection",
     "evaluation",
-    "open-data"
+    "open-data",
+    "long-session",
+    "provenance"
   ],
   "author": "Sidney Bissoli <sbissoli76@gmail.com>",
   "license": "MIT",
   "peerDependencies": {
-    "zod": "^4.0.0"
+    "zod": "^4.0.0",
+    "@modelcontextprotocol/client": "^2.0.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.0.0",
     "zod": "^4.6.5"
+  },
+  "bin": {
+    "mcp-evals-session": "./dist/session/cli.js"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/client": {
+      "optional": true
+    }
   }
 }

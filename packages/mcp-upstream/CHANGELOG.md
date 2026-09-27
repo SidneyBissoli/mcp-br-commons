@@ -4,6 +4,24 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.3.0] — 2026-09-27
+
+Segunda adoção (ibge-br-mcp) pediu o par do `timeoutMs`: a REPETIÇÃO justa também depende
+da forma do pedido. O ibge dá 4 retries de 2→16 s a uma consulta principal, 2 de 0,5→2 s a
+um enriquecimento de melhor esforço (`ibge_cidades`, `ibge_vizinhos`) e não repete o 500 da
+API de Agregados (que ela responde a parâmetro inválido, determinístico) — três políticas
+numa chamada de tool, e o coletor tem de ser um só.
+
+### Adicionado
+- `retries`, `backoff` (parcial, mesclado sobre o da política) e `retryOn` em
+  `UpstreamRequestInit`: política de repetição só para aquela ida, no mesmo coletor.
+  Nenhum vaza para o `init` do `fetch`; `budgetMs` continua o da política, por cima.
+  `retries` inválido falha alto (`RangeError`), como `timeoutMs`.
+- `cause` em `RetryContext`: o que o `fetch` lançou (`network`, `timeout` lendo o corpo) ou
+  o que o parse lançou (`malformed_body`). "O fetch lançou" não é sempre rede — o ibge
+  repete `ECONNRESET`/`fetch failed` e não repete um `Error` que outra camada lançou dentro
+  do fetch, e só o `cause` separa os dois.
+
 ## [0.2.0] — 2026-09-27
 
 Primeira adoção (bcb-br-mcp) pediu um ajuste: o prazo justo de uma tentativa depende da

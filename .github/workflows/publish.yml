@@ -37,6 +37,7 @@ on:
           - mcp-search
           - mcp-provenance
           - mcp-evals
+          - mcp-upstream
   # Tag no formato `<pacote>-v<versão>` (ex.: `mcp-stats-v0.3.0`): o monorepo
   # não pode usar `v*` porque a tag precisa dizer DE QUAL pacote se trata.
   push:

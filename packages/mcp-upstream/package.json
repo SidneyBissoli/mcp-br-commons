@@ -1,0 +1,49 @@
+{
+  "name": "@sbissoli/mcp-upstream",
+  "version": "0.1.0",
+  "description": "Fetch comum dos servidores MCP: retry com backoff e Retry-After, timeout por tentativa e orçamento por chamada, e a contagem de tentativas e anomalias que alimenta o `retrieval` do contrato de proveniência v1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
+    "directory": "packages/mcp-upstream"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./als": {
+      "types": "./dist/als.d.ts",
+      "default": "./dist/als.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sbissoli/mcp-provenance": "^0.2.0"
+  },
+  "keywords": [
+    "mcp",
+    "fetch",
+    "retry",
+    "timeout",
+    "provenance",
+    "open-data"
+  ],
+  "author": "Sidney Bissoli <sbissoli76@gmail.com>",
+  "license": "MIT"
+}

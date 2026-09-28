@@ -3,10 +3,11 @@
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões seguem
 semver; em 0.x, superfície publicada que muda é minor.
 
-## [0.2.0] — 2026-09-28 (não publicado)
+## [0.2.0] — 2026-09-27
 
 O item 3 do fio do fetch comum (comentário no dev.to, 26/09/2026): medir em SESSÃO LONGA se
-o `provenance.retrieval` reduz chamadas ruins. O pacote só media turno único.
+o `provenance.retrieval` reduz chamadas ruins. O pacote só media turno único. Publicado em
+27/09 (tag `mcp-evals-v0.2.0`) para o bcb-br-mcp depender do pacote real, não de um build local.
 
 ### Adicionado
 - Subpath `./session` e bin `mcp-evals-session`: runner de sessão longa com loop client-side

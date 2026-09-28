@@ -141,8 +141,10 @@ async function main(): Promise<number> {
   if (!existsSync(serverAbs)) throw new Error(`--server: não existe ${serverAbs} (rode o build do servidor)`);
   const serverCwd = str(args, "server-cwd") ?? findPackageRoot(dirname(serverAbs));
   const serverSha = str(args, "sha") ?? gitShortSha(serverCwd);
-  const faultPreload = new URL("./fault.js", import.meta.url);
-  const faultPreloadPath = faultPreload.protocol === "file:" ? decodeURIComponent(faultPreload.pathname.replace(/^\/([A-Za-z]:)/, "$1")) : "";
+  // `node --import` recebe a URL file:// e não o caminho: no Windows, um caminho absoluto
+  // com letra de unidade é lido como URL de protocolo "c:" e o servidor morre na subida
+  // (ERR_UNSUPPORTED_ESM_URL_SCHEME). A URL vale nas três plataformas.
+  const faultPreloadPath = new URL("./fault.js", import.meta.url).href;
 
   const faults = (str(args, "fault") ?? "0").split(",").map((s) => s.trim()).filter(Boolean);
   for (const f of faults) if (!(f in taskSet.faults)) throw new Error(`nível de falha "${f}" não existe no TaskSet (tem: ${Object.keys(taskSet.faults).join(", ")})`);

@@ -115,12 +115,51 @@ a camada de **completude de tarefa** (o modelo responde certo usando as tools?) 
 pelo `evaluation.py` do mcp-builder (assets em `fase0-insumos/mcp-builder-evaluation/`)
 e/ou MCPJam Inspector — complementares, não substitutos.
 
+## Sessão longa (`@sbissoli/mcp-evals/session`)
+
+A segunda camada do pacote mede a **sessão**, não o turno: o modelo recebe uma tarefa de
+10–25 passos, chama as tools de um servidor MCP real e segue até concluir. Nasceu para
+responder, com número, se o diagnóstico de origem do contrato v1.1 (`provenance.retrieval`
+— idas, tentativas, anomalias, `unstable`) **reduz chamadas ruins em execuções longas**.
+
+- **Transporte**: loop client-side por stdio (`@modelcontextprotocol/client`, peer opcional)
+  sobre o `dist/index.js` do servidor — sem deploy, sem URL pública, sem o MCP connector.
+- **A/B**: braço A recebe o `tool_result` como sai do servidor; braço B recebe o mesmo texto
+  com `provenance.retrieval` apagado (objeto ou array), no mesmo formato. Só o A ganha uma
+  frase de system prompt explicando o campo; as duas prompts vão ao NDJSON.
+- **Falha injetada na origem**: `node --import dist/session/fault.js` embrulha o `fetch` do
+  processo do servidor e, por regra determinística (semente + URL + nº da ida), responde
+  502/HTML/timeout em X % das idas. O `retrieval` sai verdadeiro; o servidor se comporta como
+  em produção sob oscilação. Regras por servidor, versionadas nas tarefas dele.
+- **Métrica "chamada ruim por tarefa"**, por trace: (a) repetir a MESMA chamada após erro
+  definitivo, (b) recusa de esquema, (c) insistência (≥3 chamadas na mesma chave, todas com
+  erro). (d) citar valor instável sem ressalva pede juiz (modelo barato) e sai separada.
+- **Teto de gasto obrigatório** (`--budget-usd` / `EVAL_BUDGET_USD`): soma o `usage` de cada
+  requisição, loop e juiz, e aborta ao cruzar; modelo sem preço na tabela é erro.
+- **NDJSON com resume** por (data, sha, braço, nível): sessão concluída não roda de novo;
+  dropout de infra e teto ficam fora da agregação. Relatório Markdown gerado dos NDJSON.
+- **`--dry`**: servidor real, modelo dublado — executa o roteiro de cada tarefa e mede
+  tokens por resposta (contagem exata com `--count-tokens`, endpoint gratuito) e o custo
+  estimado por sessão ANTES de aprovar a rodada.
+
+```bash
+# no servidor sob teste (dist/ construído), sem gastar:
+tsx ../mcp-br-commons/packages/mcp-evals/dist/session/cli.js   --server dist/index.js --tasks evals/session/tasks.ts --dry
+# rodada paga (ANTHROPIC_API_KEY só aqui; nunca no processo do servidor):
+EVAL_BUDGET_USD=5 tsx .../dist/session/cli.js --server dist/index.js   --tasks evals/session/tasks.ts --arm both --fault 0,20 --runs 1 --limit 1 --model claude-opus-5
+```
+
+O conjunto de tarefas (`TaskSet`) é um módulo do servidor: `systemPrompt` comum,
+`faults` por nível, e tarefas com `prompt`, `expectedTools`, `script` (roteiro do `--dry`,
+validado offline por `validateTaskSet` contra o catálogo), `answer` (gabarito mecânico) e
+`trap`. Primeiro adotante: `bcb-br-mcp/src/evals/session/tasks.ts`.
+
 ## Desenvolvimento
 
 ```bash
 npm run typecheck
-npm test        # 61 testes offline (catálogo, fixtures, scorer, retry, report, runner com fetch injetado)
+npm test        # 112 testes offline (turno único + sessão longa: loop, filtro, métricas, falha, teto, resume)
 npm run build
 ```
 
-Dependências: `zod` ^4 como peer (para `z.toJSONSchema` no extrator); nada mais.
+Dependências: `zod` ^4 como peer (para `z.toJSONSchema` no extrator); `@modelcontextprotocol/client` ^2 como peer OPCIONAL (só o subpath `./session` o carrega, por import dinâmico).

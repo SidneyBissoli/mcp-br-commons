@@ -46,10 +46,10 @@
   "license": "MIT",
   "peerDependencies": {
     "zod": "^4.0.0",
-    "@modelcontextprotocol/client": "^2.0.0"
+    "@modelcontextprotocol/client": "^2.1.0"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/client": "^2.1.0",
     "zod": "^4.6.5"
   },
   "bin": {

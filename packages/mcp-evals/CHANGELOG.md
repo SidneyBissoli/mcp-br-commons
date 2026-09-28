@@ -3,6 +3,20 @@
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões seguem
 semver; em 0.x, superfície publicada que muda é minor.
 
+## [0.2.1] — 2026-09-28
+
+Achado pela primeira rodada PAGA do item 3 (bcb-br-mcp, 96 sessões, Sonnet 5, 28/09/2026): o
+runner morria na primeira conexão com nível de falha injetada, no Windows. O `--dry` nunca
+exercita o `--import` com regras, então a classe passou pelo passo 1.
+
+### Corrigido
+- `mcp-evals-session`: o preload de falha (`dist/session/fault.js`) ia ao `node --import` como
+  caminho com letra de unidade (`C:/...`); o Node lê isso como URL de protocolo `c:` e o
+  servidor morre na subida (`ERR_UNSUPPORTED_ESM_URL_SCHEME`, `SdkError: Connection closed`).
+  Agora vai a URL `file://` (`new URL("./fault.js", import.meta.url).href`), que o `--import`
+  aceita nas três plataformas. Provado com preload mínimo no Windows; a rodada do bcb terminou
+  com o dist corrigido (48 sessões no nível 20, sem dropout).
+
 ## [0.2.0] — 2026-09-27
 
 O item 3 do fio do fetch comum (comentário no dev.to, 26/09/2026): medir em SESSÃO LONGA se

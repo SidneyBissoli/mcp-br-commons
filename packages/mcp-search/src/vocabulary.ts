@@ -179,9 +179,25 @@ function comecaEmFronteira(texto: string, padrao: string): boolean {
   return false;
 }
 
+/**
+ * Hífens (e os traços que editores trocam por ele) viram espaço nos DOIS lados.
+ *
+ * Medido em 27/09/2026 no bcb: `bcb_buscar_serie("IGP-M")` devolvia ZERO, e "IGP"
+ * achava a 189. A fronteira de palavra já tratava o hífen como separador no
+ * texto ("igp-m - variacao" tem a palavra "m"), mas a consulta ficava inteira
+ * ("igp-m" era UM padrão) — e um padrão com hífen não começa palavra nenhuma num
+ * texto onde o hífen separa. O servidor ainda trocava `-` por espaço só no texto,
+ * o que garantia a assimetria. Notação limpa dos dois lados: o hífen é espaço na
+ * consulta, na tabela e no texto, e a consulta hifenizada vira FRASE ("igp m"),
+ * para "IGP-M" não casar "IGP-DI - Variação mensal" pela letra `m` de "mensal".
+ */
+const HIFENS = /[-‐‑‒–—]+/g;
+/** A mesma classe, sem `g`: `RegExp.test` com `g` guarda `lastIndex` e mente na segunda chamada. */
+const TEM_HIFEN = /[-‐‑‒–—]/;
+
 export function createVocabulary(options: VocabularyOptions): Vocabulary {
   const { locale, sourceName } = options;
-  const normalize = (text: string): string => normalizeText(text);
+  const normalize = (text: string): string => normalizeText(text.replace(HIFENS, " "));
   const entries: readonly VocabularyEntry[] = options.entries.map((e) => ({
     asked: normalize(e.asked),
     source: e.source.map(normalize),
@@ -198,7 +214,16 @@ export function createVocabulary(options: VocabularyOptions): Vocabulary {
   function queryTerms(query: string): string[] {
     let rest = ` ${normalize(query)} `;
     const out: string[] = [];
-    for (const phrase of phrases) {
+    // "igp-m", "covid-19", "pre-primary": a palavra composta da consulta é UMA
+    // frase, casada antes da quebra — da mais longa para a mais curta, como as
+    // frases da tabela.
+    const compounds = query
+      .split(/\s+/)
+      .filter((w) => TEM_HIFEN.test(w))
+      .map(normalize)
+      .filter((c) => c.includes(" "))
+      .sort((a, b) => b.length - a.length);
+    for (const phrase of [...compounds, ...phrases]) {
       const needle = ` ${phrase} `;
       if (rest.includes(needle)) {
         out.push(phrase);

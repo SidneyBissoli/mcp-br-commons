@@ -222,3 +222,35 @@ describe("fronteira de palavra: o padrão casa o INÍCIO de uma palavra, nunca o
     expect(casa("Taxa de desocupação/subutilização", "desemprego")).toBe(true);
   });
 });
+
+describe("hífen: notação limpa dos DOIS lados (bcb, 27/09/2026: \"IGP-M\" devolvia zero)", () => {
+  const casa = (nome: string, termo: string, v = pt): boolean =>
+    v.matchesQuery(v.normalize(nome), v.expandQuery(termo));
+
+  it("a consulta hifenizada casa o nome hifenizado E o nome com espaço", () => {
+    expect(casa("IGP-M - Variação mensal", "IGP-M")).toBe(true);
+    expect(casa("IGP M - Variação mensal", "IGP-M")).toBe(true);
+    expect(casa("IPCA-15 - Variação mensal", "ipca-15")).toBe(true);
+    expect(casa("COVID-19, vírus identificado", "covid-19", en)).toBe(true);
+  });
+
+  it("a consulta com espaço casa o nome hifenizado", () => {
+    expect(casa("IGP-M - Variação mensal", "igp m")).toBe(true);
+    expect(casa("Pre-primary education", "pre primary", en)).toBe(true);
+  });
+
+  it("a palavra composta é FRASE: \"IGP-M\" não casa \"IGP-DI\" pela letra m de \"mensal\"", () => {
+    expect(casa("IGP-DI - Variação mensal", "IGP-M")).toBe(false);
+    expect(casa("IGP-10 - Variação mensal", "IGP-M")).toBe(false);
+    expect(pt.expandQuery("IGP-M").map((e) => e.term)).toEqual(["igp m"]);
+  });
+
+  it("o servidor que já trocava hífen por espaço só no texto continua certo (a troca virou redundante)", () => {
+    expect(casa("IGP-M - Variação mensal".replace(/-+/g, " "), "IGP-M")).toBe(true);
+  });
+
+  it("a ponta inversa vê o hífen como espaço também", () => {
+    const v = createVocabulary({ entries: [{ asked: "igpm", source: ["igp m"] }], locale: "pt-BR", sourceName: "o BCB" });
+    expect(v.askedWordsFor("IGP-M - Variação mensal")).toEqual(["igpm"]);
+  });
+});

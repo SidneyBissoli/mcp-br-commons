@@ -5,6 +5,16 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). As versões anteriores a 0.7.0 estão no
 histórico do git (`git log -- packages/mcp-search`).
 
+## [0.8.1] — 2026-09-30
+
+### Corrigido
+- `peerDependencies`: `@modelcontextprotocol/server` volta a `^2.0.0`. O Dependabot (#24,
+  29/09) subiu o peer para `^2.1.0` junto com a devDependency, e a 0.8.0 saiu com ele:
+  o senado-br-mcp não instala, porque o `agents` 0.24.0 (a última) fixa a SDK em 2.0.0.
+  O pacote só importa TIPOS da SDK (`CallToolResult`, `McpServer`, `ToolAnnotations`),
+  presentes desde a 2.0.0. O `dependabot.yml` passa a `increase-if-necessary`, para não
+  repetir.
+
 ## [0.8.0] — 2026-09-30
 
 Medido em 30/09/2026 na varredura da frota depois da prova de produção da classe do

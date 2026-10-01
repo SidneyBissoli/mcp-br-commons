@@ -36,6 +36,7 @@ export {
   type VocabularyOptions,
 } from "./vocabulary.js";
 export {
+  CLASSE_DO_ERRO,
   registerDeepResearchTools,
   type DeepResearchToolsOptions,
   type FetchReply,

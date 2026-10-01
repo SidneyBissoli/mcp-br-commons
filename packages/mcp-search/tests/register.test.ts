@@ -4,7 +4,7 @@ import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { DEEP_RESEARCH_TOOLS, type FetchDocument, type SearchResult } from "../src/contract.js";
 import { createIndex } from "../src/rank.js";
-import { registerDeepResearchTools, type DeepResearchToolsOptions } from "../src/register.js";
+import { CLASSE_DO_ERRO, registerDeepResearchTools, type DeepResearchToolsOptions } from "../src/register.js";
 
 /**
  * Exercita a fábrica contra um McpServer REAL, por transporte in-memory e o
@@ -211,6 +211,96 @@ describe("registerDeepResearchTools — chamadas", () => {
       ["tool_call", "fetch", { params: "id", classe: "" }],
       ["tool_error", "fetch", { params: "id", classe: "nao_encontrado" }],
     ]);
+    await client.close();
+  });
+
+  // 0.8.0 — a classe pelo TIPO, medido em 30/09/2026 na produção da frota.
+  // O classificador de frase abaixo imita o do portfólio na ordem que importa:
+  // `contrato` (invalid, rate limit) é testado ANTES de `nao_encontrado`.
+  const frase = (m: string) =>
+    /invalid|rate limit/i.test(m) ? "contrato" : /not found|não encontrad/i.test(m) ? "nao_encontrado" : "outro";
+
+  it("id desconhecido é nao_encontrado mesmo quando o id ecoado casaria `contrato`", async () => {
+    const record = vi.fn();
+    const client = await conectar(opcoes({ record, classifyError: frase }));
+    await client.callTool({ name: "fetch", arguments: { id: "invalid" } });
+    expect(record.mock.calls.at(-1)).toEqual(["tool_error", "fetch", { params: "id", classe: "nao_encontrado" }]);
+    await client.close();
+  });
+
+  it("exceção que DECLARA a classe vence a frase", async () => {
+    const record = vi.fn();
+    const erro = Object.assign(new Error("HTTP 429: rate limit"), { classe: "fonte" });
+    const client = await conectar(
+      opcoes({
+        record,
+        classifyError: frase,
+        fetch: async () => {
+          throw erro;
+        },
+      }),
+    );
+    const r = await client.callTool({ name: "fetch", arguments: { id: "x" } });
+    // O texto ao cliente não muda.
+    expect(texto(r)).toBe("Falha em `fetch`: HTTP 429: rate limit");
+    expect(record.mock.calls.at(-1)).toEqual(["tool_error", "fetch", { params: "id", classe: "fonte" }]);
+    await client.close();
+  });
+
+  it("classifyThrown decide pelo tipo; vazio devolve a decisão à frase", async () => {
+    const record = vi.fn();
+    const classifyThrown = (e: unknown) => (e instanceof TypeError ? "defeito" : undefined);
+    const client = await conectar(
+      opcoes({
+        record,
+        classifyError: frase,
+        classifyThrown,
+        search: async (q) => {
+          if (q === "bug") throw new TypeError("Cannot read properties of undefined (reading 'invalid')");
+          throw new Error("documento not found na origem");
+        },
+      }),
+    );
+    await client.callTool({ name: "search", arguments: { query: "bug" } });
+    await client.callTool({ name: "search", arguments: { query: "outra" } });
+    const erros = record.mock.calls.filter((c) => c[0] === "tool_error").map((c) => c[2].classe);
+    expect(erros).toEqual(["defeito", "nao_encontrado"]);
+    await client.close();
+  });
+
+  it("a classe pelo tipo viaja no RESULTADO, fora do fio, para o hook de quem embrulha o handler", async () => {
+    // bcb, medical e senado capturam o handler e o embrulham com o hook deles,
+    // sem `record` nem `classifyError` daqui: só o resultado chega lá.
+    const capturados = new Map<string, (args: Record<string, unknown>) => Promise<Record<PropertyKey, unknown>>>();
+    const coletor = {
+      registerTool: (name: string, _c: unknown, cb: (args: Record<string, unknown>) => Promise<Record<PropertyKey, unknown>>) => {
+        capturados.set(name, cb);
+      },
+    };
+    const erro = Object.assign(new Error("timeout"), { classe: "fonte" });
+    registerDeepResearchTools(
+      coletor as unknown as McpServer,
+      opcoes({
+        search: async () => {
+          throw erro;
+        },
+      }),
+    );
+    const naoAchou = await capturados.get("fetch")!({ id: "invalid" });
+    expect(naoAchou[CLASSE_DO_ERRO]).toBe("nao_encontrado");
+    expect(Object.keys(naoAchou).sort()).toEqual(["content", "isError"]);
+    const falhou = await capturados.get("search")!({ query: "x" });
+    expect(falhou[CLASSE_DO_ERRO]).toBe("fonte");
+    // Sucesso e erro sem tipo não ganham classe: a frase do servidor decide.
+    const ok = await capturados.get("fetch")!({ id: "mun:3550308" });
+    expect(ok[CLASSE_DO_ERRO]).toBeUndefined();
+  });
+
+  it("sem classifyError a classe continua vazia, mesmo com o tipo à mão", async () => {
+    const record = vi.fn();
+    const client = await conectar(opcoes({ record, classifyThrown: () => "defeito" }));
+    await client.callTool({ name: "fetch", arguments: { id: "nada" } });
+    expect(record.mock.calls.at(-1)).toEqual(["tool_error", "fetch", { params: "id", classe: "" }]);
     await client.close();
   });
 

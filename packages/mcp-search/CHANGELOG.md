@@ -5,6 +5,30 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). As versões anteriores a 0.7.0 estão no
 histórico do git (`git log -- packages/mcp-search`).
 
+## [0.8.0] — 2026-09-30
+
+Medido em 30/09/2026 na varredura da frota depois da prova de produção da classe do
+erro: `search` e `fetch` eram as únicas tools classificadas SÓ pela frase. Toda exceção
+virava texto em `onError` e o tipo se perdia — o timeout da origem no `fetch` do bcb saía
+`outro`, o 429 no ibge saía `contrato` (que o painel exclui da taxa de erro) — e o id
+desconhecido ecoado em `notFound` puxava `contrato` quando o id continha "invalid".
+
+### Adicionado
+- `classifyThrown?: (error) => string | undefined` — a classe de uma exceção pelo TIPO
+  (o `classifyThrown` do servidor). Vazio devolve a decisão à frase.
+- `CLASSE_DO_ERRO` (exportado): a classe decidida pelo tipo também viaja no RESULTADO, numa
+  chave-símbolo não enumerável (a da frota, `Symbol.for("br.com.sidneybissoli.mcp/classe-do-erro")`),
+  para o hook dos servidores que capturam o handler e o embrulham (bcb, medical, senado).
+
+### Corrigido
+- Com `classifyError` presente, a classe do `tool_error` vem do TIPO quando há um, e da
+  frase só no resto: id desconhecido em `fetch` -> `nao_encontrado`; exceção com
+  `error.classe` (string não vazia) -> essa classe; senão `classifyThrown(error)`.
+- O texto devolvido ao cliente não muda.
+
+### Inalterado
+- Sem `classifyError`, a classe continua vazia (o vocabulário é de cada servidor).
+
 ## [0.7.0] — 2026-09-27
 
 Medido no bcb-br-mcp em 27/09/2026 pelo `--dry` do runner de sessão longa:

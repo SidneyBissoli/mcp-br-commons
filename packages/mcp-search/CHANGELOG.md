@@ -16,6 +16,9 @@ desconhecido ecoado em `notFound` puxava `contrato` quando o id continha "invali
 ### Adicionado
 - `classifyThrown?: (error) => string | undefined` — a classe de uma exceção pelo TIPO
   (o `classifyThrown` do servidor). Vazio devolve a decisão à frase.
+- `CLASSE_DO_ERRO` (exportado): a classe decidida pelo tipo também viaja no RESULTADO, numa
+  chave-símbolo não enumerável (a da frota, `Symbol.for("br.com.sidneybissoli.mcp/classe-do-erro")`),
+  para o hook dos servidores que capturam o handler e o embrulham (bcb, medical, senado).
 
 ### Corrigido
 - Com `classifyError` presente, a classe do `tool_error` vem do TIPO quando há um, e da

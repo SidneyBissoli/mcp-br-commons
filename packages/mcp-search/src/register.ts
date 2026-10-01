@@ -163,6 +163,16 @@ function classeDeclarada(error: unknown): string | undefined {
  */
 const CLASSE_NAO_ENCONTRADO = "nao_encontrado";
 
+/**
+ * Onde a classe decidida pelo TIPO viaja no resultado: chave-símbolo NÃO
+ * enumerável — o fio (JSON) não a vê, o hook do servidor a lê antes da frase.
+ * É a chave da frota (`CLASSE_DO_ERRO` no `call-shape.ts` de cada servidor,
+ * `Symbol.for`, então é o mesmo símbolo dos dois lados). Necessária porque
+ * bcb, medical e senado não usam `record`: capturam o handler daqui e o
+ * embrulham com o hook deles, que só vê o resultado.
+ */
+export const CLASSE_DO_ERRO: unique symbol = Symbol.for("br.com.sidneybissoli.mcp/classe-do-erro");
+
 const DEFAULTS: Record<ContractLocale, LocaleDefaults> = {
   "pt-BR": {
     titles: { search: "Busca para Deep Research", fetch: "Documento para Deep Research" },
@@ -236,6 +246,9 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
       }
       const forma: FormaDaChamada = { params: nomesDeParametro(args), classe: "" };
       opts.record?.("tool_call", tool, forma);
+      if (result.isError === true && classePeloTipo !== undefined) {
+        Object.defineProperty(result, CLASSE_DO_ERRO, { value: classePeloTipo, enumerable: false });
+      }
       if (result.isError === true) {
         const classe = opts.classifyError
           ? (classePeloTipo ?? opts.classifyError(textoDoErro(result)))

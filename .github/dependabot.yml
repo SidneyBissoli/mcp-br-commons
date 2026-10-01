@@ -20,6 +20,12 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    # BIBLIOTECA: o range declarado é o PISO que os consumidores precisam, não
+    # a versão que o CI usa. Na estratégia padrão o Dependabot subiu o peer do
+    # mcp-search de ^2.0.0 a ^2.1.0 junto com a devDependency (#24, 29/09/2026),
+    # e a 0.8.0 publicada não instalava no senado (o `agents` fixa a SDK 2.0.0).
+    # `increase-if-necessary` só mexe no range quando a versão nova não cabe nele.
+    versioning-strategy: increase-if-necessary
     groups:
       minor-and-patch:
         update-types:

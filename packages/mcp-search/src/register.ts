@@ -23,7 +23,9 @@
  *    continua valendo para as duas;
  *  - `record` recebe `tool_call`/`tool_error` como o `handle` dos servidores,
  *    agora com a FORMA da chamada: os NOMES dos parâmetros e, quando o servidor
- *    passa `classifyError`, a classe do erro. Nunca o VALOR de um parâmetro —
+ *    passa `classifyError`, a classe do erro — pelo TIPO quando há um (id
+ *    desconhecido, `error.classe`, `classifyThrown`), pela frase só no resto
+ *    (0.8.0). Nunca o VALOR de um parâmetro —
  *    `query` é texto livre e o que a pessoa digitou não entra na telemetria.
  */
 
@@ -118,6 +120,17 @@ export interface DeepResearchToolsOptions {
    * vocabulário é de cada servidor e não cabe aqui.
    */
   classifyError?: (message: string) => string;
+  /**
+   * Classe de uma EXCEÇÃO lançada por `search`/`fetch`, pelo TIPO (o
+   * `classifyThrown` do servidor: `TypeError` & cia. -> `defeito`, erro da
+   * origem -> a classe que ele declara). Devolver `undefined` ou `""` deixa a
+   * decisão para a frase. Só vale com `classifyError` presente.
+   *
+   * Antes dele (até 0.7.0), toda exceção era achatada em texto por `onError`
+   * e classificada pela FRASE — medido em 30/09/2026: o timeout da origem no
+   * `fetch` do bcb saía `outro` e o 429 no ibge, `contrato`.
+   */
+  classifyThrown?: (error: unknown) => string | undefined;
   /** Mensagem para id desconhecido em `fetch` (padrão no idioma de `locale`). */
   notFound?: (id: string) => string;
   /** Mensagem quando `search`/`fetch` lançam — o erro nunca sobe ao cliente cru (padrão no idioma de `locale`). */
@@ -132,6 +145,23 @@ interface LocaleDefaults {
 
 const detalheDe = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+
+/**
+ * A classe que a exceção DECLARA (`error.classe`, string não vazia) — é como
+ * os servidores do portfólio tipam a falha da origem desde 30/09/2026. O
+ * pacote não valida o vocabulário: ele é de cada servidor.
+ */
+function classeDeclarada(error: unknown): string | undefined {
+  const c = (error as { classe?: unknown } | null | undefined)?.classe;
+  return typeof c === "string" && c !== "" ? c : undefined;
+}
+
+/**
+ * Classe do id que `fetch` não conhece: ausência RESPONDIDA, decidida aqui e
+ * não pela frase — a mensagem ecoa o id, e um id como "invalid" casava a regra
+ * de `contrato` dos classificadores do portfólio (medido em 30/09/2026).
+ */
+const CLASSE_NAO_ENCONTRADO = "nao_encontrado";
 
 const DEFAULTS: Record<ContractLocale, LocaleDefaults> = {
   "pt-BR": {
@@ -190,22 +220,27 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
     (
       tool: DeepResearchToolName,
       args: Record<string, unknown>,
-      run: () => Promise<CallToolResult>,
+      run: () => Promise<{ result: CallToolResult; classe?: string }>,
     ) =>
     async () => {
       let result: CallToolResult;
+      // A classe decidida pelo TIPO, quando há um; senão, a frase decide.
+      let classePeloTipo: string | undefined;
       try {
-        result = await run();
+        const r = await run();
+        result = r.result;
+        classePeloTipo = r.classe;
       } catch (error) {
         result = deepResearchError(onError(error, tool));
+        classePeloTipo = classeDeclarada(error) ?? (opts.classifyThrown?.(error) || undefined);
       }
       const forma: FormaDaChamada = { params: nomesDeParametro(args), classe: "" };
       opts.record?.("tool_call", tool, forma);
       if (result.isError === true) {
-        opts.record?.("tool_error", tool, {
-          ...forma,
-          classe: opts.classifyError?.(textoDoErro(result)) ?? "",
-        });
+        const classe = opts.classifyError
+          ? (classePeloTipo ?? opts.classifyError(textoDoErro(result)))
+          : "";
+        opts.record?.("tool_error", tool, { ...forma, classe });
       }
       return result;
     };
@@ -227,7 +262,7 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
         const { results, extras } = isReply(resposta)
           ? { results: resposta.results, extras: resposta.extras }
           : { results: resposta, extras: undefined };
-        return deepResearchResult({ results: results.slice(0, limit) }, extras);
+        return { result: deepResearchResult({ results: results.slice(0, limit) }, extras) };
       })()
   );
 
@@ -243,10 +278,12 @@ export function registerDeepResearchTools(server: McpServer, opts: DeepResearchT
     async ({ id }) =>
       instrumented("fetch", { id }, async () => {
         const resposta = await opts.fetch(id);
-        if (resposta === null) return deepResearchError(notFound(id));
+        if (resposta === null) {
+          return { result: deepResearchError(notFound(id)), classe: CLASSE_NAO_ENCONTRADO };
+        }
         const { document, extras } =
           "document" in resposta ? resposta : { document: resposta, extras: undefined };
-        return deepResearchResult({ ...document }, extras);
+        return { result: deepResearchResult({ ...document }, extras) };
       })()
   );
 }

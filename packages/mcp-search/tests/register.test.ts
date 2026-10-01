@@ -214,6 +214,68 @@ describe("registerDeepResearchTools — chamadas", () => {
     await client.close();
   });
 
+  // 0.8.0 — a classe pelo TIPO, medido em 30/09/2026 na produção da frota.
+  // O classificador de frase abaixo imita o do portfólio na ordem que importa:
+  // `contrato` (invalid, rate limit) é testado ANTES de `nao_encontrado`.
+  const frase = (m: string) =>
+    /invalid|rate limit/i.test(m) ? "contrato" : /not found|não encontrad/i.test(m) ? "nao_encontrado" : "outro";
+
+  it("id desconhecido é nao_encontrado mesmo quando o id ecoado casaria `contrato`", async () => {
+    const record = vi.fn();
+    const client = await conectar(opcoes({ record, classifyError: frase }));
+    await client.callTool({ name: "fetch", arguments: { id: "invalid" } });
+    expect(record.mock.calls.at(-1)).toEqual(["tool_error", "fetch", { params: "id", classe: "nao_encontrado" }]);
+    await client.close();
+  });
+
+  it("exceção que DECLARA a classe vence a frase", async () => {
+    const record = vi.fn();
+    const erro = Object.assign(new Error("HTTP 429: rate limit"), { classe: "fonte" });
+    const client = await conectar(
+      opcoes({
+        record,
+        classifyError: frase,
+        fetch: async () => {
+          throw erro;
+        },
+      }),
+    );
+    const r = await client.callTool({ name: "fetch", arguments: { id: "x" } });
+    // O texto ao cliente não muda.
+    expect(texto(r)).toBe("Falha em `fetch`: HTTP 429: rate limit");
+    expect(record.mock.calls.at(-1)).toEqual(["tool_error", "fetch", { params: "id", classe: "fonte" }]);
+    await client.close();
+  });
+
+  it("classifyThrown decide pelo tipo; vazio devolve a decisão à frase", async () => {
+    const record = vi.fn();
+    const classifyThrown = (e: unknown) => (e instanceof TypeError ? "defeito" : undefined);
+    const client = await conectar(
+      opcoes({
+        record,
+        classifyError: frase,
+        classifyThrown,
+        search: async (q) => {
+          if (q === "bug") throw new TypeError("Cannot read properties of undefined (reading 'invalid')");
+          throw new Error("documento not found na origem");
+        },
+      }),
+    );
+    await client.callTool({ name: "search", arguments: { query: "bug" } });
+    await client.callTool({ name: "search", arguments: { query: "outra" } });
+    const erros = record.mock.calls.filter((c) => c[0] === "tool_error").map((c) => c[2].classe);
+    expect(erros).toEqual(["defeito", "nao_encontrado"]);
+    await client.close();
+  });
+
+  it("sem classifyError a classe continua vazia, mesmo com o tipo à mão", async () => {
+    const record = vi.fn();
+    const client = await conectar(opcoes({ record, classifyThrown: () => "defeito" }));
+    await client.callTool({ name: "fetch", arguments: { id: "nada" } });
+    expect(record.mock.calls.at(-1)).toEqual(["tool_error", "fetch", { params: "id", classe: "" }]);
+    await client.close();
+  });
+
   it("a forma NUNCA carrega valor de parâmetro", async () => {
     // A linha que este pacote não pode cruzar: `query` é texto livre, e o que a
     // pessoa digitou não entra na telemetria. Só o NOME do parâmetro entra.

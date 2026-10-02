@@ -9,9 +9,11 @@
  *       "surface:lock": "npm run build && mcp-surface travar --cmd \"vitest run tests/surface-lock.test.ts\""
  *
  *   mcp-surface verificar <endpoint> [--trava surface.lock.json] [--config apiKeyAusente]
- *                         [--rota "POST /mcp"] [--tool <nome>] [--args '<json>']
+ *                         [--rota "POST /mcp"] [--perfil <chave>] [--tool <nome>] [--args '<json>']
  *       Confere o endpoint no ar contra a trava (superfície declarada + quem
- *       responde sem token). Fim do deploy. Sai com 1 se divergir.
+ *       responde sem token). Fim do deploy. Sai com 1 se divergir. `--perfil`:
+ *       servidor com uma superfície por rota trava a `declarada` como mapa, e
+ *       esta é a chave que o endpoint serve.
  *
  *   mcp-surface replay [--pacote <nome npm>] [--registro <nome no MCP Registry>]
  *                      [--url <endpoint>] [--saida baselines]
@@ -70,6 +72,7 @@ async function main(): Promise<number> {
       caminhoDaTrava: opcao("trava") ?? "surface.lock.json",
       ...(opcao("config") ? { config: opcao("config")! } : {}),
       ...(opcao("rota") ? { rota: opcao("rota")! } : {}),
+      ...(opcao("perfil") ? { perfil: opcao("perfil")! } : {}),
       ...(tool ? { chamada: { name: tool, arguments: JSON.parse(opcao("args") ?? "{}") as Record<string, unknown> } } : {}),
       log: linha => console.log(linha),
     });

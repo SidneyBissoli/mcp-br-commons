@@ -8,6 +8,28 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [0.1.1] — 2026-10-02
+
+Achados da adoção nos irmãos, no mesmo dia. A normalização NÃO muda: todo
+`surface.lock.json` travado com a 0.1.0 continua conferindo.
+
+### Adicionado
+
+- `verificar --perfil <chave>` (`OpcoesVerificar.perfil`): servidor com uma superfície por
+  rota (senado-br-mcp: `full` em `/mcp`, `openai-app` em `/mcp/openai-app-v2`) trava a
+  `declarada` como mapa `{ perfil: superfície }`, e o endpoint é conferido contra a chave
+  que ele serve.
+- `linhaDeCompatibilidade(versao)`.
+
+### Corrigido
+
+- **O replay acusava como quebra fora de major uma mudança incompatível em minor de 0.x**,
+  que o semver permite (ilo-mcp-server 0.5.0 → 0.6.0, `filters` passou a obrigatório).
+  Em 0.x a linha de compatibilidade é o minor.
+- O replay chamava `npm` com argumentos em array e `shell: true` no Windows — o DEP0190 do
+  Node 24 (argumentos concatenados sem escape). Agora a linha vai montada e citada.
+- `bin` sem o `./`, que o npm corrigia sozinho a cada publicação com aviso.
+
 ## [0.1.0] — 2026-10-02
 
 Primeira versão, extraída do molde no bcb-br-mcp (PR #49, 1.15.1). A normalização é a do

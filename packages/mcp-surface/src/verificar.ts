@@ -15,6 +15,11 @@ export interface OpcoesVerificar {
   config?: string;
   /** Rota da seção `semToken` que corresponde a `url`. Padrão: `POST /mcp`. */
   rota?: string;
+  /**
+   * Servidor com mais de uma superfície (perfis por rota): a `declarada` é um
+   * mapa `{ perfil: superfície }` e esta é a chave que `url` serve.
+   */
+  perfil?: string;
   /** A mesma tool local que a trava sondou; sem ela, `tools/call` não é conferido. */
   chamada?: ChamadaLocal;
   tentativas?: number;
@@ -34,6 +39,12 @@ export async function verificarNoAr(o: OpcoesVerificar): Promise<string | null> 
     return `surface.lock.json incompleto: falta a seção declarada ou semToken["${config}"]["${rota}"].`;
   }
   const sonda = sondaSemToken(o.chamada).filter(p => p.method in semToken);
+  let esperado = declarada.sha256;
+  if (o.perfil !== undefined) {
+    const porPerfil = (declarada.conteudo as Record<string, unknown> | null)?.[o.perfil];
+    if (porPerfil === undefined) return `surface.lock.json: a seção declarada não tem o perfil "${o.perfil}".`;
+    esperado = impressaoDigital(porPerfil);
+  }
 
   const tentativas = o.tentativas ?? 6;
   let ultimo = "";
@@ -45,15 +56,15 @@ export async function verificarNoAr(o: OpcoesVerificar): Promise<string | null> 
       const responde = r.status === 200 && r.result !== undefined;
       if (responde !== semToken[pedido.method]) divergentes.push(`${pedido.method} (no ar ${responde})`);
     }
-    if (sha === declarada.sha256 && divergentes.length === 0) {
+    if (sha === esperado && divergentes.length === 0) {
       log(
-        `no ar = trava: declarada ${sha.slice(0, 12)} (travada em ${declarada.versao}); ` +
+        `no ar = trava: declarada${o.perfil !== undefined ? ` [${o.perfil}]` : ""} ${sha.slice(0, 12)} (travada em ${declarada.versao}); ` +
           `sem token: ${config}/${rota} confere em ${sonda.length} métodos.`,
       );
       return null;
     }
     ultimo =
-      (sha !== declarada.sha256 ? `declarada no ar ${sha.slice(0, 12)} ≠ trava ${declarada.sha256.slice(0, 12)}. ` : "") +
+      (sha !== esperado ? `declarada no ar ${sha.slice(0, 12)} ≠ trava ${esperado.slice(0, 12)}. ` : "") +
       (divergentes.length ? `sem token diverge em: ${divergentes.join(", ")}.` : "");
     log(`tentativa ${t}: ${ultimo}`);
     // A Cloudflare serve isolates mistos por alguns segundos logo após o deploy.

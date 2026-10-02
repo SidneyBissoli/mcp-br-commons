@@ -22,4 +22,4 @@ export {
 export { VAR_ESCRITA, conferirSecao, lerTrava, modoEscrita, type NomeDaSecao, type Trava, type Veredito } from "./trava.js";
 export { capturarHttp, capturarStdio, pedirHttp } from "./remoto.js";
 export { verificarNoAr, type OpcoesVerificar } from "./verificar.js";
-export { diferenca, replay, type OpcoesReplay } from "./replay.js";
+export { diferenca, linhaDeCompatibilidade, replay, type OpcoesReplay } from "./replay.js";

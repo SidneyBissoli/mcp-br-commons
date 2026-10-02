@@ -5,6 +5,28 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). As versões anteriores a 0.7.0 estão no
 histórico do git (`git log -- packages/mcp-search`).
 
+## [0.9.0] — 2026-10-02
+
+Fecha a última lacuna da classe medida em 11/09/2026 ("esquema que não recusa responde
+outra pergunta"): nos sete servidores, só `search` e `fetch` ainda descartavam parâmetro
+desconhecido em silêncio — o zod tirava a chave, o default entrava no lugar e a tool
+respondia OUTRA pergunta com cara de resposta. Ficaram de fora em 11/09 porque o
+contrato é da OpenAI; a doc dele (developers.openai.com/api/docs/mcp, relida hoje) define
+UM argumento string por tool e nada mais, então recusar o resto não recusa chamada
+nenhuma que o contrato admita.
+
+### Mudado
+- `searchInputSchema` e `fetchInputSchema` passam a `z.strictObject`: o JSON publicado
+  (no `registerDeepResearchTools` e em `contractJsonSchemas`) leva
+  `additionalProperties: false`, e a chave fora do contrato volta como erro que a
+  NOMEIA, antes de o acervo ser consultado. Superfície publicada que muda = minor.
+
+### Atenção a quem consome
+- Registrar pelo `.shape` (`z.object(contractSchemas().searchInputSchema.shape)`) perde a
+  estrição. Passe o objeto, ou aplique `.strict()` do seu lado.
+- A recusa é feita pela SDK antes do callback: não passa pela telemetria (`record`),
+  como nas demais tools estritas da frota.
+
 ## [0.8.1] — 2026-09-30
 
 ### Corrigido

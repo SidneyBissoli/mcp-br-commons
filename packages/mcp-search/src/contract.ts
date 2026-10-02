@@ -79,11 +79,14 @@ export function contractSchemas(locale: ContractLocale = "pt-BR") {
 
   return {
     searchResultSchema,
-    searchInputSchema: z.object({ query: z.string().describe(t.query) }),
+    // Entrada ESTRITA (0.9.0): a chave fora do contrato é recusada, nomeada, em
+    // vez de descartada em silêncio. O contrato da OpenAI define um argumento
+    // só por tool; `additionalProperties: false` não recusa nada que ele admita.
+    searchInputSchema: z.strictObject({ query: z.string().describe(t.query) }),
     searchOutputSchema: z.object({
       results: z.array(searchResultSchema).describe(t.results),
     }),
-    fetchInputSchema: z.object({ id: z.string().describe(t.fetchId) }),
+    fetchInputSchema: z.strictObject({ id: z.string().describe(t.fetchId) }),
     fetchDocumentSchema: z.object({
       id: idSchema,
       title: titleSchema,

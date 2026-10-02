@@ -82,6 +82,30 @@ describe("registerDeepResearchTools — superfície", () => {
     expect(Object.keys(porNome.search?.inputSchema.properties ?? {})).toEqual(["query"]);
     expect(Object.keys(porNome.fetch?.inputSchema.properties ?? {})).toEqual(["id"]);
   });
+
+  it("o inputSchema publicado recusa chave fora do contrato (additionalProperties: false)", async () => {
+    const { tools } = await client.listTools();
+    for (const tool of tools) {
+      expect(tool.inputSchema.additionalProperties).toBe(false);
+    }
+  });
+});
+
+describe("registerDeepResearchTools — entrada estrita", () => {
+  it("chave desconhecida é erro que NOMEIA a chave, e o acervo não é consultado", async () => {
+    const search = vi.fn(async () => []);
+    const fetch = vi.fn(async () => null);
+    const client = await conectar({ ...opcoes(), search, fetch });
+    const r1 = await client.callTool({ name: "search", arguments: { query: "x", limite: 5 } });
+    const r2 = await client.callTool({ name: "fetch", arguments: { id: "a", formato: "md" } });
+    await client.close();
+    expect(r1.isError).toBe(true);
+    expect(texto(r1)).toContain("limite");
+    expect(r2.isError).toBe(true);
+    expect(texto(r2)).toContain("formato");
+    expect(search).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
 
 describe("registerDeepResearchTools — chamadas", () => {

@@ -36,6 +36,11 @@ em 2026-09-02):
   real da extração e a chave de cache só existem dentro dela.
 - **As chaves do contrato vencem em colisão** com os extras anexados.
 - **`search` corta no `limit`** (padrão 10) mesmo que o índice devolva mais.
+- **Entrada estrita** (0.9.0): `searchInputSchema` e `fetchInputSchema` são
+  `z.strictObject` e publicam `additionalProperties: false`. Chave fora do
+  contrato é recusada com erro que a nomeia, em vez de descartada em
+  silêncio. Quem registra pelo `.shape` (`z.object(shape)`) PERDE a
+  estrição — passe o objeto, ou aplique `.strict()` do seu lado.
 - **Erro nunca sobe cru**: `search`/`fetch` que lançam viram resultado
   `isError` com mensagem pt-BR; id desconhecido idem.
 - Tudo é somente leitura; o chamador passa as mesmas `annotations` das outras

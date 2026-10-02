@@ -68,6 +68,21 @@ describe("contractJsonSchemas", () => {
     });
   }
 
+  it("as entradas são estritas no zod e no JSON; as saídas não mudam de regime", () => {
+    for (const locale of LOCALES) {
+      const zod = contractSchemas(locale);
+      const json = contractJsonSchemas(locale);
+      expect(json.searchInputSchema.additionalProperties).toBe(false);
+      expect(json.fetchInputSchema.additionalProperties).toBe(false);
+      expect(zod.searchInputSchema.safeParse({ query: "a" }).success).toBe(true);
+      expect(zod.fetchInputSchema.safeParse({ id: "a" }).success).toBe(true);
+      const extra = zod.searchInputSchema.safeParse({ query: "a", periodo: "2023" });
+      expect(extra.success).toBe(false);
+      expect(JSON.stringify(extra.error?.issues)).toContain("periodo");
+      expect(zod.fetchInputSchema.safeParse({ id: "a", x: 1 }).success).toBe(false);
+    }
+  });
+
   it("os dois idiomas têm a mesma forma — só as descrições mudam", () => {
     const pt = contractJsonSchemas("pt-BR");
     const en = contractJsonSchemas("en");

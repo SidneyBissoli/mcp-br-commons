@@ -1,0 +1,52 @@
+{
+  "name": "@sbissoli/mcp-surface",
+  "version": "0.1.0",
+  "description": "Impressão digital da superfície de um servidor MCP: initialize (instructions + capabilities) + tools/resources/prompts + quem responde sem token, travados ao lado da versão — mudou sem subir a versão = build vermelho e deploy recusado; mais a conferência do endpoint no ar e o replay das versões publicadas",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
+    "directory": "packages/mcp-surface"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "mcp-surface": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/server": "^2.1.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "surface",
+    "fingerprint",
+    "versioning",
+    "ci",
+    "mcp-registry"
+  ],
+  "author": "Sidney Bissoli <sbissoli76@gmail.com>",
+  "license": "MIT"
+}

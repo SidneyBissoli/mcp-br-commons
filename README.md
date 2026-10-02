@@ -17,6 +17,7 @@ terminologias médicas).
 | [`@sbissoli/mcp-stats`](packages/mcp-stats) | Motor de estatísticas (média/mediana/distribuição/topN/agruparPor) para tools tabulares, exibição por idioma | 0.3.1 (npm) |
 | [`@sbissoli/mcp-evals`](packages/mcp-evals) | Harness de evals de seleção de tool: extrator de catálogo (fake McpServer, captura `.tool` e `.registerTool`), validação de fixtures, scorer offline (top-1/top-k/por-área), gate de acurácia e runner via Anthropic Messages API | 0.1.1 (npm) |
 | [`@sbissoli/mcp-search`](packages/mcp-search) | As tools `search`/`fetch` do contrato Deep Research do ChatGPT: schemas, envelope (JSON em `content` + `structuredContent`), índice em memória com ranking simples e a fábrica `registerDeepResearchTools` — o servidor fornece só o índice e o renderizador | 0.6.2 (npm) |
+| [`@sbissoli/mcp-surface`](packages/mcp-surface) | Impressão digital da superfície: `initialize` (instructions + capabilities) + tools/resources/prompts + quem responde sem token, travados ao lado da versão no `surface.lock.json` — mudou sem subir a versão = build vermelho e deploy recusado; CLI `mcp-surface` para regravar, conferir o endpoint no ar e fazer o replay das versões publicadas | 0.1.0 |
 
 Além dos pacotes, o monorepo abriga como **pastas copiáveis** (não importáveis):
 

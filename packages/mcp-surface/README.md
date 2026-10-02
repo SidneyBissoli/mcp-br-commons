@@ -1,0 +1,79 @@
+# @sbissoli/mcp-surface
+
+**Mudou a superfície sem subir a versão = build vermelho e deploy recusado.**
+
+> Mantido para o meu portfólio de servidores MCP. Uso por terceiros é bem-vindo, mas o
+> roadmap segue as necessidades dos meus servidores.
+
+A cópia de um servidor no MCP Registry carrega só nome, versão, pacotes e remotos — nenhuma
+superfície. Quem compara o registro com o servidor só consegue comparar a **versão**, e isso
+só vale se toda mudança de superfície subir a versão. Este pacote transforma essa disciplina
+em teste. A ideia veio de um leitor (dev.to,
+[3g5m4](https://dev.to/yahhi/comment/3g5m4) e 3g607), que achou o caso grave no servidor
+dele: registro dizendo 0.1.0 com 4 tools só-leitura, servidor com 6, duas escrevendo pelo
+usuário.
+
+## O que entra na impressão digital
+
+O `surface.lock.json`, commitado na raiz do servidor, tem duas seções. Cada uma guarda a
+versão do `package.json` em que foi travada e o sha256 do conteúdo:
+
+- **`declarada`** — `initialize` (instructions, capabilities, `serverInfo` sem a versão) +
+  `tools/list` + `resources/list` + `resources/templates/list` + `prompts/list`,
+  normalizados (chaves ordenadas, listas por nome/uri). Método não servido é `null`, não `[]`.
+- **`semToken`** — QUAIS MÉTODOS RESPONDEM SEM CREDENCIAL, por configuração (ex.: `API_KEY`
+  ausente e presente) e por rota. É comportamento que nenhuma listagem mostra.
+
+A regra (`conferirSecao`): medido ≠ travado e versão igual → **falha**; versão diferente →
+falha pedindo `npm run surface:lock`. O modo de escrita obedece à mesma regra e recusa
+travar superfície nova sob a versão antiga.
+
+## Adoção num servidor
+
+1. **Teste da superfície declarada** (onde a fábrica do servidor é importável):
+
+   ```ts
+   import { capturarSuperficie, conferirSecao } from "@sbissoli/mcp-surface";
+   import { createServer } from "../src/server.js";
+
+   it("surface.lock.json — superfície declarada", async () => {
+     const v = conferirSecao("surface.lock.json", "declarada", await capturarSuperficie(createServer()), pkg.version);
+     expect(v.ok, v.mensagem).toBe(true);
+   });
+   ```
+
+2. **Teste de quem responde sem token** (na borda HTTP, chamando o `fetch` do Worker):
+
+   ```ts
+   import { comHost, conferirSecao, corpoDoPedido, CABECALHOS_MCP, ipDaSonda, medirSemToken, sondaSemToken } from "@sbissoli/mcp-surface";
+
+   const envs = { apiKeyAusente: {} as Env, apiKeyPresente: { API_KEY: "x" } as Env };
+   const medido = await medirSemToken(Object.keys(envs), ["POST /mcp", "POST /mcp/uso-proprio"],
+     sondaSemToken({ name: "<tool sem rede>", arguments: {} }),
+     (config, rota, pedido) => worker.fetch(comHost(new Request(`https://host${rota.slice(5)}`, {
+       method: "POST", headers: { ...CABECALHOS_MCP, "CF-Connecting-IP": ipDaSonda() }, body: corpoDoPedido(pedido),
+     }), "host"), envs[config], ctx));
+   expect(conferirSecao("surface.lock.json", "semToken", medido, pkg.version).ok).toBe(true);
+   ```
+
+3. **Script** no `package.json`:
+   `"surface:lock": "npm run build && mcp-surface travar --cmd \"vitest run tests/surface-lock.test.ts\""`.
+
+4. **Deploy**: rodar `npm test` ANTES do wrangler, e no fim
+   `npx mcp-surface verificar https://<host>/mcp --tool <tool sem rede>` — prova que o que
+   está no ar é o que foi travado. **Publish**: `npm test` antes do npm.
+
+5. **Uma vez**: `npx mcp-surface replay --url https://<host>/mcp` grava
+   `baselines/replay-<data>.md` com todas as versões publicadas no npm, uma contra a
+   anterior, as remoções fora de major e o ar contra a versão que o `/status` declara.
+
+Fluxo de quem muda a superfície: `npm version <nível> --no-git-tag-version` →
+`npm run surface:lock` → commitar o lock junto.
+
+## Observações
+
+- Uma atualização do SDK que mexa nas `capabilities` também acende a trava — de propósito:
+  o cliente vê outra superfície.
+- Superfície que depende de ambiente (flag de feature, perfil de tools) precisa ser travada
+  com o ambiente fixo, ou em uma captura por perfil.
+- Mudar a normalização deste pacote muda o sha de todo lock que o usa — ver o CHANGELOG.

@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,6 +12,7 @@ import {
   diferenca,
   impressaoDigital,
   lerCorpoJsonRpc,
+  linhaDeCompatibilidade,
   medirSemToken,
   sondaSemToken,
   verificarNoAr,
@@ -105,6 +106,20 @@ describe("verificarNoAr contra um endpoint de verdade (HTTP local)", () => {
     expect(await verificarNoAr({ url, caminhoDaTrava: f, tentativas: 1 })).toContain("declarada no ar");
   });
 
+  it("--perfil: declarada como mapa por perfil, conferida pela chave que o endpoint serve", async () => {
+    const url = await subir("instruções");
+    const f = await travar(url);
+    const travaComPerfis = JSON.parse(readFileSync(f, "utf8")) as { declarada: { conteudo: unknown; sha256: string } };
+    const unica = travaComPerfis.declarada.conteudo;
+    travaComPerfis.declarada.conteudo = { completo: unica, outro: { tools: [] } };
+    travaComPerfis.declarada.sha256 = impressaoDigital(travaComPerfis.declarada.conteudo);
+    writeFileSync(f, JSON.stringify(travaComPerfis));
+    expect(await verificarNoAr({ url, caminhoDaTrava: f, perfil: "completo", tentativas: 1 })).toBeNull();
+    expect(await verificarNoAr({ url, caminhoDaTrava: f, perfil: "outro", tentativas: 1 })).toContain("declarada no ar");
+    expect(await verificarNoAr({ url, caminhoDaTrava: f, perfil: "inexistente", tentativas: 1 })).toContain('não tem o perfil "inexistente"');
+    expect(await verificarNoAr({ url, caminhoDaTrava: f, tentativas: 1 })).toContain("declarada no ar");
+  });
+
   it("acusa tools/list que deixou de responder sem token (ou passou a responder)", async () => {
     const f = await travar(await subir("instruções"));
     http!.close();
@@ -134,5 +149,14 @@ describe("diferenca (replay)", () => {
     );
     expect(d.instructions).toBe(true);
     expect(impressaoDigital(antes)).not.toBe(impressaoDigital(depois));
+  });
+});
+
+describe("linhaDeCompatibilidade", () => {
+  it("major em ≥ 1; minor em 0.x, onde o semver permite quebra em minor", () => {
+    expect(linhaDeCompatibilidade("5.4.0")).toBe("5");
+    expect(linhaDeCompatibilidade("5.0.1")).toBe(linhaDeCompatibilidade("5.9.0"));
+    expect(linhaDeCompatibilidade("0.5.0")).not.toBe(linhaDeCompatibilidade("0.6.0"));
+    expect(linhaDeCompatibilidade("0.6.0")).toBe(linhaDeCompatibilidade("0.6.1"));
   });
 });

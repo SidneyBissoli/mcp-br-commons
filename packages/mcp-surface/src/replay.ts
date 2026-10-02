@@ -18,7 +18,16 @@ import { join } from "node:path";
 import { capturarHttp, capturarStdio } from "./remoto.js";
 import { impressaoDigital } from "./superficie.js";
 
-const shell = process.platform === "win32";
+/**
+ * `npm` como processo filho. No Windows o executável é `npm.cmd`, que o Node
+ * só roda com `shell: true` — e com shell os argumentos têm de ir JÁ numa
+ * linha de comando (passá-los em array é o DEP0190 do Node 24).
+ */
+function rodarNpm(argv: string[]) {
+  if (process.platform !== "win32") return spawnSync("npm", argv, { encoding: "utf8" });
+  const linha = ["npm", ...argv.map(a => (/[\s"&|<>^]/.test(a) ? `"${a.replaceAll('"', '\\"')}"` : a))].join(" ");
+  return spawnSync(linha, { encoding: "utf8", shell: true });
+}
 
 export interface OpcoesReplay {
   pacote: string;
@@ -43,7 +52,7 @@ interface Linha {
 type Item = Record<string, unknown>;
 
 function npmJson(...argv: string[]): unknown {
-  const r = spawnSync("npm", argv, { encoding: "utf8", shell });
+  const r = rodarNpm(argv);
   if (r.status !== 0) throw new Error(`npm ${argv.join(" ")}: ${r.stderr}`);
   return JSON.parse(r.stdout);
 }
@@ -103,7 +112,16 @@ export function diferenca(antes: Item, depois: Item) {
   return r;
 }
 
-const major = (v: string) => Number(v.split(".")[0]);
+/**
+ * A linha de compatibilidade da versão: o major — e, em 0.x, o minor, porque
+ * no semver de série 0 mudança incompatível em minor é permitida. Medido no
+ * replay do ilo-mcp-server (0.5.0 → 0.6.0 tornou `filters` obrigatório): a
+ * 0.1.0 do pacote listava isso como quebra fora de major.
+ */
+export function linhaDeCompatibilidade(v: string): string {
+  const [maior, menor] = v.split(".");
+  return maior === "0" ? `0.${menor}` : String(maior);
+}
 
 export async function replay(o: OpcoesReplay): Promise<{ markdown: string; json: unknown }> {
   const log = o.log ?? (() => {});
@@ -128,11 +146,17 @@ export async function replay(o: OpcoesReplay): Promise<{ markdown: string; json:
     const base = { versao: v, data: datas[v]?.slice(0, 10), noRegistro: registro.has(v) };
     const dir = mkdtempSync(join(tmpdir(), "mcp-surface-replay-"));
     try {
-      const inst = spawnSync(
-        "npm",
-        ["install", `${o.pacote}@${v}`, "--prefix", dir, "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund", "--loglevel=error"],
-        { encoding: "utf8", shell },
-      );
+      const inst = rodarNpm([
+        "install",
+        `${o.pacote}@${v}`,
+        "--prefix",
+        dir,
+        "--omit=dev",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        "--loglevel=error",
+      ]);
       if (inst.status !== 0) throw new Error(inst.stderr.trim().split("\n").pop());
       const pasta = join(dir, "node_modules", ...o.pacote.split("/"));
       const pkg = JSON.parse(readFileSync(join(pasta, "package.json"), "utf8")) as { bin?: string | Record<string, string>; main?: string };
@@ -207,7 +231,7 @@ export async function replay(o: OpcoesReplay): Promise<{ markdown: string; json:
       if (d.capabilities) partes.push("capabilities");
       if (d.identidade) partes.push("identidade");
       mudou = l.sha256 === anterior.sha256 ? "nada" : partes.join("; ") || "detalhe de normalização";
-      if (d.quebras.length && major(l.versao) === major(anterior.versao)) {
+      if (d.quebras.length && linhaDeCompatibilidade(l.versao) === linhaDeCompatibilidade(anterior.versao)) {
         quebras.push({ de: anterior.versao, para: l.versao, itens: d.quebras });
       }
     }
@@ -216,7 +240,7 @@ export async function replay(o: OpcoesReplay): Promise<{ markdown: string; json:
   }
   md.push("", "## Remoções fora de versão major", "");
   md.push(
-    "Tool, resource ou prompt removido, parâmetro removido ou parâmetro que passou a obrigatório quebra o cliente que dependia dele; pela convenção de versão isso pede major. Listado sem julgamento — cada caso pode ter tido razão registrada no CHANGELOG.",
+    "Tool, resource ou prompt removido, parâmetro removido ou parâmetro que passou a obrigatório quebra o cliente que dependia dele; pela convenção de versão isso pede major (em 0.x, minor). Listado sem julgamento — cada caso pode ter tido razão registrada no CHANGELOG.",
     "",
   );
   if (!quebras.length) md.push("Nenhuma.");

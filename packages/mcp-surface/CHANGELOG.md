@@ -8,6 +8,33 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [0.3.0] — 2026-10-04
+
+A normalização NÃO muda: o sha256 de todo `surface.lock.json` continua o mesmo. Minor
+porque a superfície publicada do pacote cresce (subpath novo); quem quiser o card faz o
+bump explícito para `^0.3.0`.
+
+### Adicionado
+
+- **`@sbissoli/mcp-surface/card`** — o `/.well-known/mcp/server-card.json` derivado da
+  mesma captura que a trava normaliza. Em 04/10/2026, 4 dos 7 servidores serviam o card
+  por um `card.ts` copiado e 3 respondiam 404; os quatro que serviam publicavam
+  `name`/`version` soltos na raiz, enquanto a forma documentada pela Smithery exige
+  `serverInfo: { name, version }`. `montarCard` / `capturarCard` / `capturarCardPorFetch`
+  montam o card com `serverInfo` do `initialize` real; `superficieDoCard` faz a volta, para
+  o teste do servidor provar que o card tem o MESMO sha256 da seção `declarada`;
+  `autenticacaoDaTrava` deriva `authentication.required` da seção `semToken`;
+  `cardEmCache` guarda o primeiro sucesso por isolate. Seguro para Worker, com teste que
+  percorre o grafo de imports do subpath.
+
+### Mudado (interno)
+
+- A captura crua (`initialize` + as quatro listas) saiu de `superficie.ts` e de
+  `memoria.ts` para `captura.ts`, que não importa `node:crypto` nem
+  `node:child_process`. `capturarPor` e `capturarSuperficie` passam a normalizar essa
+  captura: mesma ordem de pedidos, mesmo `clientInfo`, mesmo resultado. A raiz do pacote
+  exporta os mesmos nomes de antes.
+
 ## [0.2.1] — 2026-10-04
 
 A normalização NÃO muda. Patch: a API de `/cliente` é a mesma; os controles negativos

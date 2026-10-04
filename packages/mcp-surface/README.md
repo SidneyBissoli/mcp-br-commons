@@ -101,6 +101,41 @@ for (const v of vs) expect(v.obtido, `${v.descricao}: ${v.mensagem ?? ""}`).toBe
   ele acusa. Quebras do próprio servidor, como campo a mais onde o schema fecha o objeto,
   entram pelo 4º argumento.
 
+## Server card (`@sbissoli/mcp-surface/card`)
+
+O `/.well-known/mcp/server-card.json` que scanners de diretório (Smithery) leem quando a
+varredura do `/mcp` não completa, **derivado da mesma captura que a trava normaliza**.
+Forma da Smithery: `serverInfo` (do `initialize` real, com a versão), `authentication`,
+`tools`, `resources`, `prompts`, mais `protocolVersion`, `capabilities`, `instructions` e
+`resourceTemplates`. Método não servido fica fora do card (não vira `[]`). Seguro para
+Worker: o grafo do subpath não importa `node:crypto`, `node:child_process`, `node:fs` nem
+o `Client` (há teste que confere).
+
+```ts
+// worker/src/index.ts
+import { autenticacaoDaTrava, capturarCard, cardEmCache } from "@sbissoli/mcp-surface/card";
+import trava from "../../surface.lock.json";
+
+const serverCard = cardEmCache(() => capturarCard(buildServer(), { authentication: autenticacaoDaTrava(trava) }));
+// GET /.well-known/mcp/server-card.json → new Response(await serverCard(), { headers: { "Content-Type": "application/json" } })
+```
+
+```ts
+// teste do servidor: o card não pode divergir da trava
+import { normalizarSuperficie, impressaoDigital, lerTrava } from "@sbissoli/mcp-surface";
+import { capturarCard, superficieDoCard } from "@sbissoli/mcp-surface/card";
+
+const card = await capturarCard(buildServer());
+expect(impressaoDigital(normalizarSuperficie(superficieDoCard(card)))).toBe(lerTrava(caminho).declarada?.sha256);
+```
+
+- `autenticacaoDaTrava(trava)` deriva `authentication.required` da seção `semToken`:
+  `tools/list` em `apiKeyAusente` / `POST /mcp`. Lança se a medição não está lá.
+- `capturarCardPorFetch(buscar, url)` monta o mesmo card por HTTP stateless (JSON ou SSE),
+  para superfície atrás de outro `fetch` (o container do sih). Lança se o `initialize`
+  não responde; o fallback é do servidor.
+- `cardEmCache` guarda a primeira montagem que dá certo, por isolate; falha não fica.
+
 ## Observações
 
 - Uma atualização do SDK que mexa nas `capabilities` também acende a trava — de propósito:

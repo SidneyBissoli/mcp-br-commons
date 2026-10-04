@@ -6,7 +6,7 @@
  * do servidor um `responder` que monta a requisição do jeito da borda dele.
  */
 
-import { paramsDoInitialize } from "./superficie.js";
+import { paramsDoInitialize } from "./captura.js";
 
 export interface Pedido {
   method: string;

@@ -8,6 +8,21 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [0.2.0] — 2026-10-04
+
+A normalização NÃO muda: todo `surface.lock.json` continua conferindo. Minor porque a
+superfície publicada do pacote cresce (subpath novo).
+
+### Adicionado
+
+- **`@sbissoli/mcp-surface/cliente`**: o teste com forma de cliente, que nasceu no
+  ilo-mcp-server 1.3.0 (ideia de leitor, https://dev.to/arhancanli/comment/3g4i4).
+  `conectarComoCliente` (transporte em memória com JSON no fio), `chamarComoCliente`
+  (`tools/list` antes do `tools/call`, lança se o `Client` reprovar ou vier `isError`),
+  `controlesNegativos` (quebras derivadas do `outputSchema` listado, mais a armadilha do
+  `tools/list` ausente) e `quebrasDoSchema`. `@modelcontextprotocol/client` entra como peer
+  OPCIONAL; a raiz do pacote continua sem o `Client`, que o Worker não pode carregar.
+
 ## [0.1.1] — 2026-10-02
 
 Achados da adoção nos irmãos, no mesmo dia. A normalização NÃO muda: todo

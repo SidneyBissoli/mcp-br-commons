@@ -1,6 +1,6 @@
 {
   "name": "@sbissoli/mcp-surface",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Impressão digital da superfície de um servidor MCP: initialize (instructions + capabilities) + tools/resources/prompts + quem responde sem token, travados ao lado da versão — mudou sem subir a versão = build vermelho e deploy recusado; mais a conferência do endpoint no ar e o replay das versões publicadas",
   "repository": {
     "type": "git",
@@ -21,6 +21,10 @@
     "./cliente": {
       "types": "./dist/cliente.d.ts",
       "default": "./dist/cliente.js"
+    },
+    "./card": {
+      "types": "./dist/card.d.ts",
+      "default": "./dist/card.js"
     }
   },
   "bin": {

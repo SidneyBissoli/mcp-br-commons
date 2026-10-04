@@ -18,17 +18,9 @@
 
 import { createHash } from "node:crypto";
 
-/** O protocolo pedido no `initialize` de toda captura — fixo, para o eco não variar. */
-export const PROTOCOLO_DA_CAPTURA = "2025-06-18";
+import { capturarBrutaPor, type Pedir, type SuperficieBruta } from "./captura.js";
 
-/** Resultados crus, como saem do JSON-RPC. Lista ausente = método não servido. */
-export interface SuperficieBruta {
-  initialize: Record<string, unknown> | undefined;
-  tools: unknown[] | undefined;
-  resources: unknown[] | undefined;
-  resourceTemplates: unknown[] | undefined;
-  prompts: unknown[] | undefined;
-}
+export { PROTOCOLO_DA_CAPTURA, paramsDoInitialize, type SuperficieBruta } from "./captura.js";
 
 function ordenarChaves(valor: unknown): unknown {
   if (Array.isArray(valor)) return valor.map(ordenarChaves);
@@ -79,33 +71,11 @@ export function impressaoDigital(valor: unknown): string {
   return createHash("sha256").update(JSON.stringify(ordenarChaves(valor))).digest("hex");
 }
 
-/** Os parâmetros do `initialize` de toda captura. */
-export function paramsDoInitialize(cliente: string): Record<string, unknown> {
-  return {
-    protocolVersion: PROTOCOLO_DA_CAPTURA,
-    capabilities: {},
-    clientInfo: { name: cliente, version: "1.0.0" },
-  };
-}
-
 /**
  * Captura a superfície por qualquer transporte: `pedir` faz uma requisição
  * JSON-RPC e devolve o `result` (ou `undefined` em erro). `notificar`, quando
  * o transporte tem sessão, manda o `notifications/initialized`.
  */
-export async function capturarPor(
-  pedir: (method: string, params?: Record<string, unknown>) => Promise<Record<string, unknown> | undefined>,
-  cliente: string,
-  notificar?: () => void,
-): Promise<Record<string, unknown>> {
-  const initialize = await pedir("initialize", paramsDoInitialize(cliente));
-  notificar?.();
-  const lista = async (method: string, chave: string) => (await pedir(method, {}))?.[chave] as unknown[] | undefined;
-  return normalizarSuperficie({
-    initialize,
-    tools: await lista("tools/list", "tools"),
-    resources: await lista("resources/list", "resources"),
-    resourceTemplates: await lista("resources/templates/list", "resourceTemplates"),
-    prompts: await lista("prompts/list", "prompts"),
-  });
+export async function capturarPor(pedir: Pedir, cliente: string, notificar?: () => void): Promise<Record<string, unknown>> {
+  return normalizarSuperficie(await capturarBrutaPor(pedir, cliente, notificar));
 }

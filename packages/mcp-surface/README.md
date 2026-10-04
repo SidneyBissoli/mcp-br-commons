@@ -70,6 +70,35 @@ travar superfície nova sob a versão antiga.
 Fluxo de quem muda a superfície: `npm version <nível> --no-git-tag-version` →
 `npm run surface:lock` → commitar o lock junto.
 
+## Teste com forma de cliente (`@sbissoli/mcp-surface/cliente`)
+
+O servidor interrogado pelo `Client` do SDK, que reprova o resultado de `tools/call`
+contra o `outputSchema` **listado**. Assim o teste falha como a sessão do usuário falharia,
+sem um validador escolhido por nós. É subpath à parte porque o `Client` compila schemas
+com Ajv (`new Function`), que o Worker proíbe: só se importa em teste Node, e o
+`@modelcontextprotocol/client` é peer opcional.
+
+```ts
+import { chamarComoCliente, conectarComoCliente, controlesNegativos } from "@sbissoli/mcp-surface/cliente";
+
+const client = await conectarComoCliente(buildServer(env));
+const r = await chamarComoCliente(client, "minha_tool", { x: 1 }); // lança se o Client reprovar ou se vier isError
+
+const vs = await controlesNegativos(() => buildServer(env), "minha_tool", { x: 1 });
+for (const v of vs) expect(v.obtido, `${v.descricao}: ${v.mensagem ?? ""}`).toBe(v.esperado);
+```
+
+- `conectarComoCliente` passa toda mensagem do servidor por JSON antes de entregá-la: o
+  transporte em memória não serializa, e chave `undefined` só some no fio.
+- `chamarComoCliente` faz `tools/list` antes do primeiro `tools/call` da conexão. Sem
+  isso, o `Client` (2.0 a 2.2) devolve o resultado sem validar.
+- `controlesNegativos` adultera o resultado entre servidor e cliente, com quebras
+  **derivadas do schema listado**: `structuredContent` ausente, cada obrigatório ausente e
+  o primeiro obrigatório de tipo errado. Cada quebra tem de fazer a chamada falhar. O
+  último veredito é a armadilha (sem `tools/list`, a quebra passa calada); se o SDK mudar,
+  ele acusa. Quebras do próprio servidor, como campo a mais onde o schema fecha o objeto,
+  entram pelo 4º argumento.
+
 ## Observações
 
 - Uma atualização do SDK que mexa nas `capabilities` também acende a trava — de propósito:

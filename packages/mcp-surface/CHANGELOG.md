@@ -8,6 +8,28 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [0.2.1] — 2026-10-04
+
+A normalização NÃO muda. Patch: a API de `/cliente` é a mesma; os controles negativos
+ficam mais fortes, e os servidores herdam isso pelo caret `^0.2.0`.
+
+### Corrigido
+
+- **A troca de tipo cobria UM campo só.** `quebrasDoSchema` trocava o tipo do primeiro
+  obrigatório tipado. No ilo-mcp-server esse campo era um objeto (`dataflow`), e os
+  escalares ficavam sem prova, o que obrigou a escrever `rows_count` como quebra extra à
+  mão. Agora a troca vale para CADA obrigatório com `type` declarado.
+- **O campo anulável não era trocado.** `type: ["string", "null"]` (lista) não gerava
+  quebra, e é justamente a classe do defeito que o circuito existe para pegar. O valor
+  errado agora é o primeiro de texto, número, booleano, lista e objeto que nenhum dos tipos
+  declarados aceita.
+- **As quebras rodam em paralelo.** Com uma troca por obrigatório, em série,
+  `loinc_details` do medical-terminologies-mcp passava dos 5 s do vitest sob a carga da
+  suíte. Cada quebra já tinha servidor e conexão próprios. A ordem dos vereditos não muda,
+  e a armadilha continua sendo o último.
+
+Conferido contra os sete servidores com o build local antes de publicar: todos verdes.
+
 ## [0.2.0] — 2026-10-04
 
 A normalização NÃO muda: todo `surface.lock.json` continua conferindo. Minor porque a

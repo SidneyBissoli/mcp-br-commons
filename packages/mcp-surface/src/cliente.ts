@@ -77,17 +77,32 @@ export interface Quebra {
   adulterar: (r: ResultadoNoFio) => void;
 }
 
-/** Um valor do tipo errado para o tipo JSON Schema declarado. */
+/** Candidatos a valor errado, com os tipos JSON Schema que cada um satisfaz. */
+const CANDIDATOS: Array<[unknown, string[]]> = [
+  ["valor-de-tipo-errado", ["string"]],
+  [0, ["number", "integer"]],
+  [true, ["boolean"]],
+  [[], ["array"]],
+  [{}, ["object"]],
+];
+
+/**
+ * Um valor que NENHUM dos tipos declarados aceita — `type` simples ou lista
+ * (`["string", "null"]`, o campo anulável, que é onde o defeito mora). Sem
+ * `type` declarado não há o que trocar: `undefined`.
+ */
 function tipoErrado(tipo: unknown): unknown {
-  if (tipo === "string") return 0;
-  if (typeof tipo === "string") return "valor-de-tipo-errado";
-  return undefined;
+  const tipos = typeof tipo === "string" ? [tipo] : Array.isArray(tipo) ? (tipo as unknown[]) : [];
+  if (tipos.length === 0) return undefined;
+  return CANDIDATOS.find(([, aceitos]) => !aceitos.some(t => tipos.includes(t)))?.[0];
 }
 
 /**
  * As quebras genéricas, DERIVADAS do schema listado (não de nomes escritos à
- * mão): `structuredContent` ausente, cada campo obrigatório ausente, o primeiro
- * obrigatório com tipo declarado trocado de tipo.
+ * mão): `structuredContent` ausente, cada campo obrigatório ausente, e cada
+ * obrigatório com tipo declarado trocado de tipo. Cada um, não o primeiro: até a
+ * 0.2.0 só o primeiro tipado era trocado, e no ilo esse caía num objeto
+ * (`dataflow`) e deixava os escalares sem prova.
  */
 export function quebrasDoSchema(outputSchema: Record<string, unknown>): Quebra[] {
   const obrigatorios = Array.isArray(outputSchema.required) ? (outputSchema.required as string[]) : [];
@@ -99,12 +114,13 @@ export function quebrasDoSchema(outputSchema: Record<string, unknown>): Quebra[]
       adulterar: (r: ResultadoNoFio) => void delete r.structuredContent?.[campo],
     })),
   ];
-  const tipado = obrigatorios.find(c => tipoErrado(props[c]?.type) !== undefined);
-  if (tipado) {
+  for (const campo of obrigatorios) {
+    const errado = tipoErrado(props[campo]?.type);
+    if (errado === undefined) continue;
     quebras.push({
-      descricao: `campo de tipo errado (${tipado})`,
+      descricao: `campo de tipo errado (${campo})`,
       adulterar: r => {
-        if (r.structuredContent) r.structuredContent[tipado] = tipoErrado(props[tipado]?.type);
+        if (r.structuredContent) r.structuredContent[campo] = structuredClone(errado);
       },
     });
   }
@@ -163,13 +179,16 @@ export async function controlesNegativos(
     }
   };
 
-  const vereditos: Veredito[] = [];
-  for (const q of quebras) vereditos.push({ descricao: q.descricao, esperado: "reprova", ...(await rodar(q, true)) });
+  // Em paralelo: cada quebra tem servidor e conexão próprios. Desde a 0.2.1 há
+  // uma troca de tipo por obrigatório, e em série o medical (`loinc_details`,
+  // muitos obrigatórios) passava dos 5 s do vitest sob a carga da suíte.
   const armadilha = quebras[1] ?? quebras[0]!;
-  vereditos.push({
-    descricao: `a armadilha: sem tools/list antes, "${armadilha.descricao}" passa calada`,
-    esperado: "passa",
-    ...(await rodar(armadilha, false)),
-  });
-  return vereditos;
+  return Promise.all([
+    ...quebras.map(async q => ({ descricao: q.descricao, esperado: "reprova" as const, ...(await rodar(q, true)) })),
+    rodar(armadilha, false).then(r => ({
+      descricao: `a armadilha: sem tools/list antes, "${armadilha.descricao}" passa calada`,
+      esperado: "passa" as const,
+      ...r,
+    })),
+  ]);
 }

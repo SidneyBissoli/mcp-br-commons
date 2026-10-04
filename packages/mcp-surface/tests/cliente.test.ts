@@ -60,7 +60,34 @@ describe("quebrasDoSchema", () => {
       "campo obrigatório ausente (total)",
       "campo obrigatório ausente (nome)",
       "campo de tipo errado (total)",
+      "campo de tipo errado (nome)",
     ]);
+  });
+
+  // Cada obrigatório tipado, não só o primeiro: o caso do ilo, onde o primeiro
+  // era um objeto e os escalares ficavam sem prova.
+  it("troca o tipo de CADA obrigatório tipado, com um valor que nenhum tipo declarado aceita", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        bloco: { type: "object" },
+        contagem: { type: "integer" },
+        rotulo: { type: ["string", "null"] },
+        misto: { type: ["string", "number", "null"] },
+        livre: {},
+      },
+      required: ["bloco", "contagem", "rotulo", "misto", "livre"],
+    };
+    const trocas = quebrasDoSchema(schema).filter(q => q.descricao.startsWith("campo de tipo errado"));
+    const valores = Object.fromEntries(
+      trocas.map(q => {
+        const r = { content: [], structuredContent: {} as Record<string, unknown> };
+        q.adulterar(r);
+        return Object.entries(r.structuredContent)[0]!;
+      }),
+    );
+    // `livre` não declara tipo: não há o que trocar.
+    expect(valores).toEqual({ bloco: "valor-de-tipo-errado", contagem: "valor-de-tipo-errado", rotulo: 0, misto: true });
   });
 });
 

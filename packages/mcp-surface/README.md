@@ -94,7 +94,9 @@ for (const v of vs) expect(v.obtido, `${v.descricao}: ${v.mensagem ?? ""}`).toBe
   isso, o `Client` (2.0 a 2.2) devolve o resultado sem validar.
 - `controlesNegativos` adultera o resultado entre servidor e cliente, com quebras
   **derivadas do schema listado**: `structuredContent` ausente, cada obrigatório ausente e
-  o primeiro obrigatório de tipo errado. Cada quebra tem de fazer a chamada falhar. O
+  cada obrigatório com `type` declarado recebendo um valor que nenhum tipo dele aceita (o
+  anulável `["string", "null"]` recebe `0`). As quebras rodam em paralelo, cada uma com
+  servidor próprio. Cada quebra tem de fazer a chamada falhar. O
   último veredito é a armadilha (sem `tools/list`, a quebra passa calada); se o SDK mudar,
   ele acusa. Quebras do próprio servidor, como campo a mais onde o schema fecha o objeto,
   entram pelo 4º argumento.

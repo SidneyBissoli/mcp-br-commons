@@ -8,6 +8,29 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [0.4.0] — 2026-10-04
+
+A normalização NÃO muda. Minor porque a superfície publicada cresce (subpath novo); o
+`/card` da 0.3.0 continua com a mesma API, então quem já o usa não precisa mudar nada.
+
+### Adicionado
+
+- **`@sbissoli/mcp-surface/card/http`** — tudo do `/card` MENOS `capturarCard`, sem o SDK
+  em valor no grafo de imports. Medido em 04/10/2026 na adoção pelo sih-br-mcp, cuja borda
+  só captura por HTTP o container: o `/card` puxava o `InMemoryTransport` e, com ele, o SDK
+  inteiro (zod, core, `@cfworker/json-schema`), e a borda foi de 31 para 156 KiB gzip.
+  `sideEffects: false` não resolve, porque o próprio SDK não o declara. Com `/card/http`
+  (e o `semToken` importado por nome), a mesma borda fica em 32 KiB gzip. Nos servidores
+  que montam o `McpServer` no Worker o SDK já está no bundle, e o `/card` não custa nada.
+
+### Mudado (interno)
+
+- A captura em memória saiu de `captura.ts` para `captura-memoria.ts` (o único módulo da
+  captura com o SDK em valor); `captura.ts` só importa o TIPO do transporte. `card.ts`
+  passa a reexportar `card-http.ts` e acrescentar `capturarCard`. Teste novo confere que o
+  grafo de `/card/http` não importa o SDK em valor, com controle negativo no grafo de
+  `/card`.
+
 ## [0.3.0] — 2026-10-04
 
 A normalização NÃO muda: o sha256 de todo `surface.lock.json` continua o mesmo. Minor

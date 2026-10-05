@@ -3,7 +3,8 @@
  * mesma normalização dos caminhos HTTP e stdio.
  */
 
-import { capturarBrutaEmMemoria, type ServidorConectavel } from "./captura.js";
+import type { ServidorConectavel } from "./captura.js";
+import { capturarBrutaEmMemoria } from "./captura-memoria.js";
 import { normalizarSuperficie } from "./superficie.js";
 
 export type { ServidorConectavel } from "./captura.js";

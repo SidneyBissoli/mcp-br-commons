@@ -132,18 +132,49 @@ describe("cardEmCache", () => {
   });
 });
 
-describe("o subpath /card é seguro para Worker", () => {
-  it("nenhum módulo do grafo de card.ts importa node:crypto, node:child_process, node:fs ou o Client", () => {
-    const src = (f: string) => readFileSync(fileURLToPath(new URL(`../src/${f}`, import.meta.url)), "utf8");
-    const visitados = new Set<string>();
+describe("os subpaths /card e /card/http são seguros para Worker", () => {
+  const src = (f: string) => readFileSync(fileURLToPath(new URL(`../src/${f}`, import.meta.url)), "utf8");
+  /** O grafo de imports relativos a partir de `entrada`, com o texto de cada módulo. */
+  const grafo = (entrada: string) => {
+    const visitados = new Map<string, string>();
     const visitar = (f: string) => {
       if (visitados.has(f)) return;
-      visitados.add(f);
       const texto = src(f);
-      expect(texto, f).not.toMatch(/from "node:(crypto|child_process|fs)"|@modelcontextprotocol\/client/);
+      visitados.set(f, texto);
       for (const [, rel] of texto.matchAll(/from "\.\/([\w-]+)\.js"/g)) visitar(`${rel}.ts`);
     };
-    visitar("card.ts");
-    expect([...visitados].sort()).toEqual(["captura.ts", "card.ts", "sonda.ts"]);
+    visitar(entrada);
+    return visitados;
+  };
+
+  it("nenhum módulo do grafo de card.ts importa node:crypto, node:child_process, node:fs ou o Client", () => {
+    const g = grafo("card.ts");
+    for (const [f, texto] of g) {
+      expect(texto, f).not.toMatch(/from "node:(crypto|child_process|fs)"|@modelcontextprotocol\/client/);
+    }
+    expect([...g.keys()].sort()).toEqual(["captura-memoria.ts", "captura.ts", "card-http.ts", "card.ts", "sonda.ts"]);
+  });
+
+  it("o grafo de card-http.ts não importa o SDK EM VALOR (só `import type`) — a borda do sih não carrega o SDK", () => {
+    const g = grafo("card-http.ts");
+    expect([...g.keys()].sort()).toEqual(["captura.ts", "card-http.ts", "sonda.ts"]);
+    for (const [f, texto] of g) {
+      const valor = [...texto.matchAll(/^import (?!type )[^;]*from "@modelcontextprotocol\/[\w-]+"/gm)];
+      expect(valor.map(m => m[0]), f).toEqual([]);
+    }
+  });
+
+  it("controle negativo: o grafo de card.ts importa o SDK em valor (o detector enxerga o import)", () => {
+    const valor = [...grafo("card.ts").values()].some(t => /^import (?!type )[^;]*from "@modelcontextprotocol\/server"/m.test(t));
+    expect(valor).toBe(true);
+  });
+});
+
+describe("/card reexporta /card/http", () => {
+  it("as mesmas funções, mais capturarCard", async () => {
+    const http = await import("../src/card-http.js");
+    const card = await import("../src/card.js");
+    for (const nome of Object.keys(http)) expect((card as Record<string, unknown>)[nome], nome).toBe((http as Record<string, unknown>)[nome]);
+    expect(Object.keys(card).filter(k => !(k in http))).toEqual(["capturarCard"]);
   });
 });

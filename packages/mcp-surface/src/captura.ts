@@ -3,12 +3,14 @@
  * JSON-RPC, sem normalizar nem tirar hash.
  *
  * Arquivo separado de `superficie.ts` de propósito: aqui não entra
- * `node:crypto` nem `node:child_process`, então o subpath `/card` (que roda
- * dentro do Worker) importa só daqui e de `sonda.ts`. A trava e o card partem
- * desta mesma captura — é o que permite provar que os dois não divergem.
+ * `node:crypto` nem `node:child_process`, e nem o SDK em valor (só o tipo do
+ * transporte), então o subpath `/card/http` importa daqui sem levar o SDK ao
+ * bundle. A captura em memória, que precisa do SDK, mora em
+ * `captura-memoria.ts`. A trava e o card partem desta mesma captura — é o que
+ * permite provar que os dois não divergem.
  */
 
-import { InMemoryTransport } from "@modelcontextprotocol/server";
+import type { InMemoryTransport } from "@modelcontextprotocol/server";
 
 /** O protocolo pedido no `initialize` de toda captura — fixo, para o eco não variar. */
 export const PROTOCOLO_DA_CAPTURA = "2025-06-18";
@@ -54,45 +56,4 @@ export async function capturarBrutaPor(pedir: Pedir, cliente: string, notificar?
     resourceTemplates: await lista("resources/templates/list", "resourceTemplates"),
     prompts: await lista("prompts/list", "prompts"),
   };
-}
-
-/**
- * Captura crua em memória: o servidor montado pela mesma fábrica que os
- * transportes usam, interrogado por JSON-RPC cru sobre o `InMemoryTransport`.
- *
- * JSON-RPC cru, e não o `Client` do SDK: o `Client` compila os `outputSchema`
- * com Ajv (`new Function`), que o runtime da Cloudflare proíbe — o mesmo
- * caminho serve teste em Node e código de Worker.
- */
-export async function capturarBrutaEmMemoria(server: ServidorConectavel, cliente: string): Promise<SuperficieBruta> {
-  const [lado, ladoServidor] = InMemoryTransport.createLinkedPair();
-  await server.connect(ladoServidor);
-
-  const pendentes = new Map<number, (msg: { result?: Record<string, unknown>; error?: unknown }) => void>();
-  lado.onmessage = (msg: unknown) => {
-    const m = msg as { id?: unknown; result?: Record<string, unknown>; error?: unknown };
-    if (typeof m.id === "number") {
-      pendentes.get(m.id)?.(m);
-      pendentes.delete(m.id);
-    }
-  };
-  await lado.start();
-
-  let proximo = 1;
-  const pedir: Pedir = (method, params) =>
-    new Promise(resolve => {
-      const id = proximo++;
-      pendentes.set(id, msg => resolve(msg.error ? undefined : msg.result));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      void lado.send({ jsonrpc: "2.0", id, method, params } as any);
-    });
-
-  try {
-    return await capturarBrutaPor(pedir, cliente, () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      void lado.send({ jsonrpc: "2.0", method: "notifications/initialized" } as any);
-    });
-  } finally {
-    await lado.close();
-  }
 }

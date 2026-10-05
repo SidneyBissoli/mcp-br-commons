@@ -114,9 +114,11 @@ o `Client` (há teste que confere).
 ```ts
 // worker/src/index.ts
 import { autenticacaoDaTrava, capturarCard, cardEmCache } from "@sbissoli/mcp-surface/card";
-import trava from "../../surface.lock.json";
+// Import nomeado (moduleResolution Bundler): o esbuild deixa o resto da trava fora do bundle.
+// Em NodeNext não há import nomeado de JSON: `import trava from "…" with { type: "json" }`.
+import { semToken } from "../../surface.lock.json";
 
-const serverCard = cardEmCache(() => capturarCard(buildServer(), { authentication: autenticacaoDaTrava(trava) }));
+const serverCard = cardEmCache(() => capturarCard(buildServer(), { authentication: autenticacaoDaTrava({ semToken }) }));
 // GET /.well-known/mcp/server-card.json → new Response(await serverCard(), { headers: { "Content-Type": "application/json" } })
 ```
 
@@ -133,7 +135,9 @@ expect(impressaoDigital(normalizarSuperficie(superficieDoCard(card)))).toBe(lerT
   `tools/list` em `apiKeyAusente` / `POST /mcp`. Lança se a medição não está lá.
 - `capturarCardPorFetch(buscar, url)` monta o mesmo card por HTTP stateless (JSON ou SSE),
   para superfície atrás de outro `fetch` (o container do sih). Lança se o `initialize`
-  não responde; o fallback é do servidor.
+  não responde; o fallback é do servidor. Quem SÓ usa esse caminho importa de
+  **`@sbissoli/mcp-surface/card/http`**: tudo do `/card` menos `capturarCard`, sem o SDK
+  em valor no grafo — na borda do sih, 156 → 32 KiB gzip.
 - `cardEmCache` guarda a primeira montagem que dá certo, por isolate; falha não fica.
 
 ## Observações

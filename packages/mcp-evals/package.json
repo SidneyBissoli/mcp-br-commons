@@ -45,11 +45,11 @@
   "author": "Sidney Bissoli <sbissoli76@gmail.com>",
   "license": "MIT",
   "peerDependencies": {
-    "zod": "^4.0.0",
-    "@modelcontextprotocol/client": "^2.1.0"
+    "@modelcontextprotocol/client": "^2.1.0",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.1.0",
+    "@modelcontextprotocol/client": "^2.3.0",
     "zod": "^4.6.5"
   },
   "bin": {

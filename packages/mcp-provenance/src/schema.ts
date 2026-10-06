@@ -17,13 +17,28 @@
 import { z } from "zod";
 
 /**
- * Versão do contrato de proveniência implementado por esta lib.
+ * Versões do contrato que esta lib sabe EMITIR. O servidor escolhe uma no contexto
+ * (`contractVersion`); os JSON Schemas publicados aceitam todas, de modo que subir o
+ * pacote não muda um byte do que o servidor emite — só o que ele declara aceitar.
  *
  * Regra de compatibilidade (§8 da spec): dentro da linha 1.x um campo só se
- * ACRESCENTA, sempre nullable, com posição fixa; nunca se renomeia, remove ou
- * muda de tipo. Chave nova = minor do contrato (1.0 → 1.1: `retrieval`).
+ * ACRESCENTA, com posição fixa; nunca se renomeia, remove ou muda de tipo. Chave nova
+ * = minor do contrato (1.0 → 1.1: `retrieval`; 1.1 → 1.2: `field_sources` no concise e
+ * `served_from_cache` por sub-fonte — as duas só presentes quando há o que dizer, ver §8).
  */
-export const CONTRACT_VERSION = "1.1";
+export const CONTRACT_VERSIONS = ["1.1", "1.2"] as const;
+
+export type ContractVersion = (typeof CONTRACT_VERSIONS)[number];
+
+/**
+ * Versão emitida por padrão — a que o contexto usa quando o servidor não escolhe.
+ * Fica em 1.1 na lib 0.3.x: a 1.2 acrescenta chaves ao fio, e o servidor só a liga
+ * depois que os clientes renovaram o `outputSchema` (rollout em dois tempos, §8).
+ */
+export const CONTRACT_VERSION: ContractVersion = "1.1";
+
+/** A versão mais nova que esta lib sabe emitir. */
+export const LATEST_CONTRACT_VERSION: ContractVersion = "1.2";
 
 const nullableString = z.string().min(1).nullable().default(null);
 
@@ -131,6 +146,11 @@ export const FieldSourceSchema = z.object({
   dataset_id: nullableString.describe("Identificador do conjunto da sub-fonte"),
   data_vintage: nullableString.describe("Vintage/competência da sub-fonte"),
   retrieved_at: nullableString.describe("ISO-8601 da extração desta sub-fonte no upstream"),
+  served_from_cache: z
+    .boolean()
+    .nullable()
+    .default(null)
+    .describe("true se esta sub-fonte veio do cache do servidor; false se buscada agora; null se não distingue"),
 });
 
 export type FieldSource = z.infer<typeof FieldSourceSchema>;
@@ -142,7 +162,7 @@ export type FieldSource = z.infer<typeof FieldSourceSchema>;
  * (é a data de extração juridicamente relevante) e podem marcar `served_from_cache`.
  */
 export const CanonicalProvenanceSchema = z.object({
-  contract_version: z.literal(CONTRACT_VERSION).default(CONTRACT_VERSION),
+  contract_version: z.enum(CONTRACT_VERSIONS).default(CONTRACT_VERSION),
   source: SourceSchema,
   dataset: DatasetSchema.default({ id: null, version: null, name: null }),
   dimension_key: z
@@ -206,7 +226,8 @@ export interface ProvenanceInput {
     source_url: string;
     dataset_id?: string | null;
     data_vintage?: string | null;
-    retrieved_at?: string | null;
+    retrieved_at?: string | Date | null;
+    served_from_cache?: boolean | null;
   }> | null;
 }
 
@@ -231,9 +252,19 @@ export function expandInput(
   const license = typeof input.license === "string" ? { name: input.license } : input.license;
   const dataset =
     input.dataset == null ? undefined : typeof input.dataset === "string" ? { id: input.dataset } : input.dataset;
-  const { source: _s, license: _l, dataset: _d, retrieved_at: _r, ...rest } = input;
+  const { source: _s, license: _l, dataset: _d, retrieved_at: _r, field_sources, ...rest } = input;
   return {
     ...rest,
+    // Date vira ISO aqui; o fuso do contexto é aplicado depois, no builder.
+    ...(field_sources !== undefined
+      ? {
+          field_sources:
+            field_sources?.map((fs) => ({
+              ...fs,
+              retrieved_at: fs.retrieved_at instanceof Date ? fs.retrieved_at.toISOString() : fs.retrieved_at,
+            })) ?? null,
+        }
+      : {}),
     source,
     license,
     ...(dataset !== undefined ? { dataset } : {}),
@@ -245,5 +276,18 @@ export function expandInput(
 export function assertSemantics(p: CanonicalProvenance): void {
   if (p.derived && p.derivation_note === null) {
     throw new ProvenanceContractError("derived=true exige derivation_note não-nulo (§4 do contrato)");
+  }
+  // v1.2: o retrieved_at do bloco é o MAIS ANTIGO entre as sub-fontes (§3). Só na 1.2,
+  // para que subir o pacote não derrube servidor que ainda escolhe a chave à mão.
+  if (p.contract_version === "1.2" && p.field_sources) {
+    const topo = Date.parse(p.retrieved_at);
+    for (const fs of p.field_sources) {
+      if (fs.retrieved_at !== null && Date.parse(fs.retrieved_at) < topo) {
+        throw new ProvenanceContractError(
+          `retrieved_at do bloco (${p.retrieved_at}) é mais novo que o da sub-fonte ${fs.source_url} ` +
+            `(${fs.retrieved_at}); na v1.2 ele é o mais antigo entre as sub-fontes (§3 do contrato)`,
+        );
+      }
+    }
   }
 }

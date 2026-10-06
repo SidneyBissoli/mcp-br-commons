@@ -18,7 +18,7 @@
  */
 
 import { z } from "zod";
-import { RetrievalAnomalyKindSchema } from "./schema.js";
+import { CONTRACT_VERSIONS, RetrievalAnomalyKindSchema } from "./schema.js";
 
 /** Tipo mínimo de JSON Schema que estes objetos satisfazem (evita depender de tipos externos). */
 export type JsonSchemaObject = {
@@ -82,48 +82,80 @@ export const RETRIEVAL_JSON_SCHEMA = {
 };
 
 /**
- * Projeção `concise` (contrato v1.1): 7 chaves, ordem fixa, `additionalProperties: false`.
+ * Sub-fonte de `field_sources`. `served_from_cache` (v1.2) é declarada mas NÃO exigida:
+ * o mesmo schema aceita o item da v1.1 (sem ela) e o da v1.2 (com ela).
+ */
+export const FIELD_SOURCE_JSON_SCHEMA = {
+  type: "object" as const,
+  description: "Proveniência de um grupo de campos da resposta: de onde veio e quando foi extraído",
+  properties: {
+    fields: {
+      type: "array" as const,
+      items: { type: "string" as const },
+      minItems: 1,
+      description: "Campos do payload atribuídos a esta sub-fonte",
+    },
+    source_url: str("URL canônica da sub-fonte que originou estes campos"),
+    dataset_id: strOrNull("Identificador do conjunto da sub-fonte"),
+    data_vintage: strOrNull("Vintage/competência da sub-fonte"),
+    retrieved_at: strOrNull("ISO-8601 da extração desta sub-fonte na origem"),
+    served_from_cache: {
+      type: ["boolean", "null"] as const,
+      description:
+        "true se esta sub-fonte veio do cache do servidor (retrieved_at é o da extração original); " +
+        "false se foi buscada nesta chamada; null se o servidor não distingue",
+    },
+  },
+  required: ["fields", "source_url", "dataset_id", "data_vintage", "retrieved_at"],
+  additionalProperties: false as const,
+} satisfies JsonSchemaObject;
+
+/**
+ * Projeção `concise`: 7 chaves obrigatórias em ordem fixa (v1.1) e, na v1.2, a oitava
+ * `field_sources`, OPCIONAL — ausente quando a resposta não funde sub-fontes, de modo
+ * que o mesmo schema aceita o fio da v1.1 e o da v1.2. `additionalProperties: false`.
  * É o que `renderConcise` emite em `structuredContent.provenance` e no espelho `_meta`.
  */
 export const CONCISE_BLOCK_JSON_SCHEMA = {
   type: "object" as const,
   description:
-    "Bloco de proveniência (contrato v1.1): fonte, URL, competência, extração, diagnóstico de origem, citação e licença",
+    "Bloco de proveniência (contrato v1.2): fonte, URL, competência, extração, diagnóstico de origem, " +
+    "citação e licença; e, só quando a resposta junta partes de origens ou momentos distintos, de onde veio cada parte",
   properties: {
     source: str("Fonte oficial do dado"),
     source_url: str("URL canônica que reproduz a consulta na fonte"),
     data_vintage: strOrNull("Competência/vintage do dado segundo a fonte; null quando a fonte não expõe"),
     retrieved_at: str(
       "Instante REAL da extração na origem (ISO-8601, fuso do servidor). Resposta servida de cache " +
-        "mantém o instante do fetch original, que é a data de extração relevante",
+        "mantém o instante do fetch original, que é a data de extração relevante. Quando a resposta " +
+        "junta partes extraídas em momentos distintos, é o MAIS ANTIGO deles (field_sources diz cada um)",
     ),
     retrieval: RETRIEVAL_JSON_SCHEMA,
     citation: str("Citação/atribuição pronta para uso"),
     license: strOrNull("Regime legal do dado (id SPDX quando há, senão o nome da licença)"),
+    field_sources: {
+      type: "array" as const,
+      items: FIELD_SOURCE_JSON_SCHEMA,
+      minItems: 1,
+      description:
+        "Presente só quando a resposta junta partes de origens ou momentos distintos: para cada grupo de " +
+        "campos, a URL, a extração e se veio do cache. Ausente nas respostas de uma origem só",
+    },
   },
   required: ["source", "source_url", "data_vintage", "retrieved_at", "retrieval", "citation", "license"],
   additionalProperties: false as const,
 } satisfies JsonSchemaObject;
 
-const FIELD_SOURCE_JSON_SCHEMA = {
-  type: "object" as const,
-  properties: {
-    fields: { type: "array" as const, items: { type: "string" as const }, minItems: 1 },
-    source_url: str("URL canônica da sub-fonte que originou estes campos"),
-    dataset_id: strOrNull("Identificador do conjunto da sub-fonte"),
-    data_vintage: strOrNull("Vintage/competência da sub-fonte"),
-    retrieved_at: strOrNull("ISO-8601 da extração desta sub-fonte"),
-  },
-  required: ["fields", "source_url", "dataset_id", "data_vintage", "retrieved_at"],
-  additionalProperties: false as const,
-};
-
-/** Projeção `detailed` (bloco canônico completo, contrato v1.1), ordem fixa, nulls explícitos. */
+/** Projeção `detailed` (bloco canônico completo), ordem fixa, nulls explícitos; aceita v1.1 e v1.2. */
 export const DETAILED_BLOCK_JSON_SCHEMA = {
   type: "object" as const,
-  description: "Bloco canônico de proveniência (contrato v1.1), completo",
+  description: "Bloco canônico de proveniência (contrato v1.1 ou v1.2), completo",
   properties: {
-    contract_version: { type: "string" as const, const: "1.1", description: "Versão do contrato de proveniência" },
+    contract_version: {
+      type: "string" as const,
+      enum: [...CONTRACT_VERSIONS],
+      description: "Versão do contrato de proveniência",
+    },
     source: {
       type: "object" as const,
       properties: {
@@ -217,7 +249,19 @@ const RetrievalOutputZod = z
   })
   .strict();
 
-/** Projeção `concise` em zod (estrito): as mesmas 7 chaves do JSON Schema acima. */
+/** Sub-fonte em zod (estrito); `served_from_cache` opcional, como no JSON Schema. */
+const FieldSourceOutputZod = z
+  .object({
+    fields: z.array(z.string()).min(1),
+    source_url: z.string(),
+    dataset_id: z.string().nullable(),
+    data_vintage: z.string().nullable(),
+    retrieved_at: z.string().nullable(),
+    served_from_cache: z.boolean().nullable().optional(),
+  })
+  .strict();
+
+/** Projeção `concise` em zod (estrito): as mesmas chaves do JSON Schema acima. */
 export const ConciseBlockSchema = z
   .object({
     source: z.string(),
@@ -227,13 +271,14 @@ export const ConciseBlockSchema = z
     retrieval: RetrievalOutputZod.nullable(),
     citation: z.string(),
     license: z.string().nullable(),
+    field_sources: z.array(FieldSourceOutputZod).min(1).optional(),
   })
   .strict();
 
 /** Projeção `detailed` em zod (estrito). */
 export const DetailedBlockSchema = z
   .object({
-    contract_version: z.literal("1.1"),
+    contract_version: z.enum(CONTRACT_VERSIONS),
     source: z
       .object({
         name: z.string(),
@@ -263,18 +308,6 @@ export const DetailedBlockSchema = z
     derivation_note: z.string().nullable(),
     served_from_cache: z.boolean().nullable(),
     retrieval: RetrievalOutputZod.nullable(),
-    field_sources: z
-      .array(
-        z
-          .object({
-            fields: z.array(z.string()).min(1),
-            source_url: z.string(),
-            dataset_id: z.string().nullable(),
-            data_vintage: z.string().nullable(),
-            retrieved_at: z.string().nullable(),
-          })
-          .strict(),
-      )
-      .nullable(),
+    field_sources: z.array(FieldSourceOutputZod).nullable(),
   })
   .strict();

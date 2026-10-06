@@ -5,6 +5,41 @@ seguem semver; a versão do **contrato** (`contract_version`) é outra numeraç�
 em `docs/contrato-proveniencia-v1.md` §8. Este arquivo nasceu na 0.2.0; as entradas
 anteriores foram reconstruídas do histórico do repositório.
 
+## [0.3.0] — 2026-10-06 — contrato v1.2
+
+Superfície publicada muda → minor. **`^0.2.0` não cobre esta versão**: bump explícito em
+cada servidor. **O fio NÃO muda** ao subir: a 0.3.0 emite 1.1 por padrão, byte a byte o
+que a 0.2.0 emitia (teste compara com a saída da 0.2.0 publicada). Muda só o que os
+schemas declaram aceitar — por isso a trava de superfície dos servidores acende.
+
+### Adicionado
+- **`field_sources` no `concise`** (8ª chave, depois de `license`), **só quando a resposta
+  funde sub-fontes** — ausente, não `null`, nas demais. Origem: leitores do dev.to
+  (27–28/09) notaram que uma resposta com parte em cache e parte buscada agora saía com um
+  `retrieved_at` só, sem dizer qual parte veio de quando.
+- **`served_from_cache` por sub-fonte** (`true`/`false`/`null`), no `concise` e no
+  `detailed`, na 1.2.
+- **`contractVersion` no contexto** (`"1.1"` | `"1.2"`, default `"1.1"`) e
+  `ctx.contractVersion`: o servidor escolhe a versão que EMITE. O bloco canônico a carrega
+  em `contract_version`, e `renderConcise`/`renderDetailed` decidem por ela — servidores
+  que chamam `renderConcise(p)` direto (bcb, ibge, medical) herdam a escolha.
+- Exports: `CONTRACT_VERSIONS`, `LATEST_CONTRACT_VERSION`, tipo `ContractVersion`,
+  `FIELD_SOURCE_JSON_SCHEMA` (antes privado) e tipo `RenderedFieldSource`.
+- `field_sources[].retrieved_at` aceita `Date` na entrada (normalizado ao fuso do contexto).
+- **Regra do `retrieved_at` mais antigo** escrita no contrato (§3) e cobrada na 1.2 quando
+  há `field_sources`: bloco mais novo que uma sub-fonte → `ProvenanceContractError`.
+
+### Mudado
+- `CONCISE_BLOCK_JSON_SCHEMA`/`ConciseBlockSchema`: `field_sources` declarada e não exigida.
+  Item com `served_from_cache` declarada e não exigida. `DETAILED_BLOCK_JSON_SCHEMA`:
+  `contract_version` passa de `const: "1.1"` a `enum: ["1.1", "1.2"]` (zod: `z.enum`).
+  Descrições de `retrieved_at` e do bloco citam a regra do mais antigo.
+- `CONTRACT_VERSION` continua `"1.1"`, agora com o sentido de "versão emitida por padrão";
+  quem mostra a versão ao cliente (ex.: rota de status) deve ler `ctx.contractVersion`.
+- Contrato §8: exceção ao `null` explícito para chave que existe para poucas respostas, e
+  rollout em dois tempos (subir o pacote; depois ligar a 1.2), com o motivo: o conector
+  também guarda o `outputSchema` e recusa chave desconhecida.
+
 ## [0.2.0] — 2026-09-26 — contrato v1.1
 
 Superfície publicada muda → minor. **`^0.1.0` não cobre esta versão** (caret em 0.x fica no

@@ -9,7 +9,9 @@ export {
   resolveOptions,
   type ResolvedUpstreamOptions,
   type RetryContext,
+  type FieldSourceSpec,
   type UpstreamAccess,
+  type UpstreamFieldSource,
   type UpstreamOptions,
   type UpstreamRequestInit,
 } from "./upstream.js";

@@ -1,9 +1,9 @@
-# Contrato de proveniência do portfólio — linha 1.x (vigente: v1.1)
+# Contrato de proveniência do portfólio — linha 1.x (vigente: v1.2)
 
 | Campo | Valor |
 |:--|:--|
-| Status | VIGENTE — v1.1 implementada por `@sbissoli/mcp-provenance` ≥ 0.2.0 (v1.0 = 0.1.x) |
-| Histórico | v1.0 (ago/2026): piso legal, 6 chaves no `concise` · **v1.1 (26/09/2026): campo `retrieval` — diagnóstico de origem — 7ª chave do `concise`; regra de compatibilidade (§8)** |
+| Status | VIGENTE — v1.2 implementada por `@sbissoli/mcp-provenance` ≥ 0.3.0, que emite 1.1 por padrão e 1.2 quando o servidor escolhe (`contractVersion`); v1.1 = 0.2.x, v1.0 = 0.1.x |
+| Histórico | v1.0 (ago/2026): piso legal, 6 chaves no `concise` · v1.1 (26/09/2026): campo `retrieval` — diagnóstico de origem — 7ª chave do `concise`; regra de compatibilidade (§8) · **v1.2 (06/10/2026): `field_sources` no `concise`, só quando a resposta funde sub-fontes; `served_from_cache` por sub-fonte; regra do instante mais antigo escrita (§3); rollout em dois tempos (§8)** |
 | Origem | Promoção do contrato v0.1 do ilostat (`ilostat/docs/03-contrato-proveniencia.md`) + envelope nível-1 do senado-br-mcp-cloudflare (`src/utils/provenance.ts`) |
 | Escopo | Toda resposta de toda ferramenta de todo servidor do portfólio (adoção nas Fases 1–4) |
 | Decisões de base | Decisão 5 da Fase 0 (modos `concise`/`detailed`, princípio de linguagem) |
@@ -38,6 +38,11 @@ diferentes, usar `field_sources` (granularidade por campo), não blocos múltipl
   padrão, logo o único em que o agente de fato vê o campo. (`served_from_cache`, que só
   existe em `detailed`, é o exemplo do que acontece com um campo de dificuldade que fica
   fora do `concise`: nenhum agente o lê.)
+
+  **v1.2:** uma 8ª chave, `field_sources`, depois de `license` — **presente só quando a
+  resposta funde sub-fontes** e ausente (não `null`) nas demais (§3, "Semântica de
+  `field_sources`"; a exceção à regra do `null` está justificada em §8). Mesmo motivo do
+  `retrieval`: o `detailed` já tinha `field_sources` desde a v1.0 e nenhum agente o via.
 - **`detailed`** — bloco canônico completo (§3). Evals de completude (camada 2) rodam em
   `detailed` para exercitar os dois caminhos.
 
@@ -50,7 +55,7 @@ Ordem fixa de chaves; ausência = `null`:
 
 ```jsonc
 {
-  "contract_version": "1.1",
+  "contract_version": "1.2",      // a versão que o servidor emite (contractVersion do contexto)
   "source":   { "name": "...", "agency": null, "database": null, "endpoint": null },
   "dataset":  { "id": null, "version": null, "name": null },
   "dimension_key": null,          // objeto {DIM: valor} na ordem das dimensões da fonte
@@ -65,7 +70,8 @@ Ordem fixa de chaves; ausência = `null`:
   "derivation_note": null,        // obrigatório se derived=true
   "served_from_cache": null,      // true/false quando o servidor distingue; null quando não
   "retrieval": null,              // v1.1 — {requests, attempts, anomalies, unstable}; null quando não medido
-  "field_sources": null           // [{fields, source_url, dataset_id, data_vintage, retrieved_at}]
+  "field_sources": null           // [{fields, source_url, dataset_id, data_vintage, retrieved_at,
+                                  //   served_from_cache (v1.2)}]
 }
 ```
 
@@ -132,6 +138,44 @@ momento do build/deploy. Respostas servidas de cache mantêm o `retrieved_at` do
 original (é a data de extração juridicamente relevante) e podem marcar
 `served_from_cache: true`. O default `new Date()` do builder só é aceitável para
 catálogos estáticos mantidos em código.
+
+**Resposta que junta acessos de momentos distintos** (parte do cache, parte buscada agora;
+ou duas leituras de cache de idades diferentes): `retrieved_at` é o **mais antigo** entre
+eles. É a afirmação honesta para um instante só — "nada aqui é mais velho que isto" — e é
+o que `call.retrievedAt()` do `@sbissoli/mcp-upstream` calcula. Até a v1.1 a regra morava
+só no código do coletor; servidores que escolhiam uma chave de cache à mão reportavam, na
+prática, o acesso mais NOVO. Na v1.2 a lib cobra a regra quando há `field_sources`:
+`retrieved_at` do bloco mais novo que o de alguma sub-fonte é erro de contrato (só na 1.2,
+para que subir o pacote não derrube servidor que ainda escolhe à mão).
+
+### Semântica de `field_sources` (v1.2 no `concise`)
+
+**Pergunta que responde:** *qual parte* da resposta veio de onde, e de quando. Exemplo:
+"compare a população de Vitória e de Vila Velha" — Vitória estava no cache desde ontem,
+Vila Velha foi buscada agora. Com um `retrieved_at` só, o leitor lê "extraído ontem" e
+supõe que tudo é de ontem.
+
+```jsonc
+"field_sources": [
+  { "fields": ["vitoria"],    "source_url": "...", "dataset_id": null, "data_vintage": null,
+    "retrieved_at": "2026-10-04T15:00:00Z", "served_from_cache": true },
+  { "fields": ["vila_velha"], "source_url": "...", "dataset_id": null, "data_vintage": null,
+    "retrieved_at": "2026-10-05T21:30:00Z", "served_from_cache": false }
+]
+```
+
+- **Presente só quando a resposta funde sub-fontes** (endpoints, recortes ou leituras de
+  momentos distintos). Resposta de uma origem só não leva a chave. `[]` conta como ausência.
+- **`fields`** nomeia os campos do payload que a sub-fonte produziu — o servidor sabe; o
+  coletor não. **`served_from_cache`** (v1.2): `true` se a sub-fonte veio do cache do
+  servidor (o `retrieved_at` é o da extração original), `false` se buscada nesta chamada,
+  `null` se o servidor não distingue — nunca inventado.
+- **O `retrieved_at` do bloco é o mais antigo entre as sub-fontes** (parágrafo acima).
+- Não substitui blocos múltiplos: sub-fontes de **regimes legais distintos** continuam em
+  blocos separados (§1). `field_sources` é para UMA fonte que funde recortes.
+- `@sbissoli/mcp-upstream` ≥ 0.4.0 monta o item a partir dos acessos da chamada
+  (`call.fieldSource({ fields, source_url, filter })`); o servidor só diz quais campos
+  vêm de quais URLs.
 
 ### Semântica de `derived`
 
@@ -224,7 +268,30 @@ que foi preciso (v1.1).
   do pacote prendem que schema e `render*` não divergem.
 - **Major (2.0)** é para tudo o que esta regra proíbe.
 
+### O que a v1.2 acrescentou a esta regra (06/10/2026)
+
+**O cliente também guarda o `outputSchema`.** Importar o schema do pacote resolve o lado
+do servidor; não resolve o conector (Claude.ai e outros) que listou as tools antes e
+guardou a lista. Com `additionalProperties: false`, uma chave que ele não conhece faz a
+resposta inteira ser recusada até ele renovar a lista — e isso não depende de nós. Daí
+duas regras:
+
+- **Exceção ao `null` explícito, só para chave que existe para poucas respostas.**
+  `field_sources` no `concise` é **ausente** quando não há fusão, não `null`. Com `null`
+  em toda resposta, um conector desatualizado recusaria TODA tool de TODO servidor; com a
+  chave ausente, só as tools que de fato fundem sub-fontes. A ordem continua contrato
+  (é a última chave); o que muda é que ela pode faltar. Pela mesma razão,
+  `served_from_cache` dentro do item é declarada no schema sem ser exigida.
+- **Rollout em dois tempos, por servidor.** A lib 0.3.0 emite **1.1 por padrão**, byte a
+  byte o que a 0.2.0 emitia (teste do pacote compara com a saída da 0.2.0 publicada), e
+  publica schemas que **aceitam** 1.1 e 1.2. (1) O servidor sobe o pacote: o
+  `outputSchema` passa a declarar a chave nova, o fio não muda, nada quebra. (2) Depois de
+  medir que os conectores renovaram o schema, o servidor liga `contractVersion: "1.2"` no
+  contexto — um patch dele, sem release do pacote — e a chave passa a sair nas tools que
+  fundem sub-fontes. `contract_version` no `detailed` acompanha a escolha do servidor.
+
 | Versão | Lib | Mudança |
 |:--|:--|:--|
 | 1.0 | 0.1.x | Contrato inicial: piso legal, modos `concise` (6 chaves)/`detailed`, três canais |
 | 1.1 | 0.2.x | `retrieval` (diagnóstico de origem) como 7ª chave do `concise` e no bloco canônico após `served_from_cache`; `contract_version: "1.1"`; esta seção; JSON Schema e zod das projeções publicados pelo pacote para o `outputSchema` |
+| 1.2 | 0.3.x | `field_sources` como 8ª chave do `concise`, presente só com fusão de sub-fontes; `served_from_cache` por sub-fonte; regra do `retrieved_at` mais antigo escrita (§3) e cobrada quando há `field_sources`; `contractVersion` no contexto (default 1.1); schemas aceitam 1.1 e 1.2; exceção ao `null` e rollout em dois tempos (acima) |

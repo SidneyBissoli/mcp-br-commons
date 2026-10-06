@@ -4,6 +4,21 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.4.0] — 2026-10-06
+
+### Adicionado
+- **`call.fieldSource({ fields, source_url, filter?, dataset_id?, data_vintage? })`** —
+  item de `field_sources` (contrato de proveniência v1.2) a partir dos acessos da
+  chamada: `retrieved_at` = o mais antigo dos acessos que casam com `filter` (por padrão,
+  URL igual a `source_url`), `served_from_cache` = todos do cache. Sem acesso que case,
+  os dois saem `null` — não "agora". Tipos `FieldSourceSpec` e `UpstreamFieldSource`.
+  Existe para que os servidores parem de escolher uma chave de cache à mão (ibge, senado,
+  ilo, uis reportavam, na prática, o acesso mais NOVO de uma resposta mista).
+
+### Mudado
+- Dependência `@sbissoli/mcp-provenance`: `^0.2.0` → `^0.2.0 || ^0.3.0`, para que o
+  servidor que sobe a proveniência não leve uma segunda cópia da 0.2.0 aninhada aqui.
+
 ## [0.3.0] — 2026-09-27
 
 Segunda adoção (ibge-br-mcp) pediu o par do `timeoutMs`: a REPETIÇÃO justa também depende

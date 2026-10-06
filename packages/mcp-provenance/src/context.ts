@@ -26,8 +26,11 @@ import {
 import {
   assertSemantics,
   CanonicalProvenanceSchema,
+  CONTRACT_VERSION,
+  CONTRACT_VERSIONS,
   expandInput,
   type CanonicalProvenance,
+  type ContractVersion,
   type ProvenanceInput,
 } from "./schema.js";
 import { timezoneLabel, toCanonicalIso, type TimezoneSpec } from "./time.js";
@@ -45,6 +48,13 @@ export interface ProvenanceContextOptions {
   timezone?: TimezoneSpec;
   /** Modo default das respostas. Default: "concise" (decisão 5). */
   defaultMode?: ProvenanceMode;
+  /**
+   * Versão do contrato que este servidor EMITE. Default: `CONTRACT_VERSION` ("1.1"), que
+   * produz exatamente os bytes da lib 0.2.x. "1.2" acrescenta `field_sources` ao concise
+   * (só quando a resposta funde sub-fontes) e `served_from_cache` por sub-fonte; ligar só
+   * depois que os clientes renovaram o `outputSchema` (§8, rollout em dois tempos).
+   */
+  contractVersion?: ContractVersion;
 }
 
 /** Preset de fonte: campos fixos por fonte upstream; o restante vem por chamada. */
@@ -65,6 +75,8 @@ export interface ProvenanceContext {
   locale: LocaleSpec;
   timezone: TimezoneSpec;
   defaultMode: ProvenanceMode;
+  /** Versão do contrato que os blocos deste contexto carregam e emitem. */
+  contractVersion: ContractVersion;
   /** Valida e normaliza a entrada no modelo canônico (fuso aplicado a retrieved_at). */
   build(input: ProvenanceInput): CanonicalProvenance;
   /** `build` a partir de um preset de fonte + campos por chamada. */
@@ -85,6 +97,10 @@ export function createProvenanceContext(options: ProvenanceContextOptions): Prov
   const locale = resolveLocale(options.locale ?? "pt-BR");
   const timezone = options.timezone ?? "utc";
   const defaultMode = options.defaultMode ?? "concise";
+  const contractVersion = options.contractVersion ?? CONTRACT_VERSION;
+  if (!(CONTRACT_VERSIONS as readonly string[]).includes(contractVersion)) {
+    throw new Error(`contractVersion "${contractVersion}" desconhecida (esta lib emite ${CONTRACT_VERSIONS.join(", ")})`);
+  }
   const ns = options.metaNamespace.replace(/\/+$/, "");
   if (!ns) throw new Error("metaNamespace é obrigatório (ex.: \"com.exemplo.meuservidor\")");
   const metaKeys = { provenance: `${ns}/provenance`, attribution: `${ns}/attribution` };
@@ -92,7 +108,7 @@ export function createProvenanceContext(options: ProvenanceContextOptions): Prov
 
   function build(input: ProvenanceInput): CanonicalProvenance {
     const retrievedAtIso = toCanonicalIso(input.retrieved_at ?? new Date(), timezone);
-    const expanded = expandInput(input, retrievedAtIso);
+    const expanded = { ...expandInput(input, retrievedAtIso), contract_version: contractVersion };
     if (expanded.field_sources) {
       expanded.field_sources = expanded.field_sources.map((fs) =>
         fs.retrieved_at ? { ...fs, retrieved_at: toCanonicalIso(fs.retrieved_at, timezone) } : fs,
@@ -143,5 +159,5 @@ export function createProvenanceContext(options: ProvenanceContextOptions): Prov
     };
   }
 
-  return { metaKeys, locale, timezone, defaultMode, build, from, render, footer, result };
+  return { metaKeys, locale, timezone, defaultMode, contractVersion, build, from, render, footer, result };
 }

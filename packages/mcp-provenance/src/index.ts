@@ -1,5 +1,7 @@
 export {
   CONTRACT_VERSION,
+  CONTRACT_VERSIONS,
+  LATEST_CONTRACT_VERSION,
   CanonicalProvenanceSchema,
   DatasetSchema,
   FieldSourceSchema,
@@ -10,6 +12,7 @@ export {
   SourceSchema,
   normalizeRetrieval,
   type CanonicalProvenance,
+  type ContractVersion,
   type FieldSource,
   type ProvenanceInput,
   type Retrieval,
@@ -26,12 +29,14 @@ export {
   type ConciseBlock,
   type DetailedBlock,
   type ProvenanceMode,
+  type RenderedFieldSource,
 } from "./render.js";
 export {
   CONCISE_BLOCK_JSON_SCHEMA,
   ConciseBlockSchema,
   DETAILED_BLOCK_JSON_SCHEMA,
   DetailedBlockSchema,
+  FIELD_SOURCE_JSON_SCHEMA,
   RETRIEVAL_JSON_SCHEMA,
   RETRIEVAL_OBJECT_JSON_SCHEMA,
   provenanceBlockJsonSchema,

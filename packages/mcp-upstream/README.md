@@ -48,6 +48,25 @@ return prov.result(dados, prov.from(PRESET, {
 a lib de proveniência, como já faz. É `null` quando a chamada não foi à origem nenhuma
 vez (cache puro, dado local) — o contrato manda `null`, não `{ attempts: 1 }` inventado.
 
+### Resposta que junta partes de procedências distintas (`field_sources`)
+
+Quando a resposta funde sub-fontes — uma parte do cache, outra buscada agora —,
+`call.fieldSource()` monta o item de `field_sources` (contrato de proveniência v1.2,
+`@sbissoli/mcp-provenance` ≥ 0.3.0) a partir dos acessos registrados. O servidor diz
+quais campos vêm de qual URL; o coletor põe o instante mais antigo e o `served_from_cache`
+daquela sub-fonte:
+
+```ts
+field_sources: [
+  call.fieldSource({ fields: ["serie"], source_url: urlSerie }),                    // acessos com URL igual
+  call.fieldSource({ fields: ["meta"],  source_url: urlMeta, filter: (u) => u.startsWith(urlMeta) }),
+],
+```
+
+Sub-fonte sem nenhum acesso nesta chamada sai com `retrieved_at` e `served_from_cache`
+`null` — diferente de `retrievedAt()`, que devolve "agora" para o bloco, o item nunca
+afirma uma extração que não aconteceu.
+
 ### Três modos de ida
 
 | método | corpo | `inspectBody` | `malformed_body` |

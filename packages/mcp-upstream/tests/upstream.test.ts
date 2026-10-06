@@ -402,6 +402,47 @@ describe("cache e instante de extração", () => {
     expect(call.retrievedAt((u) => u === URL_B).getTime()).toBe(h.clock());
   });
 
+  it("fieldSource: uma sub-fonte do cache e outra da rede, cada uma com o seu instante", async () => {
+    const h = harness([ok(1)]);
+    const call = h.upstream.call();
+    call.recordCache(URL_A, "2026-09-25T15:00:00Z");
+    await call.json(URL_B);
+    expect(call.fieldSource({ fields: ["vitoria"], source_url: URL_A })).toEqual({
+      fields: ["vitoria"],
+      source_url: URL_A,
+      dataset_id: null,
+      data_vintage: null,
+      retrieved_at: "2026-09-25T15:00:00.000Z",
+      served_from_cache: true,
+    });
+    const b = call.fieldSource({ fields: ["vila_velha"], source_url: URL_B, dataset_id: "6579", data_vintage: "2025" });
+    expect(b.retrieved_at).toBe(new Date(h.clock()).toISOString());
+    expect(b.served_from_cache).toBe(false);
+    expect([b.dataset_id, b.data_vintage]).toEqual(["6579", "2025"]);
+    // o bloco: o mais antigo entre as duas — a regra que a v1.2 do contrato cobra
+    expect(call.retrievedAt().toISOString()).toBe("2026-09-25T15:00:00.000Z");
+  });
+
+  it("fieldSource: filter agrupa várias URLs; sem acesso que case, instante e cache saem null (nunca 'agora')", async () => {
+    const h = harness([ok(1), ok(2)]);
+    const call = h.upstream.call();
+    call.recordCache(`${URL_A}?p=1`, "2026-09-20T00:00:00Z");
+    await call.json(`${URL_A}?p=2`);
+    const paginas = call.fieldSource({ fields: ["x"], source_url: URL_A, filter: (u) => u.startsWith(URL_A) });
+    expect(paginas.retrieved_at).toBe("2026-09-20T00:00:00.000Z");
+    expect(paginas.served_from_cache).toBe(false); // nem tudo veio do cache
+    const nada = call.fieldSource({ fields: ["y"], source_url: "https://nao-lida.example/" });
+    expect([nada.retrieved_at, nada.served_from_cache]).toEqual([null, null]);
+  });
+
+  it("fieldSource não altera a entrada do chamador", () => {
+    const h = harness([]);
+    const fields = ["a"];
+    const fs = h.upstream.call().fieldSource({ fields, source_url: URL_A });
+    fs.fields.push("b");
+    expect(fields).toEqual(["a"]);
+  });
+
   it("retrievedAt sem acesso é o instante corrente; retrievedAt inválido falha alto", () => {
     const h = harness([]);
     const call = h.upstream.call();

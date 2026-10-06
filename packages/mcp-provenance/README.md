@@ -118,19 +118,39 @@ const p = prov.build({
 return prov.result({ ilostat: dadosIlo, uis: dadosUis }, [pIlo, pUis]);
 ```
 
-### Recortes múltiplos de uma mesma fonte
+### Recortes múltiplos de uma mesma fonte (`field_sources`, contrato v1.2 no `concise`)
+
+Resposta que junta partes de endpoints ou de momentos distintos — parte do cache, parte
+buscada agora — diz de onde veio cada parte. O `retrieved_at` do bloco é o **mais antigo**
+entre elas (na 1.2 a lib cobra isso).
 
 ```ts
-const p = prov.build({ ...base, field_sources: [
-  { fields: ["relatoria"], source_url: urlRelatoria, retrieved_at: fetchedAtRelatoria },
+const prov = createProvenanceContext({ metaNamespace, contractVersion: "1.2" }); // ver "Rollout" abaixo
+const p = prov.build({ ...base, retrieved_at: call.retrievedAt(), field_sources: [
+  call.fieldSource({ fields: ["vitoria"],    source_url: urlVitoria,   filter: (u) => u === urlVitoria }),
+  call.fieldSource({ fields: ["vila_velha"], source_url: urlVilaVelha, filter: (u) => u === urlVilaVelha }),
 ]});
+// concise → ..., "license": "...", "field_sources": [
+//   { "fields": ["vitoria"],    ..., "retrieved_at": "2026-10-04T15:00:00Z", "served_from_cache": true },
+//   { "fields": ["vila_velha"], ..., "retrieved_at": "2026-10-05T21:30:00Z", "served_from_cache": false } ]
 ```
+
+`call.fieldSource` vem do `@sbissoli/mcp-upstream` ≥ 0.4.0. Resposta sem fusão não leva a
+chave (ausente, não `null`).
+
+**Rollout em dois tempos.** A 0.3.0 emite a versão **1.1 por padrão** — byte a byte o
+que a 0.2.0 emitia — e os schemas publicados aceitam 1.1 e 1.2. Subir o pacote só muda
+o que o `outputSchema` declara; o fio fica igual. Ligar `contractVersion: "1.2"` é um
+segundo passo, depois que os conectores renovaram o schema: um conector que guardou o
+schema antigo recusa a chave que não conhece (contrato §8).
 
 ## Regras que a lib impõe (server-side, antes de responder)
 
 - `license` com ao menos `id` ou `name` (piso legal);
 - `derived: true` exige `derivation_note`;
 - chaves em ordem fixa e ausência como `null` explícito (determinismo byte-a-byte por modo);
+  a exceção é `field_sources` no `concise` (v1.2), ausente quando não há fusão;
+- na 1.2, `retrieved_at` do bloco não pode ser mais novo que o de nenhuma sub-fonte;
 - timestamps ISO-8601 sem milissegundos, normalizados ao fuso configurado (datas puras
   passam intactas — nunca inventa horário num vintage).
 

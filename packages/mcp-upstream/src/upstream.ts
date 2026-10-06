@@ -112,6 +112,26 @@ export interface UpstreamAccess {
   fromCache: boolean;
 }
 
+/** O que o servidor diz de uma sub-fonte: os campos que ela produziu e onde ela mora. */
+export interface FieldSourceSpec {
+  fields: string[];
+  source_url: string;
+  /** Quais acessos pertencem a esta sub-fonte. Default: URL igual a `source_url`. */
+  filter?: ((url: string) => boolean) | undefined;
+  dataset_id?: string | null | undefined;
+  data_vintage?: string | null | undefined;
+}
+
+/** Item de `field_sources` na forma de entrada do `@sbissoli/mcp-provenance` ≥ 0.3.0. */
+export interface UpstreamFieldSource {
+  fields: string[];
+  source_url: string;
+  dataset_id: string | null;
+  data_vintage: string | null;
+  retrieved_at: string | null;
+  served_from_cache: boolean | null;
+}
+
 export type UpstreamRequestInit = Omit<RequestInit, "signal"> & {
   signal?: AbortSignal | undefined;
   /**
@@ -256,6 +276,29 @@ export class UpstreamCall {
     const acc = filter ? this.#accesses.filter((a) => filter(a.url)) : this.#accesses;
     if (acc.length === 0) return null;
     return acc.every((a) => a.fromCache);
+  }
+
+  /**
+   * Uma sub-fonte pronta para `field_sources` (contrato de proveniência v1.2): o instante
+   * mais antigo e o `served_from_cache` dos acessos que casam com `filter` — por padrão,
+   * os da própria `source_url`. Quais campos a sub-fonte produziu, só o servidor sabe; o
+   * coletor só sabe de URLs e instantes.
+   *
+   * Sem acesso que case, `retrieved_at` e `served_from_cache` saem `null`: a sub-fonte não
+   * foi lida nesta chamada, e inventar "agora" (como `retrievedAt()` faz para o bloco)
+   * afirmaria uma extração que não aconteceu.
+   */
+  fieldSource(spec: FieldSourceSpec): UpstreamFieldSource {
+    const filter = spec.filter ?? ((url: string) => url === spec.source_url);
+    const acc = this.#accesses.filter((a) => filter(a.url));
+    return {
+      fields: [...spec.fields],
+      source_url: spec.source_url,
+      dataset_id: spec.dataset_id ?? null,
+      data_vintage: spec.data_vintage ?? null,
+      retrieved_at: acc.length === 0 ? null : this.retrievedAt(filter).toISOString(),
+      served_from_cache: this.servedFromCache(filter),
+    };
   }
 
   async #request(

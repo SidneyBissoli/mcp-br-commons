@@ -9,7 +9,7 @@ import {
   provenanceBlockJsonSchema,
 } from "../src/json-schema.js";
 import { renderConcise, renderDetailed } from "../src/render.js";
-import { CONTRACT_VERSION, RetrievalAnomalyKindSchema } from "../src/schema.js";
+import { CONTRACT_VERSION, CONTRACT_VERSIONS, RetrievalAnomalyKindSchema } from "../src/schema.js";
 
 const ctx = createProvenanceContext({ metaNamespace: "com.exemplo.teste", timezone: "utc" });
 
@@ -25,6 +25,19 @@ const semRetrieval = ctx.build({
   field_sources: [{ fields: ["x"], source_url: "https://a.example/1" }],
 });
 
+const semRetrievalV12 = createProvenanceContext({
+  metaNamespace: "com.exemplo.teste",
+  timezone: "utc",
+  contractVersion: "1.2",
+}).build({
+  source: "ILOSTAT",
+  source_url: "https://sdmx.ilo.org/rest/data/ILO,DF_X/all",
+  license: { id: "CC-BY-4.0" },
+  citation: "ILO, ILOSTAT.",
+  retrieved_at: "2026-08-04T14:32:07Z",
+  field_sources: [{ fields: ["x"], source_url: "https://a.example/1" }],
+});
+
 const comRetrieval = ctx.build({
   source: "Banco Central do Brasil — SGS",
   source_url: "https://api.bcb.gov.br/x",
@@ -35,18 +48,18 @@ const comRetrieval = ctx.build({
 });
 
 describe("JSON Schema das projeções (para o outputSchema das tools)", () => {
-  it("concise: properties e required são EXATAMENTE as chaves que renderConcise emite, na mesma ordem, e o objeto é fechado", () => {
-    const chaves = Object.keys(renderConcise(semRetrieval));
-    expect(Object.keys(CONCISE_BLOCK_JSON_SCHEMA.properties)).toEqual(chaves);
-    expect(CONCISE_BLOCK_JSON_SCHEMA.required).toEqual(chaves);
+  it("concise: required = as 7 chaves da 1.1; properties = as 8 que a 1.2 emite com fusão, na mesma ordem; objeto fechado", () => {
+    expect(CONCISE_BLOCK_JSON_SCHEMA.required).toEqual(Object.keys(renderConcise(semRetrieval)));
+    expect(Object.keys(CONCISE_BLOCK_JSON_SCHEMA.properties)).toEqual(Object.keys(renderConcise(semRetrievalV12)));
     expect(CONCISE_BLOCK_JSON_SCHEMA.additionalProperties).toBe(false);
   });
 
-  it("detailed: idem para renderDetailed; contract_version preso ao CONTRACT_VERSION da lib", () => {
+  it("detailed: idem para renderDetailed; contract_version aceita exatamente as versões que a lib emite", () => {
     const chaves = Object.keys(renderDetailed(semRetrieval));
     expect(Object.keys(DETAILED_BLOCK_JSON_SCHEMA.properties)).toEqual(chaves);
     expect(DETAILED_BLOCK_JSON_SCHEMA.required).toEqual(chaves);
-    expect(DETAILED_BLOCK_JSON_SCHEMA.properties.contract_version.const).toBe(CONTRACT_VERSION);
+    expect(DETAILED_BLOCK_JSON_SCHEMA.properties.contract_version.enum).toEqual([...CONTRACT_VERSIONS]);
+    expect(CONTRACT_VERSIONS).toContain(CONTRACT_VERSION);
   });
 
   it("retrieval: chaves e vocabulário de kind batem com o modelo", () => {

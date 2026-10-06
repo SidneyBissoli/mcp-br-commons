@@ -14,15 +14,15 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.3.0",
     "@sbissoli/mcp-provenance": "^0.3.0",
-    "agents": "^0.24.0",
+    "agents": "^0.26.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260925.2",
+    "@cloudflare/workers-types": "^5.20261002.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.2",
-    "wrangler": "^4.145.0"
+    "wrangler": "^4.147.0"
   }
 }

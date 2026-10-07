@@ -1,121 +1,129 @@
 # @sbissoli/mcp-surface
 
-**Mudou a superfície sem subir a versão = build vermelho e deploy recusado.**
+🇧🇷 [Leia em Português](https://github.com/SidneyBissoli/mcp-br-commons/blob/main/packages/mcp-surface/LEIA-ME.md)
 
-> Mantido para o meu portfólio de servidores MCP. Uso por terceiros é bem-vindo, mas o
-> roadmap segue as necessidades dos meus servidores.
+**Surface changed without a version bump = red build and refused deploy.**
 
-A cópia de um servidor no MCP Registry carrega só nome, versão, pacotes e remotos — nenhuma
-superfície. Quem compara o registro com o servidor só consegue comparar a **versão**, e isso
-só vale se toda mudança de superfície subir a versão. Este pacote transforma essa disciplina
-em teste. A ideia veio de um leitor (dev.to,
-[3g5m4](https://dev.to/yahhi/comment/3g5m4) e 3g607), que achou o caso grave no servidor
-dele: registro dizendo 0.1.0 com 4 tools só-leitura, servidor com 6, duas escrevendo pelo
-usuário.
+> Maintained for my own portfolio of MCP servers. Third-party use is welcome, but the
+> roadmap follows what my servers need, and there is no API stability promise for others.
+> The API and CLI names are in Portuguese; the main ones are glossed below.
 
-## O que entra na impressão digital
+The copy of a server in the MCP Registry carries only name, version, packages and remotes —
+no surface. Anyone comparing the registry with the server can only compare the **version**,
+and that only means something if every surface change bumps the version. This package turns
+that discipline into a test. The idea came from a reader on dev.to
+([3g5m4](https://dev.to/yahhi/comment/3g5m4) and 3g607), who found the serious case in their
+own server: the registry said 0.1.0 with 4 read-only tools, the server had 6, two of them
+writing on the user's behalf.
 
-O `surface.lock.json`, commitado na raiz do servidor, tem duas seções. Cada uma guarda a
-versão do `package.json` em que foi travada e o sha256 do conteúdo:
+## What goes into the fingerprint
 
-- **`declarada`** — `initialize` (instructions, capabilities, `serverInfo` sem a versão) +
-  `tools/list` + `resources/list` + `resources/templates/list` + `prompts/list`,
-  normalizados (chaves ordenadas, listas por nome/uri). Método não servido é `null`, não `[]`.
-- **`semToken`** — QUAIS MÉTODOS RESPONDEM SEM CREDENCIAL, por configuração (ex.: `API_KEY`
-  ausente e presente) e por rota. É comportamento que nenhuma listagem mostra.
+`surface.lock.json`, committed at the server's root, has two sections. Each one stores the
+`package.json` version it was locked under and the sha256 of its content:
 
-A regra (`conferirSecao`): medido ≠ travado e versão igual → **falha**; versão diferente →
-falha pedindo `npm run surface:lock`. O modo de escrita obedece à mesma regra e recusa
-travar superfície nova sob a versão antiga.
+- **`declarada`** (declared) — `initialize` (instructions, capabilities, `serverInfo` without
+  the version) + `tools/list` + `resources/list` + `resources/templates/list` +
+  `prompts/list`, normalised (sorted keys, lists ordered by name/uri). A method that is not
+  served is `null`, not `[]`.
+- **`semToken`** (without token) — WHICH METHODS ANSWER WITHOUT A CREDENTIAL, per
+  configuration (e.g. `API_KEY` unset and set) and per route. This is behaviour no listing
+  shows.
 
-## Adoção num servidor
+The rule (`conferirSecao`, "check section"): measured ≠ locked with the same version →
+**fail**; different version → fail, asking for `npm run surface:lock`. Write mode follows the
+same rule and refuses to lock a new surface under the old version.
 
-1. **Teste da superfície declarada** (onde a fábrica do servidor é importável):
+## Adopting it in a server
+
+1. **Declared-surface test** (where the server factory can be imported):
 
    ```ts
    import { capturarSuperficie, conferirSecao } from "@sbissoli/mcp-surface";
    import { createServer } from "../src/server.js";
 
-   it("surface.lock.json — superfície declarada", async () => {
+   it("surface.lock.json — declared surface", async () => {
      const v = conferirSecao("surface.lock.json", "declarada", await capturarSuperficie(createServer()), pkg.version);
      expect(v.ok, v.mensagem).toBe(true);
    });
    ```
 
-2. **Teste de quem responde sem token** (na borda HTTP, chamando o `fetch` do Worker):
+2. **Test of what answers without a token** (at the HTTP edge, calling the Worker's `fetch`):
 
    ```ts
    import { comHost, conferirSecao, corpoDoPedido, CABECALHOS_MCP, ipDaSonda, medirSemToken, sondaSemToken } from "@sbissoli/mcp-surface";
 
    const envs = { apiKeyAusente: {} as Env, apiKeyPresente: { API_KEY: "x" } as Env };
    const medido = await medirSemToken(Object.keys(envs), ["POST /mcp", "POST /mcp/uso-proprio"],
-     sondaSemToken({ name: "<tool sem rede>", arguments: {} }),
+     sondaSemToken({ name: "<tool with no network access>", arguments: {} }),
      (config, rota, pedido) => worker.fetch(comHost(new Request(`https://host${rota.slice(5)}`, {
        method: "POST", headers: { ...CABECALHOS_MCP, "CF-Connecting-IP": ipDaSonda() }, body: corpoDoPedido(pedido),
      }), "host"), envs[config], ctx));
    expect(conferirSecao("surface.lock.json", "semToken", medido, pkg.version).ok).toBe(true);
    ```
 
-3. **Script** no `package.json`:
+3. **Script** in `package.json` (`travar` = lock):
    `"surface:lock": "npm run build && mcp-surface travar --cmd \"vitest run tests/surface-lock.test.ts\""`.
 
-4. **Deploy**: rodar `npm test` ANTES do wrangler, e no fim
-   `npx mcp-surface verificar https://<host>/mcp --tool <tool sem rede>` — prova que o que
-   está no ar é o que foi travado. **Publish**: `npm test` antes do npm.
+4. **Deploy**: run `npm test` BEFORE wrangler, and at the end
+   `npx mcp-surface verificar https://<host>/mcp --tool <tool with no network access>`
+   (`verificar` = verify) — it proves that what is live is what was locked.
+   **Publish**: `npm test` before npm.
 
-5. **Uma vez**: `npx mcp-surface replay --url https://<host>/mcp` grava
-   `baselines/replay-<data>.md` com todas as versões publicadas no npm, uma contra a
-   anterior, as remoções fora de major e o ar contra a versão que o `/status` declara.
+5. **Once**: `npx mcp-surface replay --url https://<host>/mcp` writes
+   `baselines/replay-<date>.md` with every version published on npm, each against the
+   previous one, the removals outside a major release, and the live endpoint against the
+   version its `/status` declares.
 
-Fluxo de quem muda a superfície: `npm version <nível> --no-git-tag-version` →
-`npm run surface:lock` → commitar o lock junto.
+Workflow for whoever changes the surface: `npm version <level> --no-git-tag-version` →
+`npm run surface:lock` → commit the lock with it.
 
-## Teste com forma de cliente (`@sbissoli/mcp-surface/cliente`)
+## Client-shaped test (`@sbissoli/mcp-surface/cliente`)
 
-O servidor interrogado pelo `Client` do SDK, que reprova o resultado de `tools/call`
-contra o `outputSchema` **listado**. Assim o teste falha como a sessão do usuário falharia,
-sem um validador escolhido por nós. É subpath à parte porque o `Client` compila schemas
-com Ajv (`new Function`), que o Worker proíbe: só se importa em teste Node, e o
-`@modelcontextprotocol/client` é peer opcional.
+The server is questioned by the SDK's `Client`, which rejects a `tools/call` result against
+the **listed** `outputSchema`. So the test fails the way the user's session would fail,
+without a validator of our choosing. It is a separate subpath because the `Client` compiles
+schemas with Ajv (`new Function`), which the Worker forbids: import it only in Node tests;
+`@modelcontextprotocol/client` is an optional peer.
 
 ```ts
 import { chamarComoCliente, conectarComoCliente, controlesNegativos } from "@sbissoli/mcp-surface/cliente";
 
 const client = await conectarComoCliente(buildServer(env));
-const r = await chamarComoCliente(client, "minha_tool", { x: 1 }); // lança se o Client reprovar ou se vier isError
+const r = await chamarComoCliente(client, "my_tool", { x: 1 }); // throws if the Client rejects or isError comes back
 
-const vs = await controlesNegativos(() => buildServer(env), "minha_tool", { x: 1 });
+const vs = await controlesNegativos(() => buildServer(env), "my_tool", { x: 1 });
 for (const v of vs) expect(v.obtido, `${v.descricao}: ${v.mensagem ?? ""}`).toBe(v.esperado);
 ```
 
-- `conectarComoCliente` passa toda mensagem do servidor por JSON antes de entregá-la: o
-  transporte em memória não serializa, e chave `undefined` só some no fio.
-- `chamarComoCliente` faz `tools/list` antes do primeiro `tools/call` da conexão. Sem
-  isso, o `Client` (2.0 a 2.2) devolve o resultado sem validar.
-- `controlesNegativos` adultera o resultado entre servidor e cliente, com quebras
-  **derivadas do schema listado**: `structuredContent` ausente, cada obrigatório ausente e
-  cada obrigatório com `type` declarado recebendo um valor que nenhum tipo dele aceita (o
-  anulável `["string", "null"]` recebe `0`). As quebras rodam em paralelo, cada uma com
-  servidor próprio. Cada quebra tem de fazer a chamada falhar. O
-  último veredito é a armadilha (sem `tools/list`, a quebra passa calada); se o SDK mudar,
-  ele acusa. Quebras do próprio servidor, como campo a mais onde o schema fecha o objeto,
-  entram pelo 4º argumento.
+- `conectarComoCliente` (connect as client) passes every server message through JSON before
+  handing it over: the in-memory transport doesn't serialise, and an `undefined` key only
+  disappears on the wire.
+- `chamarComoCliente` (call as client) does `tools/list` before the connection's first
+  `tools/call`. Without it, the `Client` (2.0 to 2.2) returns the result unvalidated.
+- `controlesNegativos` (negative controls) tampers with the result between server and client,
+  with breakages **derived from the listed schema**: `structuredContent` missing, each
+  required field missing, and each required field with a declared `type` receiving a value
+  none of its types accept (the nullable `["string", "null"]` gets `0`). The breakages run
+  in parallel, each with its own server. Each breakage must make the call fail. The last
+  verdict is the trap (without `tools/list`, the breakage passes silently); if the SDK
+  changes, it says so. Server-specific breakages, such as an extra field where the schema
+  closes the object, go in through the 4th argument.
 
 ## Server card (`@sbissoli/mcp-surface/card`)
 
-O `/.well-known/mcp/server-card.json` que scanners de diretório (Smithery) leem quando a
-varredura do `/mcp` não completa, **derivado da mesma captura que a trava normaliza**.
-Forma da Smithery: `serverInfo` (do `initialize` real, com a versão), `authentication`,
-`tools`, `resources`, `prompts`, mais `protocolVersion`, `capabilities`, `instructions` e
-`resourceTemplates`. Método não servido fica fora do card (não vira `[]`). Seguro para
-Worker: o grafo do subpath não importa `node:crypto`, `node:child_process`, `node:fs` nem
-o `Client` (há teste que confere).
+The `/.well-known/mcp/server-card.json` that directory scanners (Smithery) read when the
+scan of `/mcp` doesn't complete, **derived from the same capture the lock normalises**.
+Smithery's shape: `serverInfo` (from the real `initialize`, with the version),
+`authentication`, `tools`, `resources`, `prompts`, plus `protocolVersion`, `capabilities`,
+`instructions` and `resourceTemplates`. A method that is not served stays out of the card
+(it doesn't become `[]`). Safe for Workers: the subpath's import graph doesn't pull in
+`node:crypto`, `node:child_process`, `node:fs` or the `Client` (a test checks it).
 
 ```ts
 // worker/src/index.ts
 import { autenticacaoDaTrava, capturarCard, cardEmCache } from "@sbissoli/mcp-surface/card";
-// Import nomeado (moduleResolution Bundler): o esbuild deixa o resto da trava fora do bundle.
-// Em NodeNext não há import nomeado de JSON: `import trava from "…" with { type: "json" }`.
+// Named import (moduleResolution Bundler): esbuild leaves the rest of the lock out of the bundle.
+// NodeNext has no named JSON import: `import trava from "…" with { type: "json" }`.
 import { semToken } from "../../surface.lock.json";
 
 const serverCard = cardEmCache(() => capturarCard(buildServer(), { authentication: autenticacaoDaTrava({ semToken }) }));
@@ -123,7 +131,7 @@ const serverCard = cardEmCache(() => capturarCard(buildServer(), { authenticatio
 ```
 
 ```ts
-// teste do servidor: o card não pode divergir da trava
+// server test: the card must not diverge from the lock
 import { normalizarSuperficie, impressaoDigital, lerTrava } from "@sbissoli/mcp-surface";
 import { capturarCard, superficieDoCard } from "@sbissoli/mcp-surface/card";
 
@@ -131,19 +139,39 @@ const card = await capturarCard(buildServer());
 expect(impressaoDigital(normalizarSuperficie(superficieDoCard(card)))).toBe(lerTrava(caminho).declarada?.sha256);
 ```
 
-- `autenticacaoDaTrava(trava)` deriva `authentication.required` da seção `semToken`:
-  `tools/list` em `apiKeyAusente` / `POST /mcp`. Lança se a medição não está lá.
-- `capturarCardPorFetch(buscar, url)` monta o mesmo card por HTTP stateless (JSON ou SSE),
-  para superfície atrás de outro `fetch` (o container do sih). Lança se o `initialize`
-  não responde; o fallback é do servidor. Quem SÓ usa esse caminho importa de
-  **`@sbissoli/mcp-surface/card/http`**: tudo do `/card` menos `capturarCard`, sem o SDK
-  em valor no grafo — na borda do sih, 156 → 32 KiB gzip.
-- `cardEmCache` guarda a primeira montagem que dá certo, por isolate; falha não fica.
+- `autenticacaoDaTrava(trava)` (authentication from the lock) derives
+  `authentication.required` from the `semToken` section: `tools/list` under
+  `apiKeyAusente` / `POST /mcp`. Throws if that measurement isn't there.
+- `capturarCardPorFetch(buscar, url)` builds the same card over stateless HTTP (JSON or
+  SSE), for a surface behind another `fetch` (the sih container). Throws if `initialize`
+  doesn't answer; the fallback is the server's job. Code that ONLY uses this path imports
+  from **`@sbissoli/mcp-surface/card/http`**: everything in `/card` except `capturarCard`,
+  without the SDK as a value in the graph — at the sih edge, 156 → 32 KiB gzip.
+- `cardEmCache` (cached card) keeps the first build that succeeds, per isolate; a failure is
+  not kept.
 
-## Observações
+## Notes
 
-- Uma atualização do SDK que mexa nas `capabilities` também acende a trava — de propósito:
-  o cliente vê outra superfície.
-- Superfície que depende de ambiente (flag de feature, perfil de tools) precisa ser travada
-  com o ambiente fixo, ou em uma captura por perfil.
-- Mudar a normalização deste pacote muda o sha de todo lock que o usa — ver o CHANGELOG.
+- An SDK update that touches `capabilities` also turns the lock red — on purpose: the client
+  sees a different surface.
+- A surface that depends on the environment (feature flag, tool profile) must be locked with
+  the environment fixed, or with one capture per profile.
+- Changing this package's normalisation changes the sha of every lock that uses it — see the
+  CHANGELOG.
+
+## Glossary
+
+| Name | Meaning |
+|:--|:--|
+| `trava` / `travar` | lock / to lock (`surface.lock.json`) |
+| `declarada` | declared surface section |
+| `semToken` | "without token" section |
+| `conferirSecao` | check one section of the lock against a measurement |
+| `capturarSuperficie` | capture a server's surface in-process |
+| `impressaoDigital` | fingerprint (sha256 of the normalised value) |
+| `verificar` | verify the live endpoint against the lock |
+| `apiKeyAusente` / `apiKeyPresente` | API key unset / set |
+
+## License
+
+MIT — see [`LICENSE`](https://github.com/SidneyBissoli/mcp-br-commons/blob/main/packages/mcp-surface/LICENSE).

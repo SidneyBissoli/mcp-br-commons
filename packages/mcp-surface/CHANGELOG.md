@@ -8,6 +8,18 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [0.4.1] — 2026-10-07
+
+Só documentação e licença: código, API e normalização NÃO mudam.
+
+### Alterado
+
+- **README em inglês** (`README.md`), com glossário dos nomes da API, que seguem em
+  português; o texto em português passa a `LEIA-ME.md`. O npm empacota todo `README*` da
+  pasta e pode exibir o traduzido, por isso o par fica fora desse prefixo.
+- **`LICENSE`** (MIT) no tarball. O `package.json` já declarava MIT, mas o texto da licença
+  não acompanhava o pacote.
+
 ## [0.4.0] — 2026-10-04
 
 A normalização NÃO muda. Minor porque a superfície publicada cresce (subpath novo); o

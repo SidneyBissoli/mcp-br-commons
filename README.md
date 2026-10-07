@@ -11,13 +11,18 @@ terminologias médicas).
 
 ## Pacotes
 
-| Pacote | O quê | Status |
+| Pacote | O quê | Versão publicada |
 |---|---|---|
-| [`@sbissoli/mcp-provenance`](packages/mcp-provenance) | Contrato de proveniência: todo retorno de tool carrega fonte, endpoint, período, data de extração, licença e diagnóstico de origem (`retrieval`, contrato v1.1), em dois modos (`concise`/`detailed`) | 0.2.0 (npm) |
-| [`@sbissoli/mcp-stats`](packages/mcp-stats) | Motor de estatísticas (média/mediana/distribuição/topN/agruparPor) para tools tabulares, exibição por idioma | 0.3.1 (npm) |
-| [`@sbissoli/mcp-evals`](packages/mcp-evals) | Harness de evals de seleção de tool: extrator de catálogo (fake McpServer, captura `.tool` e `.registerTool`), validação de fixtures, scorer offline (top-1/top-k/por-área), gate de acurácia e runner via Anthropic Messages API | 0.1.1 (npm) |
-| [`@sbissoli/mcp-search`](packages/mcp-search) | As tools `search`/`fetch` do contrato Deep Research do ChatGPT: schemas, envelope (JSON em `content` + `structuredContent`), índice em memória com ranking simples e a fábrica `registerDeepResearchTools` — o servidor fornece só o índice e o renderizador | 0.6.2 (npm) |
-| [`@sbissoli/mcp-surface`](packages/mcp-surface) | Impressão digital da superfície: `initialize` (instructions + capabilities) + tools/resources/prompts + quem responde sem token, travados ao lado da versão no `surface.lock.json` — mudou sem subir a versão = build vermelho e deploy recusado; CLI `mcp-surface` para regravar, conferir o endpoint no ar e fazer o replay das versões publicadas | 0.1.0 |
+| [`@sbissoli/mcp-provenance`](packages/mcp-provenance) | Contrato de proveniência: todo retorno de tool carrega fonte, endpoint, período, data de extração, licença e diagnóstico de origem (`retrieval`, contrato v1.1), em dois modos (`concise`/`detailed`) | [npm](https://www.npmjs.com/package/@sbissoli/mcp-provenance) |
+| [`@sbissoli/mcp-stats`](packages/mcp-stats) | Motor de estatísticas (média/mediana/distribuição/topN/agruparPor) para tools tabulares, exibição por idioma | [npm](https://www.npmjs.com/package/@sbissoli/mcp-stats) |
+| [`@sbissoli/mcp-evals`](packages/mcp-evals) | Harness de evals de seleção de tool: extrator de catálogo (fake McpServer, captura `.tool` e `.registerTool`), validação de fixtures, scorer offline (top-1/top-k/por-área), gate de acurácia e runner via Anthropic Messages API | [npm](https://www.npmjs.com/package/@sbissoli/mcp-evals) |
+| [`@sbissoli/mcp-search`](packages/mcp-search) | As tools `search`/`fetch` do contrato Deep Research do ChatGPT: schemas, envelope (JSON em `content` + `structuredContent`), índice em memória com ranking simples e a fábrica `registerDeepResearchTools` — o servidor fornece só o índice e o renderizador | [npm](https://www.npmjs.com/package/@sbissoli/mcp-search) |
+| [`@sbissoli/mcp-surface`](packages/mcp-surface) | Impressão digital da superfície: `initialize` (instructions + capabilities) + tools/resources/prompts + quem responde sem token, travados ao lado da versão no `surface.lock.json` — mudou sem subir a versão = build vermelho e deploy recusado; CLI `mcp-surface` para regravar, conferir o endpoint no ar e fazer o replay das versões publicadas | [npm](https://www.npmjs.com/package/@sbissoli/mcp-surface) |
+| [`@sbissoli/mcp-upstream`](packages/mcp-upstream) | Fetch comum dos servidores MCP: retry com backoff e Retry-After, timeout por tentativa e orçamento por chamada, e a contagem de tentativas e anomalias que alimenta o `retrieval` do contrato de proveniência v1.1 | [npm](https://www.npmjs.com/package/@sbissoli/mcp-upstream) |
+
+A versão de cada pacote fica no npm (e no `package.json` e no `CHANGELOG.md` dele), não
+nesta tabela: número copiado à mão envelhece calado — até 07/10/2026 quatro das cinco
+versões listadas aqui estavam atrasadas e o `mcp-upstream` faltava.
 
 Além dos pacotes, o monorepo abriga como **pastas copiáveis** (não importáveis):
 
@@ -40,3 +45,8 @@ npm test
 
 Monorepo com npm workspaces. Cada pacote tem seus próprios testes (vitest) e
 `tsconfig.json` estendendo `tsconfig.base.json`.
+
+## Licença
+
+MIT — ver [`LICENSE`](LICENSE). Cada pacote leva o mesmo arquivo na sua pasta, e o npm o
+inclui no tarball a partir da próxima release de cada um.

@@ -161,7 +161,9 @@ expect(impressaoDigital(normalizarSuperficie(superficieDoCard(card)))).toBe(lerT
 
 ## Glossary
 
-| Name | Meaning |
+The API keeps its Portuguese identifiers, so code that imports it uses them as written below.
+
+| Identifier (as exported) | Meaning in English |
 |:--|:--|
 | `trava` / `travar` | lock / to lock (`surface.lock.json`) |
 | `declarada` | declared surface section |

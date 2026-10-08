@@ -10,10 +10,28 @@ Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
 ## [Não lançado]
 
-Só documentação (a SPEC é lida do GitHub, pelo link que vai no registro); código e forma
-canônica NÃO mudam.
+## [0.5.1] — 2026-10-08
+
+A forma canônica NÃO muda (nenhum sha256 muda, nenhuma trava precisa ser regravada); muda o
+que as conferências contra o ar fazem ANTES de comparar. Patch: os servidores, em `^0.5.0`,
+pegam sozinhos.
 
 ### Adicionado
+
+- **A sonda pergunta primeiro por um método que não existe** (`METODO_INEXISTENTE`,
+  `mcp-surface/metodo-que-nao-existe`). Se o endpoint responde `result`, ele diz sim a tudo
+  (proxy, dublê, borda que engole erro), e `verificar` e `conferir-registro` recusam comparar
+  com "a sonda não sabe dizer não" em vez de medir a vontade de quem responde. Até aqui a
+  proteção era indireta: método não servido grava `null` na trava, e um "sim a tudo" aparecia
+  como divergência que alguém teria de ler. Ideia de Valentina Koniukhova (dev.to, comentário
+  3gmbl): "a probe that can't say no proves nothing". Exportados `METODO_INEXISTENTE`,
+  `vereditoDoMetodoInexistente` e `endpointSabeDizerNao`; `exemplos/verify.mjs` faz o mesmo
+  (`saysNo`), e a SPEC §6 ganhou o passo 2. Medido antes de publicar: os sete endpoints de
+  produção sabem dizer não (08/10/2026); `verificar` do build novo contra o bcb no ar confere.
+  Testes: o veredito isolado, e `verificar`/`conferirRegistro`/`verify.mjs` contra um endpoint
+  local que responde a tudo — os dois de `verificar` falham no código anterior.
+
+Junto, só documentação (a SPEC é lida do GitHub, pelo link que vai no registro):
 
 - **SPEC §2 — lista que muda sozinha não entra na superfície declarada.** Ela quebraria a
   promessa todo dia sem nada ter quebrado. O servidor serve os itens que mudam fora das quatro

@@ -3,7 +3,7 @@
  * o `surface.lock.json`; isto prova que o ENDPOINT bate. Roda no fim do deploy.
  */
 
-import { capturarHttp, pedirHttp } from "./remoto.js";
+import { capturarHttp, endpointSabeDizerNao, pedirHttp } from "./remoto.js";
 import { sondaSemToken, type ChamadaLocal } from "./sonda.js";
 import { impressaoDigital } from "./superficie.js";
 import { lerTrava } from "./trava.js";
@@ -49,6 +49,16 @@ export async function verificarNoAr(o: OpcoesVerificar): Promise<string | null> 
   const tentativas = o.tentativas ?? 6;
   let ultimo = "";
   for (let t = 1; t <= tentativas; t++) {
+    // Antes de comparar: quem responde sabe dizer não? Senão a comparação mede
+    // a vontade de quem responde, não a superfície. Repete com as tentativas
+    // porque a Cloudflare serve isolates mistos logo após o deploy.
+    const surdo = await endpointSabeDizerNao(o.url);
+    if (surdo !== null) {
+      ultimo = surdo;
+      log(`tentativa ${t}: ${ultimo}`);
+      if (t < tentativas) await new Promise(r => setTimeout(r, o.esperaMs ?? 10_000));
+      continue;
+    }
     const sha = impressaoDigital(await capturarHttp(o.url));
     const divergentes: string[] = [];
     for (const pedido of sonda) {

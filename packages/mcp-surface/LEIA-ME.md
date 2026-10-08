@@ -64,7 +64,9 @@ travar superfície nova sob a versão antiga.
 
 4. **Deploy**: rodar `npm test` ANTES do wrangler, e no fim
    `npx mcp-surface verificar https://<host>/mcp --tool <tool sem rede>` — prova que o que
-   está no ar é o que foi travado. **Publish**: `npm test` antes do npm.
+   está no ar é o que foi travado. Antes, ele pergunta por um método que não existe e recusa
+   comparar se a resposta trouxer `result`: endpoint que diz sim a tudo não prova nada.
+   **Publish**: `npm test` antes do npm.
 
 5. **Uma vez**: `npx mcp-surface replay --url https://<host>/mcp` grava
    `baselines/replay-<data>.md` com todas as versões publicadas no npm, uma contra a

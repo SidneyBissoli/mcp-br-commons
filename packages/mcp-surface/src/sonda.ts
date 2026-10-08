@@ -36,6 +36,31 @@ export function sondaSemToken(chamada?: ChamadaLocal): Pedido[] {
   return sonda;
 }
 
+/**
+ * Um método que nenhum servidor serve. A sonda o pede ANTES de comparar qualquer
+ * coisa: se ele "responde", quem está do outro lado diz sim a tudo — um proxy,
+ * um dublê, uma borda que engole o erro —, e tudo o que a sonda medisse depois
+ * seria a vontade dele, não a superfície. Ideia de Valentina Koniukhova (dev.to,
+ * comentário 3gmbl, 07/10/2026): "a probe that can't say no proves nothing".
+ * A trava já se protegia disso só de forma indireta (método não servido grava
+ * `null`, e um "sim a tudo" apareceria como divergência que alguém teria de ler).
+ */
+export const METODO_INEXISTENTE = "mcp-surface/metodo-que-nao-existe";
+
+/**
+ * Veredito da sonda sobre o método inexistente: `null` quando o outro lado
+ * soube dizer não (erro JSON-RPC, ou qualquer resposta sem `result`); senão, o
+ * motivo para não comparar nada.
+ */
+export function vereditoDoMetodoInexistente(resposta: { status: number; result?: unknown }): string | null {
+  if (resposta.result === undefined) return null;
+  return (
+    `a sonda não sabe dizer não: o método inexistente "${METODO_INEXISTENTE}" recebeu \`result\` ` +
+    `(HTTP ${resposta.status}). Quem responde não é o servidor MCP, ou é um que aceita qualquer método — ` +
+    `nada foi comparado.`
+  );
+}
+
 /** Lê o corpo de uma resposta MCP por HTTP (JSON puro ou SSE com uma mensagem). */
 export function lerCorpoJsonRpc(texto: string): { result?: Record<string, unknown>; error?: unknown } | undefined {
   const t = texto.trim();

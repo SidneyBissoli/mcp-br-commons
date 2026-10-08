@@ -10,6 +10,7 @@ export {
 export { capturarSuperficie, type ServidorConectavel } from "./memoria.js";
 export {
   CABECALHOS_MCP,
+  METODO_INEXISTENTE,
   comHost,
   corpoDoPedido,
   ipDaSonda,
@@ -17,11 +18,12 @@ export {
   medirSemToken,
   respondeu,
   sondaSemToken,
+  vereditoDoMetodoInexistente,
   type ChamadaLocal,
   type Pedido,
 } from "./sonda.js";
 export { VAR_ESCRITA, conferirSecao, lerTrava, modoEscrita, type NomeDaSecao, type Trava, type Veredito } from "./trava.js";
-export { capturarHttp, capturarStdio, pedirHttp } from "./remoto.js";
+export { capturarHttp, capturarStdio, endpointSabeDizerNao, pedirHttp } from "./remoto.js";
 export { verificarNoAr, type OpcoesVerificar } from "./verificar.js";
 export { diferenca, linhaDeCompatibilidade, replay, type OpcoesReplay } from "./replay.js";
 export {

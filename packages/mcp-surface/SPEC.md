@@ -129,12 +129,17 @@ bytes):
    `GET https://registry.modelcontextprotocol.io/v0.1/servers/{name}/versions/{version}`, then
    `server._meta["io.modelcontextprotocol.registry/publisher-provided"]["io.github.sidneybissoli/mcp-surface"]`.
    An unknown `form` cannot be checked; it is not a mismatch.
-2. Capture (§1), normalise (§2) and hash (§3) on first connect; compare with `declared.sha256`.
-3. Optionally repeat the probes of §4 and compare with `anonymous.answers`.
-4. On a mismatch, refuse or ask the user to approve again: the server now differs from the one
+2. Before comparing anything, call a method no server serves (`mcp-surface/metodo-que-nao-existe`).
+   An endpoint that answers it with a `result` says yes to everything — a proxy, a test double, an
+   edge that swallows errors — and nothing measured after it would mean anything: stop, and report
+   that, not a mismatch. Any JSON-RPC error, or any answer without `result`, counts as saying no.
+3. Capture (§1), normalise (§2) and hash (§3) on first connect; compare with `declared.sha256`.
+4. Optionally repeat the probes of §4 and compare with `anonymous.answers`.
+5. On a mismatch, refuse or ask the user to approve again: the server now differs from the one
    the registry describes for that version.
 
-`node exemplos/verify.mjs <name> [version]` does steps 1–3 and exits 1 on a mismatch.
+`node exemplos/verify.mjs <name> [version]` does steps 1–4 and exits 1 on a mismatch, or when
+step 2 fails.
 
 ### 6.1 Checking it against the source
 

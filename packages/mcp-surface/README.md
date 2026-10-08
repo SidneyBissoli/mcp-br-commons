@@ -67,7 +67,9 @@ same rule and refuses to lock a new surface under the old version.
 
 4. **Deploy**: run `npm test` BEFORE wrangler, and at the end
    `npx mcp-surface verificar https://<host>/mcp --tool <tool with no network access>`
-   (`verificar` = verify) — it proves that what is live is what was locked.
+   (`verificar` = verify) — it proves that what is live is what was locked. It first asks for a
+   method that does not exist and refuses to compare if that gets a `result`: an endpoint that says
+   yes to everything proves nothing.
    **Publish**: `npm test` before npm.
 
 5. **Once**: `npx mcp-surface replay --url https://<host>/mcp` writes

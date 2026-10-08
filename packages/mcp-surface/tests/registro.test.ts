@@ -95,7 +95,8 @@ describe("registro: publicar e conferir contra endpoints de verdade (HTTP local)
   }
 
   /** Servidor MCP mínimo, stateless, que PAGINA o tools/list e responde em SSE. */
-  function servidorMcp(instructions: string) {
+  /** `simATudo`: responde `result` a qualquer método — o dublê/proxy que a sonda tem de recusar. */
+  function servidorMcp(instructions: string, simATudo = false) {
     return subir((corpo, res) => {
       const { id, method, params } = JSON.parse(corpo) as { id: number; method: string; params?: { cursor?: string } };
       const results: Record<string, unknown> = {
@@ -108,7 +109,7 @@ describe("registro: publicar e conferir contra endpoints de verdade (HTTP local)
       };
       const r = results[method];
       res.writeHead(200, { "Content-Type": "text/event-stream" }).end(
-        `event: message\ndata: ${JSON.stringify(r ? { jsonrpc: "2.0", id, result: r } : { jsonrpc: "2.0", id, error: { code: -32601, message: "não" } })}\n\n`,
+        `event: message\ndata: ${JSON.stringify(r || simATudo ? { jsonrpc: "2.0", id, result: r ?? {} } : { jsonrpc: "2.0", id, error: { code: -32601, message: "não" } })}\n\n`,
       );
     });
   }
@@ -210,6 +211,21 @@ describe("registro: publicar e conferir contra endpoints de verdade (HTTP local)
     writeFileSync(sj, JSON.stringify(s));
     const erro = await conferirRegistro({ nome: "io.github.x/t", versao: "1.0.1", registro: await registroCom(sj), tentativas: 1 });
     expect(erro).toMatch(/no ar [0-9a-f]{12} ≠ registro/);
+  });
+
+  // Ideia de Valentina Koniukhova (dev.to, 3gmbl): uma sonda que não sabe dizer não não prova nada.
+  it("conferirRegistro e verify.mjs recusam comparar um endpoint que diz sim ao método inexistente", async () => {
+    const dir = await travar(`${await servidorMcp("i")}/mcp`);
+    const sj = join(dir, "server.json");
+    gravarMetaNoServerJson(sj, join(dir, "surface.lock.json"), { chamada });
+    const surdo = `${await servidorMcp("i", true)}/mcp`;
+    const s = JSON.parse(readFileSync(sj, "utf8")) as Record<string, Record<string, Record<string, Record<string, unknown>>>>;
+    s["_meta"]![CHAVE_DO_PUBLICADOR]![CHAVE_DA_SUPERFICIE]!["endpoint"] = surdo;
+    writeFileSync(sj, JSON.stringify(s));
+    const erro = await conferirRegistro({ nome: "io.github.x/t", versao: "1.0.1", registro: await registroCom(sj), tentativas: 1 });
+    expect(erro).toContain("não sabe dizer não");
+    expect(await verify.saysNo(surdo)).toBe(false);
+    expect(await verify.saysNo(`${await servidorMcp("i")}/mcp`)).toBe(true);
   });
 
   it("entrada sem o bloco, ou com forma desconhecida, é dita — não vira 'confere'", async () => {

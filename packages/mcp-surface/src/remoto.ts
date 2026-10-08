@@ -7,7 +7,14 @@
 
 import { spawn } from "node:child_process";
 
-import { CABECALHOS_MCP, corpoDoPedido, lerCorpoJsonRpc, type Pedido } from "./sonda.js";
+import {
+  CABECALHOS_MCP,
+  METODO_INEXISTENTE,
+  corpoDoPedido,
+  lerCorpoJsonRpc,
+  vereditoDoMetodoInexistente,
+  type Pedido,
+} from "./sonda.js";
 import { capturarPor } from "./superficie.js";
 
 /** Um pedido JSON-RPC a um endpoint MCP, sem credencial. */
@@ -15,6 +22,14 @@ export async function pedirHttp(url: string, pedido: Pedido): Promise<{ status: 
   const res = await fetch(url, { method: "POST", headers: { ...CABECALHOS_MCP }, body: corpoDoPedido(pedido) });
   const corpo = lerCorpoJsonRpc(await res.text());
   return corpo?.result ? { status: res.status, result: corpo.result } : { status: res.status };
+}
+
+/**
+ * O endpoint sabe dizer não? Pede o método inexistente; `null` = sim (pode
+ * comparar); senão, o motivo para não comparar nada.
+ */
+export async function endpointSabeDizerNao(url: string): Promise<string | null> {
+  return vereditoDoMetodoInexistente(await pedirHttp(url, { method: METODO_INEXISTENTE }));
 }
 
 /** A superfície declarada servida por um endpoint HTTP (stateless, sem credencial). */

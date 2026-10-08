@@ -10,6 +10,19 @@ Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
 ## [Não lançado]
 
+Só documentação (a SPEC é lida do GitHub, pelo link que vai no registro); código e forma
+canônica NÃO mudam.
+
+### Adicionado
+
+- **SPEC §6.2 — a promessa vale por resposta, não por conexão.** O passo 3 confere uma vez, ao
+  conectar; um servidor pode mudar o `tools/list` no meio da sessão sem mandar
+  `notifications/tools/list_changed` (a spec do MCP diz SHOULD). O host que confere monta a lista
+  inteira (segue `nextCursor`), põe no lugar da mesma lista na superfície capturada ao conectar,
+  recalcula o hash da superfície INTEIRA e compara com `declared.sha256` — o hash publicado nunca
+  é de uma lista sozinha, então não precisa de campo nem forma nova. Divergência no meio da sessão
+  = divergência ao conectar. Ideia de leitor do dev.to (comentário 3gpa6, 08/10/2026).
+
 ## [0.5.2] — 2026-10-08
 
 A forma canônica NÃO muda (nenhum sha256 muda); muda a mensagem da trava vermelha.

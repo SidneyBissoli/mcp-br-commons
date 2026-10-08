@@ -95,7 +95,11 @@ um estranho reproduz", de [Valentina Koniukhova](https://dev.to/yahhi/comment/3g
    versão do `server.json` e a compara com o endpoint no ar, como um cliente — sem ler a trava.
 
 Qualquer pessoa confere: `node verify.mjs io.github.SidneyBissoli/bcb-br-mcp`
-([script](exemplos/verify.mjs)).
+([script](exemplos/verify.mjs)). Isso prova que o ar é o que o registro publicou para a versão (o
+registro não deixa mudar versão publicada). Para conferir que o hash publicado é o do **código
+público**, e não só a palavra do publicador, rode os testes da trava a partir do tag
+([SPEC.md §6.1](SPEC.md)): `git clone --depth 1 --branch v<versão> <repo>`, `npm ci && npm test`, e
+compare `declarada.sha256` do `surface.lock.json` com o `declared.sha256` do registro.
 
 ## Teste com forma de cliente (`@sbissoli/mcp-surface/cliente`)
 

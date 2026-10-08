@@ -121,6 +121,16 @@ curl -sO https://raw.githubusercontent.com/SidneyBissoli/mcp-br-commons/main/pac
 node verify.mjs io.github.SidneyBissoli/bcb-br-mcp
 ```
 
+That shows the live server is what the registry published for that version (the registry does not
+let a published version change). To check that the published hash is the **public source's**, not
+just the publisher's word, run the lock tests from the tag ([SPEC.md §6.1](SPEC.md)):
+
+```sh
+git clone --depth 1 --branch v1.16.2 https://github.com/SidneyBissoli/bcb-br-mcp && cd bcb-br-mcp
+npm ci && npm test
+node -p "require('./surface.lock.json').declarada.sha256"   # = the registry's declared.sha256
+```
+
 ## Client-shaped test (`@sbissoli/mcp-surface/cliente`)
 
 The server is questioned by the SDK's `Client`, which rejects a `tools/call` result against

@@ -8,6 +8,24 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [Não lançado]
+
+Só documentação (a SPEC é lida do GitHub, pelo link que vai no registro); código e forma
+canônica NÃO mudam.
+
+### Adicionado
+
+- **SPEC §6.1 — conferir contra o código-fonte.** O hash do registro é declarado pelo
+  publicador; quem clona o tag e roda `npm ci && npm test` prova que a superfície capturada
+  DAQUELE código é a da trava e que o `server.json` publica a trava. Medido em 07/10/2026 no
+  bcb-br-mcp 1.16.2, clone limpo: trava, `server.json` e registro com o mesmo
+  `ff0973f91573…`. README e LEIA-ME com o comando.
+- **SPEC §8 reescrita:** o limite deixa de ser "não pega publicador desonesto" e passa a dizer
+  o que se prova (o que roda = o que o registro publicou, que não muda; com §6.1, = o código
+  público) e o que não se prova (que uma tool declarada é benigna). Registrada como ideia, não
+  feita: atestação assinada (Sigstore pelo OIDC do CI) ligando hash, commit e workflow — espera
+  um host que verifique atestações.
+
 ## [0.5.0] — 2026-10-07
 
 A impressão digital passa a ser publicada no MCP Registry, para o CLIENTE conferir. Ideia de

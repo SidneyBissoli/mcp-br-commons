@@ -125,6 +125,26 @@ bytes):
 
 `node exemplos/verify.mjs <name> [version]` does steps 1–3 and exits 1 on a mismatch.
 
+### 6.1 Checking it against the source
+
+Steps 1–4 show that the live server is what the registry published for that version. They do
+not show that the published hash is the one the **public source** produces: the hash is declared
+by the publisher. For a server that adopts `@sbissoli/mcp-surface`, anyone can close that gap
+from the tagged source, with no access to the publisher's machine or CI:
+
+```sh
+git clone --depth 1 --branch v<version> <repository> && cd <repository>
+npm ci && npm test        # the lock tests: the surface captured from THIS source = surface.lock.json,
+                          # and server.json publishes what the lock holds
+node -p "require('./surface.lock.json').declarada.sha256"   # = declared.sha256 in the registry entry
+```
+
+The lock test captures the surface from the source in memory (not from a build the publisher
+shipped), and the `server.json` test fails when the published block differs from the lock. A
+registry hash that does not match the tag's lock means the entry was not published from that
+source. Measured on 2026-10-07 for `bcb-br-mcp` 1.16.2 from a clean clone: lock, `server.json` and
+registry entry carry the same `ff0973f91573…`.
+
 ## 7. Test vector
 
 This raw capture:
@@ -163,8 +183,14 @@ becoming `null`; a non-ASCII character hashed as UTF-8; `[]` and `null` kept apa
 
 ## 8. What it does not prove
 
-- It is published by the same party that publishes the server. It catches drift and forgotten
-  bumps — the surface changed and the version did not — not a dishonest publisher.
+- It cannot tell a host that a declared tool is benign. It proves that what the host runs is
+  what the registry published for that version (the registry does not let a published version's
+  metadata change), and, with §6.1, that the hash is the public source's. Judging what the surface
+  does stays a human decision on re-approval.
+- Without §6.1 the hash is the publisher's word. Not done, recorded as an idea: a signed
+  attestation (Sigstore, through the CI's OIDC identity, as npm provenance does) binding the hash
+  to the commit and the workflow, so a host could check it without rebuilding. It waits for a
+  host that verifies such attestations.
 - It covers the surface, not behaviour: tool results, resource contents and upstream data are
   outside it.
 - It says nothing about versions published before the fingerprint was.

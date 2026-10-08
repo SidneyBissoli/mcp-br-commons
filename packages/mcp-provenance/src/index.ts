@@ -9,7 +9,10 @@ export {
   ProvenanceContractError,
   RetrievalAnomalyKindSchema,
   RetrievalInputSchema,
+  RevisionSchema,
+  RevisionStatusSchema,
   SourceSchema,
+  contractAtLeast,
   normalizeRetrieval,
   type CanonicalProvenance,
   type ContractVersion,
@@ -19,6 +22,8 @@ export {
   type RetrievalAnomaly,
   type RetrievalAnomalyKind,
   type RetrievalInput,
+  type Revision,
+  type RevisionStatus,
 } from "./schema.js";
 export {
   attributionList,
@@ -39,6 +44,7 @@ export {
   FIELD_SOURCE_JSON_SCHEMA,
   RETRIEVAL_JSON_SCHEMA,
   RETRIEVAL_OBJECT_JSON_SCHEMA,
+  REVISION_OBJECT_JSON_SCHEMA,
   provenanceBlockJsonSchema,
   type JsonSchemaObject,
 } from "./json-schema.js";

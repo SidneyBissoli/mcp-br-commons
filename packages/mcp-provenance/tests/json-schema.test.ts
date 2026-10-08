@@ -9,7 +9,7 @@ import {
   provenanceBlockJsonSchema,
 } from "../src/json-schema.js";
 import { renderConcise, renderDetailed } from "../src/render.js";
-import { CONTRACT_VERSION, CONTRACT_VERSIONS, RetrievalAnomalyKindSchema } from "../src/schema.js";
+import { CONTRACT_VERSION, CONTRACT_VERSIONS, LATEST_CONTRACT_VERSION, RetrievalAnomalyKindSchema } from "../src/schema.js";
 
 const ctx = createProvenanceContext({ metaNamespace: "com.exemplo.teste", timezone: "utc" });
 
@@ -25,10 +25,12 @@ const semRetrieval = ctx.build({
   field_sources: [{ fields: ["x"], source_url: "https://a.example/1" }],
 });
 
-const semRetrievalV12 = createProvenanceContext({
+// Bloco com TODA chave opcional presente, na versão mais nova que a lib emite: o schema
+// publicado tem de declarar exatamente o que ela emite no caso mais cheio.
+const cheioNaUltima = createProvenanceContext({
   metaNamespace: "com.exemplo.teste",
   timezone: "utc",
-  contractVersion: "1.2",
+  contractVersion: LATEST_CONTRACT_VERSION,
 }).build({
   source: "ILOSTAT",
   source_url: "https://sdmx.ilo.org/rest/data/ILO,DF_X/all",
@@ -36,6 +38,10 @@ const semRetrievalV12 = createProvenanceContext({
   citation: "ILO, ILOSTAT.",
   retrieved_at: "2026-08-04T14:32:07Z",
   field_sources: [{ fields: ["x"], source_url: "https://a.example/1" }],
+  notices: ["Break in series"],
+  derived: true,
+  derivation_note: "Soma calculada pelo servidor",
+  revision: { status: "current" },
 });
 
 const comRetrieval = ctx.build({
@@ -48,16 +54,16 @@ const comRetrieval = ctx.build({
 });
 
 describe("JSON Schema das projeções (para o outputSchema das tools)", () => {
-  it("concise: required = as 7 chaves da 1.1; properties = as 8 que a 1.2 emite com fusão, na mesma ordem; objeto fechado", () => {
+  it("concise: required = as 7 chaves da 1.1; properties = tudo o que a versão mais nova emite no caso mais cheio, na mesma ordem; objeto fechado", () => {
     expect(CONCISE_BLOCK_JSON_SCHEMA.required).toEqual(Object.keys(renderConcise(semRetrieval)));
-    expect(Object.keys(CONCISE_BLOCK_JSON_SCHEMA.properties)).toEqual(Object.keys(renderConcise(semRetrievalV12)));
+    expect(Object.keys(CONCISE_BLOCK_JSON_SCHEMA.properties)).toEqual(Object.keys(renderConcise(cheioNaUltima)));
     expect(CONCISE_BLOCK_JSON_SCHEMA.additionalProperties).toBe(false);
   });
 
   it("detailed: idem para renderDetailed; contract_version aceita exatamente as versões que a lib emite", () => {
-    const chaves = Object.keys(renderDetailed(semRetrieval));
-    expect(Object.keys(DETAILED_BLOCK_JSON_SCHEMA.properties)).toEqual(chaves);
-    expect(DETAILED_BLOCK_JSON_SCHEMA.required).toEqual(chaves);
+    // required = o que a 1.1 emite; properties = o que a versão mais nova emite (revision a mais).
+    expect(DETAILED_BLOCK_JSON_SCHEMA.required).toEqual(Object.keys(renderDetailed(semRetrieval)));
+    expect(Object.keys(DETAILED_BLOCK_JSON_SCHEMA.properties)).toEqual(Object.keys(renderDetailed(cheioNaUltima)));
     expect(DETAILED_BLOCK_JSON_SCHEMA.properties.contract_version.enum).toEqual([...CONTRACT_VERSIONS]);
     expect(CONTRACT_VERSIONS).toContain(CONTRACT_VERSION);
   });

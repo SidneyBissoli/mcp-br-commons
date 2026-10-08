@@ -147,13 +147,40 @@ what the `outputSchema` declares; the wire stays the same. Turning on
 `contractVersion: "1.2"` is a second step, after the connectors have renewed the schema: a
 connector that kept the old schema refuses the key it does not know (contract §8).
 
+### Notices, derived values and revision (contract v1.3)
+
+What the canonical block always had but `concise` dropped now reaches the client, each key
+**only when there is something to say**: `notices` (warnings the source publishes with the
+data, verbatim), `derived` + `derivation_note` (the server computed the value) and
+`revision` — whether the number can still change:
+
+```ts
+const prov = createProvenanceContext({ metaNamespace, contractVersion: "1.3" });
+const p = prov.build({ ...base, revision: { status: "provisional", note: "2026 months still open" } });
+// concise → ..., "license": "...", "revision": { "status": "provisional", "note": "2026 months still open" }
+// footer  → ... "Preliminary data: the source may still complete or correct it. 2026 months still open."
+```
+
+`revision.status` is a closed vocabulary: `current` (the source's current version; it may
+revise it), `provisional` (known to be incomplete or subject to change) and `final` (will not
+change — only when the source says so, or the data comes from a frozen file whose version
+the response names). Absent = the server cannot tell; never guess. `revision` can go in a
+`SourcePreset`, since it is usually fixed per source.
+
+The text footer gains **one line per exception** (provisional data, server-computed values,
+notices from the source) and nothing in the common case, so a model that reads only the text
+also learns that a year is incomplete. Same two-step rollout as 1.2: upgrading to 0.4.0
+changes nothing on the wire; `contractVersion: "1.3"` turns it on.
+
 ## Rules the library enforces (server-side, before responding)
 
 - `license` with at least `id` or `name` (legal floor);
 - `derived: true` requires `derivation_note`;
 - keys in a fixed order and absence as an explicit `null` (byte-for-byte determinism per mode);
-  the exception is `field_sources` in `concise` (v1.2), absent when there is no merge;
-- in 1.2, the block's `retrieved_at` cannot be newer than any sub-source's;
+  the exceptions are the `concise` keys added after 1.1 (`field_sources`, `notices`, `derived`,
+  `derivation_note`, `revision`), absent when there is nothing to say;
+- `revision.status` within its closed vocabulary;
+- from 1.2 on, the block's `retrieved_at` cannot be newer than any sub-source's;
 - ISO-8601 timestamps without milliseconds, normalised to the configured time zone (plain dates
   pass through untouched — it never invents a time in a vintage).
 

@@ -146,13 +146,40 @@ o que o `outputSchema` declara; o fio fica igual. Ligar `contractVersion: "1.2"`
 segundo passo, depois que os conectores renovaram o schema: um conector que guardou o
 schema antigo recusa a chave que não conhece (contrato §8).
 
+### Avisos, valores calculados e revisão (contrato v1.3)
+
+O que o bloco canônico sempre teve e o `concise` descartava passa a chegar ao cliente, cada
+chave **só quando há o que dizer**: `notices` (avisos que a fonte publica junto com o dado,
+verbatim), `derived` + `derivation_note` (o servidor calculou o valor) e `revision` — se o
+número ainda pode mudar:
+
+```ts
+const prov = createProvenanceContext({ metaNamespace, contractVersion: "1.3" });
+const p = prov.build({ ...base, revision: { status: "provisional", note: "competências de 2026 ainda abertas" } });
+// concise → ..., "license": "...", "revision": { "status": "provisional", "note": "competências de 2026 ainda abertas" }
+// rodapé  → ... "Dados preliminares: a fonte ainda pode completá-los ou corrigi-los. Competências de 2026 ainda abertas."
+```
+
+`revision.status` é vocabulário fechado: `current` (versão vigente na fonte, que pode
+revisá-la), `provisional` (sabidamente incompleto ou sujeito a mudança) e `final` (não muda
+mais — só quando a fonte declara, ou quando o dado vem de arquivo congelado cuja versão a
+resposta nomeia). Ausente = o servidor não sabe dizer; nunca chutar. `revision` pode ir num
+`SourcePreset`, porque costuma ser fixa por fonte.
+
+O rodapé de texto ganha **uma linha por exceção** (dado preliminar, valor calculado pelo
+servidor, aviso da fonte) e nada no caso comum, para que o modelo que só lê o texto também
+saiba que um ano está incompleto. Mesmo rollout em dois tempos da 1.2: subir para a 0.4.0
+não muda o fio; `contractVersion: "1.3"` liga.
+
 ## Regras que a lib impõe (server-side, antes de responder)
 
 - `license` com ao menos `id` ou `name` (piso legal);
 - `derived: true` exige `derivation_note`;
 - chaves em ordem fixa e ausência como `null` explícito (determinismo byte-a-byte por modo);
-  a exceção é `field_sources` no `concise` (v1.2), ausente quando não há fusão;
-- na 1.2, `retrieved_at` do bloco não pode ser mais novo que o de nenhuma sub-fonte;
+  as exceções são as chaves do `concise` posteriores à 1.1 (`field_sources`, `notices`,
+  `derived`, `derivation_note`, `revision`), ausentes quando não há o que dizer;
+- `revision.status` dentro do vocabulário fechado;
+- da 1.2 em diante, `retrieved_at` do bloco não pode ser mais novo que o de nenhuma sub-fonte;
 - timestamps ISO-8601 sem milissegundos, normalizados ao fuso configurado (datas puras
   passam intactas — nunca inventa horário num vintage).
 

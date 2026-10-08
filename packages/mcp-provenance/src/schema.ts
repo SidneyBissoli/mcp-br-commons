@@ -24,21 +24,31 @@ import { z } from "zod";
  * Regra de compatibilidade (§8 da spec): dentro da linha 1.x um campo só se
  * ACRESCENTA, com posição fixa; nunca se renomeia, remove ou muda de tipo. Chave nova
  * = minor do contrato (1.0 → 1.1: `retrieval`; 1.1 → 1.2: `field_sources` no concise e
- * `served_from_cache` por sub-fonte — as duas só presentes quando há o que dizer, ver §8).
+ * `served_from_cache` por sub-fonte; 1.2 → 1.3: `notices`, `derived`, `derivation_note` e
+ * `revision` no concise, `revision` no detailed — todas só presentes quando há o que
+ * dizer, ver §8).
  */
-export const CONTRACT_VERSIONS = ["1.1", "1.2"] as const;
+export const CONTRACT_VERSIONS = ["1.1", "1.2", "1.3"] as const;
 
 export type ContractVersion = (typeof CONTRACT_VERSIONS)[number];
 
 /**
  * Versão emitida por padrão — a que o contexto usa quando o servidor não escolhe.
- * Fica em 1.1 na lib 0.3.x: a 1.2 acrescenta chaves ao fio, e o servidor só a liga
+ * Fica em 1.1: cada versão nova acrescenta chaves ao fio, e o servidor só a liga
  * depois que os clientes renovaram o `outputSchema` (rollout em dois tempos, §8).
  */
 export const CONTRACT_VERSION: ContractVersion = "1.1";
 
 /** A versão mais nova que esta lib sabe emitir. */
-export const LATEST_CONTRACT_VERSION: ContractVersion = "1.2";
+export const LATEST_CONTRACT_VERSION: ContractVersion = "1.3";
+
+/**
+ * `v` é `min` ou mais nova. Toda regra "a partir da 1.x" passa por aqui: igualdade
+ * estrita (`=== "1.2"`) desligaria a regra em silêncio na versão seguinte.
+ */
+export function contractAtLeast(v: ContractVersion, min: ContractVersion): boolean {
+  return CONTRACT_VERSIONS.indexOf(v) >= CONTRACT_VERSIONS.indexOf(min);
+}
 
 const nullableString = z.string().min(1).nullable().default(null);
 
@@ -156,6 +166,27 @@ export const FieldSourceSchema = z.object({
 export type FieldSource = z.infer<typeof FieldSourceSchema>;
 
 /**
+ * Situação de revisão do dado (contrato v1.3). Vocabulário FECHADO e comum aos
+ * servidores, como as classes de anomalia; a ordem do enum é a canônica.
+ *  - `current`: a versão vigente na fonte, que pode revisá-la depois;
+ *  - `provisional`: preliminar — sabidamente incompleta ou sujeita a mudança;
+ *  - `final`: não muda mais. Só com prova: a fonte declara, valor a valor, ou o dado
+ *    vem de um arquivo congelado cuja versão a resposta nomeia. Não ter visto mudar
+ *    não é prova.
+ * Ausente (`null`) = o servidor não sabe dizer; nunca chutar.
+ */
+export const RevisionStatusSchema = z.enum(["current", "provisional", "final"]);
+
+export type RevisionStatus = z.infer<typeof RevisionStatusSchema>;
+
+export const RevisionSchema = z.object({
+  status: RevisionStatusSchema,
+  note: nullableString.describe("O específico da fonte: o que revisa, quando, por quê"),
+});
+
+export type Revision = z.infer<typeof RevisionSchema>;
+
+/**
  * Modelo canônico completo (pós-validação). `retrieved_at` deve ser o instante real da
  * extração no upstream — preservado pela camada de cache do servidor —, nunca o momento
  * do build/deploy; respostas servidas de cache mantêm o `retrieved_at` do fetch original
@@ -195,6 +226,9 @@ export const CanonicalProvenanceSchema = z.object({
     .nullable()
     .default(null)
     .describe("Proveniência por-campo: presente só quando a resposta funde múltiplos recortes upstream"),
+  revision: RevisionSchema.nullable()
+    .default(null)
+    .describe("Situação de revisão do dado (v1.3); null quando o servidor não sabe dizer"),
 });
 
 export type CanonicalProvenance = z.infer<typeof CanonicalProvenanceSchema>;
@@ -229,6 +263,8 @@ export interface ProvenanceInput {
     retrieved_at?: string | Date | null;
     served_from_cache?: boolean | null;
   }> | null;
+  /** Situação de revisão (v1.3). Omitir ou `null` quando o servidor não sabe dizer. */
+  revision?: { status: RevisionStatus; note?: string | null } | null;
 }
 
 /** Erro de contrato: builder recebeu entrada que viola o schema ou as regras semânticas. */
@@ -277,9 +313,9 @@ export function assertSemantics(p: CanonicalProvenance): void {
   if (p.derived && p.derivation_note === null) {
     throw new ProvenanceContractError("derived=true exige derivation_note não-nulo (§4 do contrato)");
   }
-  // v1.2: o retrieved_at do bloco é o MAIS ANTIGO entre as sub-fontes (§3). Só na 1.2,
-  // para que subir o pacote não derrube servidor que ainda escolhe a chave à mão.
-  if (p.contract_version === "1.2" && p.field_sources) {
+  // v1.2: o retrieved_at do bloco é o MAIS ANTIGO entre as sub-fontes (§3). Só a partir
+  // da 1.2, para que subir o pacote não derrube servidor que ainda escolhe a chave à mão.
+  if (contractAtLeast(p.contract_version, "1.2") && p.field_sources) {
     const topo = Date.parse(p.retrieved_at);
     for (const fs of p.field_sources) {
       if (fs.retrieved_at !== null && Date.parse(fs.retrieved_at) < topo) {

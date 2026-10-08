@@ -60,6 +60,17 @@ A method **is not served** when the request fails, the response carries no `resu
   the server publishes.
 - Items are kept whole, every field the server sends.
 
+**A list that changes on its own does not belong in the declared surface.** The fingerprint is
+a promise that the surface changes only with the version. A list built from data that changes
+over time — a `resources/list` of stories, records or daily files — would break that promise
+every day without anything actually breaking, and teach hosts to ignore the mismatch. Such a
+server serves the changing items outside the four lists (through a resource template, whose
+`uriTemplate` is stable, or a tool). `mcp-surface/1` has no way to leave one list out of the
+hash, so a server that keeps a changing list does not publish this form.
+This cut comes from Valentina Koniukhova's implementation in worklore, which leaves
+`resources/list` out for exactly this reason. None of the seven servers that publish this form
+today has such a list (measured on 2026-10-07: every resource list is fixed in code).
+
 ## 3. Serialisation and hash
 
 1. Sort the keys of every object, recursively, by UTF-16 code unit. Arrays keep their order.

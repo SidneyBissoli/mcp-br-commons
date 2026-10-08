@@ -15,6 +15,12 @@ canônica NÃO mudam.
 
 ### Adicionado
 
+- **SPEC §2 — lista que muda sozinha não entra na superfície declarada.** Ela quebraria a
+  promessa todo dia sem nada ter quebrado. O servidor serve os itens que mudam fora das quatro
+  listas (template de resource ou tool); a `mcp-surface/1` não tem como deixar uma lista fora
+  do hash, então quem mantém lista que muda não publica esta forma. Recorte da Valentina
+  Koniukhova (worklore tira o `resources/list` por isso). Nenhum dos sete servidores tem lista
+  assim (medido em 07/10/2026).
 - **SPEC §6.1 — conferir contra o código-fonte.** O hash do registro é declarado pelo
   publicador; quem clona o tag e roda `npm ci && npm test` prova que a superfície capturada
   DAQUELE código é a da trava e que o `server.json` publica a trava. Medido em 07/10/2026 no

@@ -1,6 +1,6 @@
 {
   "name": "@sbissoli/mcp-upstream",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Fetch comum dos servidores MCP: retry com backoff e Retry-After, timeout por tentativa e orçamento por chamada, e a contagem de tentativas e anomalias que alimenta o `retrieval` do contrato de proveniência v1.1",
   "repository": {
     "type": "git",
@@ -34,7 +34,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@sbissoli/mcp-provenance": "^0.2.0 || ^0.3.0"
+    "@sbissoli/mcp-provenance": "^0.2.0 || ^0.3.0 || ^0.4.0"
   },
   "keywords": [
     "mcp",

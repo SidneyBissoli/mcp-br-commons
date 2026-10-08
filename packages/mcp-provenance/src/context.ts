@@ -53,13 +53,15 @@ export interface ProvenanceContextOptions {
    * produz exatamente os bytes da lib 0.2.x. "1.2" acrescenta `field_sources` ao concise
    * (só quando a resposta funde sub-fontes) e `served_from_cache` por sub-fonte; ligar só
    * depois que os clientes renovaram o `outputSchema` (§8, rollout em dois tempos).
+   * "1.3" acrescenta ao concise `notices`, `derived`/`derivation_note` e `revision`, e ao
+   * rodapé uma linha por exceção — tudo só quando há o que dizer; mesmo rito.
    */
   contractVersion?: ContractVersion;
 }
 
 /** Preset de fonte: campos fixos por fonte upstream; o restante vem por chamada. */
 export type SourcePreset = Pick<ProvenanceInput, "source" | "citation" | "license"> &
-  Partial<Pick<ProvenanceInput, "dataset" | "api_version" | "notices">>;
+  Partial<Pick<ProvenanceInput, "dataset" | "api_version" | "notices" | "revision">>;
 
 export interface ProvenanceResult {
   content: Array<{ type: "text"; text: string }>;

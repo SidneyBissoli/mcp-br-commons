@@ -7,7 +7,7 @@ import {
   FIELD_SOURCE_JSON_SCHEMA,
 } from "../src/json-schema.js";
 import { renderConcise, renderDetailed } from "../src/render.js";
-import { CONTRACT_VERSION, LATEST_CONTRACT_VERSION, ProvenanceContractError, type ProvenanceInput } from "../src/schema.js";
+import { CONTRACT_VERSION, CONTRACT_VERSIONS, ProvenanceContractError, type ProvenanceInput } from "../src/schema.js";
 
 const base: ProvenanceContextOptions = { metaNamespace: "com.exemplo.teste", timezone: "utc" };
 const v11 = createProvenanceContext(base);
@@ -52,7 +52,7 @@ const DETAILED_020 =
 describe("primeiro tempo do rollout: subir o pacote não muda um byte do fio", () => {
   it("o default continua 1.1 (a 1.2 é opt-in do servidor)", () => {
     expect(CONTRACT_VERSION).toBe("1.1");
-    expect(LATEST_CONTRACT_VERSION).toBe("1.2");
+    expect(CONTRACT_VERSIONS).toContain("1.2");
     expect(v11.contractVersion).toBe("1.1");
     expect(v11.build(mista).contract_version).toBe("1.1");
   });
@@ -179,7 +179,8 @@ describe("os schemas publicados aceitam o fio das DUAS versões", () => {
   });
 
   it("JSON Schema: field_sources declarada e NÃO exigida; o item declara served_from_cache sem exigir", () => {
-    expect(Object.keys(CONCISE_BLOCK_JSON_SCHEMA.properties).at(-1)).toBe("field_sources");
+    // Logo depois das 7 da 1.1 (a 1.3 acrescenta chaves DEPOIS dela).
+    expect(Object.keys(CONCISE_BLOCK_JSON_SCHEMA.properties).indexOf("field_sources")).toBe(7);
     expect(CONCISE_BLOCK_JSON_SCHEMA.required).not.toContain("field_sources");
     expect(CONCISE_BLOCK_JSON_SCHEMA.properties.field_sources.items).toBe(FIELD_SOURCE_JSON_SCHEMA);
     expect(Object.keys(FIELD_SOURCE_JSON_SCHEMA.properties)).toContain("served_from_cache");

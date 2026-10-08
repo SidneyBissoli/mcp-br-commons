@@ -5,6 +5,48 @@ seguem semver; a versão do **contrato** (`contract_version`) é outra numeraç�
 em `docs/contrato-proveniencia-v1.md` §8. Este arquivo nasceu na 0.2.0; as entradas
 anteriores foram reconstruídas do histórico do repositório.
 
+## [0.4.0] — 2026-10-08 — contrato v1.3
+
+Superfície publicada muda → minor. **`^0.3.0` não cobre esta versão**: bump explícito em
+cada servidor. **O fio NÃO muda** ao subir: o padrão continua 1.1, e quem escolheu 1.1 ou
+1.2 emite os mesmos bytes de antes — no `concise`, no `detailed` e no rodapé (testes em
+`tests/contract-v13.test.ts`). Muda o que os schemas declaram aceitar, então a trava de
+superfície dos servidores acende.
+
+Origem: Parte 2 das lacunas apontadas por um leitor do dev.to (comentário de 08/10): o
+`concise` descartava os avisos da fonte e a marca de valor calculado, que o canônico já
+tinha, e nenhum servidor dizia se o número ainda podia mudar.
+
+### Adicionado
+- **`notices`, `derived` + `derivation_note` e `revision` no `concise`** (v1.3), depois de
+  `field_sources`, cada uma **só quando há o que dizer**: `notices` não vazio, `derived`
+  true, `revision` conhecida. A resposta comum segue byte-idêntica à da 1.1.
+- **`revision: { status, note }`** no bloco canônico e no `detailed` (v1.3; no `detailed`
+  sai sempre a partir da 1.3, `null` quando não se sabe, e fica ausente nos blocos
+  1.1/1.2). `status` em vocabulário fechado: `current` | `provisional` | `final`
+  (`RevisionStatusSchema`); `final` só com prova da fonte (contrato §3).
+- **Rodapé: uma linha por exceção** nos blocos 1.3 — dado preliminar, valor calculado pelo
+  servidor, avisos da fonte —, em linguagem simples, nos dois idiomas embutidos
+  (`LocaleSpec.provisionalNotice`, `derivedNotice`, `sourceNotices`, opcionais como
+  `retrievalNotice`). `current`/`final` e o caso comum não ganham linha.
+- `revision` aceito em `SourcePreset`.
+- Exports: `contractAtLeast`, `RevisionSchema`, `RevisionStatusSchema`, tipos `Revision` e
+  `RevisionStatus`, `REVISION_OBJECT_JSON_SCHEMA`.
+
+### Mudado
+- `CONTRACT_VERSIONS` ganha `"1.3"`; `LATEST_CONTRACT_VERSION` = `"1.3"`; `CONTRACT_VERSION`
+  (padrão) continua `"1.1"`.
+- `CONCISE_BLOCK_JSON_SCHEMA`/`ConciseBlockSchema`: as quatro chaves declaradas e não
+  exigidas. `DETAILED_BLOCK_JSON_SCHEMA`/`DetailedBlockSchema`: `revision` declarada e não
+  exigida; `contract_version` aceita as três versões. A descrição do bloco deixou de citar
+  um número de versão (envelhecia a cada minor).
+
+### Corrigido
+- **A regra do `retrieved_at` mais antigo valeria só na 1.2.** Era cobrada com
+  `contract_version === "1.2"`; na 1.3 teria se desligado em silêncio. Agora "da 1.2 em
+  diante", por posição em `CONTRACT_VERSIONS` (`contractAtLeast`), e `renderConcise` usa a
+  mesma comparação para o `field_sources`.
+
 ## [0.3.1] — 2026-10-08
 
 Só documentação e licença: código e API NÃO mudam.

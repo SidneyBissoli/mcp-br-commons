@@ -18,7 +18,7 @@
  */
 
 import { z } from "zod";
-import { CONTRACT_VERSIONS, RetrievalAnomalyKindSchema } from "./schema.js";
+import { CONTRACT_VERSIONS, RetrievalAnomalyKindSchema, RevisionStatusSchema } from "./schema.js";
 
 /** Tipo mínimo de JSON Schema que estes objetos satisfazem (evita depender de tipos externos). */
 export type JsonSchemaObject = {
@@ -110,17 +110,37 @@ export const FIELD_SOURCE_JSON_SCHEMA = {
   additionalProperties: false as const,
 } satisfies JsonSchemaObject;
 
+/** Situação de revisão (v1.3), sem o `null` externo — quem embute decide o nullable. */
+export const REVISION_OBJECT_JSON_SCHEMA = {
+  type: "object" as const,
+  description: "Se o dado ainda pode mudar na fonte",
+  properties: {
+    status: {
+      type: "string" as const,
+      enum: [...RevisionStatusSchema.options],
+      description:
+        "current = versão vigente, a fonte pode revisá-la; provisional = preliminar, incompleta ou sujeita " +
+        "a mudança (não compare como se fosse fechada); final = não muda mais, declarado pela fonte",
+    },
+    note: strOrNull("O específico da fonte: o que revisa, quando, por quê"),
+  },
+  required: ["status", "note"],
+  additionalProperties: false as const,
+} satisfies JsonSchemaObject;
+
 /**
- * Projeção `concise`: 7 chaves obrigatórias em ordem fixa (v1.1) e, na v1.2, a oitava
- * `field_sources`, OPCIONAL — ausente quando a resposta não funde sub-fontes, de modo
- * que o mesmo schema aceita o fio da v1.1 e o da v1.2. `additionalProperties: false`.
+ * Projeção `concise`: 7 chaves obrigatórias em ordem fixa (v1.1); na v1.2 a oitava
+ * `field_sources`; na v1.3 `notices`, `derived`, `derivation_note` e `revision`. Todas as
+ * posteriores à 1.1 são OPCIONAIS — ausentes quando não há o que dizer —, de modo que o
+ * mesmo schema aceita o fio de qualquer versão emitida. `additionalProperties: false`.
  * É o que `renderConcise` emite em `structuredContent.provenance` e no espelho `_meta`.
  */
 export const CONCISE_BLOCK_JSON_SCHEMA = {
   type: "object" as const,
   description:
-    "Bloco de proveniência (contrato v1.2): fonte, URL, competência, extração, diagnóstico de origem, " +
-    "citação e licença; e, só quando a resposta junta partes de origens ou momentos distintos, de onde veio cada parte",
+    "Bloco de proveniência: fonte, URL, competência, extração, diagnóstico de origem, citação e licença; " +
+    "e, só quando há o que dizer, de onde veio cada parte, avisos da fonte, o que o servidor calculou e se o " +
+    "dado ainda pode mudar",
   properties: {
     source: str("Fonte oficial do dado"),
     source_url: str("URL canônica que reproduz a consulta na fonte"),
@@ -141,15 +161,29 @@ export const CONCISE_BLOCK_JSON_SCHEMA = {
         "Presente só quando a resposta junta partes de origens ou momentos distintos: para cada grupo de " +
         "campos, a URL, a extração e se veio do cache. Ausente nas respostas de uma origem só",
     },
+    notices: {
+      type: "array" as const,
+      items: { type: "string" as const },
+      minItems: 1,
+      description:
+        "Avisos que a fonte publica junto com o dado (quebra de série, unidade, frescor), verbatim. " +
+        "Ausente quando não há aviso",
+    },
+    derived: {
+      type: "boolean" as const,
+      description: "Presente (true) só quando o servidor calculou o valor em vez de repassá-lo como veio da fonte",
+    },
+    derivation_note: str("O que o servidor calculou; presente junto com derived"),
+    revision: REVISION_OBJECT_JSON_SCHEMA,
   },
   required: ["source", "source_url", "data_vintage", "retrieved_at", "retrieval", "citation", "license"],
   additionalProperties: false as const,
 } satisfies JsonSchemaObject;
 
-/** Projeção `detailed` (bloco canônico completo), ordem fixa, nulls explícitos; aceita v1.1 e v1.2. */
+/** Projeção `detailed` (bloco canônico completo), ordem fixa, nulls explícitos; aceita toda versão emitida. */
 export const DETAILED_BLOCK_JSON_SCHEMA = {
   type: "object" as const,
-  description: "Bloco canônico de proveniência (contrato v1.1 ou v1.2), completo",
+  description: "Bloco canônico de proveniência, completo",
   properties: {
     contract_version: {
       type: "string" as const,
@@ -211,6 +245,10 @@ export const DETAILED_BLOCK_JSON_SCHEMA = {
       oneOf: [{ type: "array" as const, items: FIELD_SOURCE_JSON_SCHEMA }, { type: "null" as const }],
       description: "Proveniência por campo, quando a resposta funde recortes; null quando não",
     },
+    revision: {
+      oneOf: [REVISION_OBJECT_JSON_SCHEMA, { type: "null" as const }],
+      description: "Se o dado ainda pode mudar na fonte (v1.3); null quando o servidor não sabe dizer",
+    },
   },
   required: [
     "contract_version",
@@ -261,6 +299,9 @@ const FieldSourceOutputZod = z
   })
   .strict();
 
+/** Situação de revisão em zod (estrito). */
+const RevisionOutputZod = z.object({ status: RevisionStatusSchema, note: z.string().nullable() }).strict();
+
 /** Projeção `concise` em zod (estrito): as mesmas chaves do JSON Schema acima. */
 export const ConciseBlockSchema = z
   .object({
@@ -272,6 +313,10 @@ export const ConciseBlockSchema = z
     citation: z.string(),
     license: z.string().nullable(),
     field_sources: z.array(FieldSourceOutputZod).min(1).optional(),
+    notices: z.array(z.string()).min(1).optional(),
+    derived: z.boolean().optional(),
+    derivation_note: z.string().optional(),
+    revision: RevisionOutputZod.optional(),
   })
   .strict();
 
@@ -309,5 +354,6 @@ export const DetailedBlockSchema = z
     served_from_cache: z.boolean().nullable(),
     retrieval: RetrievalOutputZod.nullable(),
     field_sources: z.array(FieldSourceOutputZod).nullable(),
+    revision: RevisionOutputZod.nullable().optional(),
   })
   .strict();

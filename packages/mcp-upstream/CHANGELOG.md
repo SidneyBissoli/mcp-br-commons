@@ -4,6 +4,15 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.4.2] — 2026-10-08
+
+### Mudado
+- Dependência `@sbissoli/mcp-provenance`: `^0.2.0 || ^0.3.0` → `^0.2.0 || ^0.3.0 ||
+  ^0.4.0` (contrato v1.3), pelo mesmo motivo da 0.4.0: o servidor que sobe a proveniência
+  não leva uma segunda cópia da 0.3.x aninhada aqui. Código e API NÃO mudam; o que este
+  pacote usa da proveniência (`RetrievalAnomalyKindSchema`, os tipos de `retrieval` e de
+  `field_sources`) não mudou na 0.4.0.
+
 ## [0.4.1] — 2026-10-08
 
 Só documentação e licença: código e API NÃO mudam.

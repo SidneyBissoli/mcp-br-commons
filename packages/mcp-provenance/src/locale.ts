@@ -32,6 +32,30 @@ export interface LocaleSpec {
    * linha. Sem jargão: "tentativas", "consultas à origem", nunca "retry"/"4xx".
    */
   retrievalNotice?(r: Retrieval): string;
+  /**
+   * Frases ao leitor das exceções da v1.3 — só chamadas quando há a exceção: dado
+   * preliminar (`revision.status === "provisional"`), valor calculado pelo servidor
+   * (`derived`) e avisos da fonte (`notices` não vazio). O caso comum não ganha linha.
+   * Opcionais, como `retrievalNotice`. Notas e avisos entram verbatim.
+   */
+  provisionalNotice?(note: string | null): string;
+  derivedNotice?(note: string): string;
+  sourceNotices?(notices: string[]): string;
+}
+
+/** Fecha a frase com ponto, sem duplicar a pontuação que o texto já traz. */
+function sentence(text: string): string {
+  const t = text.trim();
+  return /[.!?…]$/.test(t) ? t : `${t}.`;
+}
+
+/**
+ * Frase nova: só SOBE a inicial (rebaixar estragaria sigla — "IPCA" viraria "iPCA").
+ * Para texto que vem depois de dois-pontos, usar `sentence`, que não mexe na caixa.
+ */
+function newSentence(text: string): string {
+  const t = sentence(text);
+  return t.charAt(0).toLocaleUpperCase() + t.slice(1);
 }
 
 const ISO_RE = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/;
@@ -76,6 +100,16 @@ export const ptBR: LocaleSpec = {
     const head = `Obtenção instável: ${r.attempts} ${r.attempts === 1 ? "tentativa" : "tentativas"} para ${r.requests} ${r.requests === 1 ? "consulta" : "consultas"} à origem`;
     return r.anomalies.length > 0 ? `${head} (${listAnomalies(r, ANOMALY_PT)}).` : `${head}.`;
   },
+  provisionalNotice(note) {
+    const head = "Dados preliminares: a fonte ainda pode completá-los ou corrigi-los.";
+    return note ? `${head} ${newSentence(note)}` : head;
+  },
+  derivedNotice(note) {
+    return `Valores calculados pelo servidor a partir dos dados da fonte: ${sentence(note)}`;
+  },
+  sourceNotices(notices) {
+    return `Avisos da fonte: ${sentence(notices.map((n) => n.trim()).join("; "))}`;
+  },
 };
 
 export const en: LocaleSpec = {
@@ -94,6 +128,16 @@ export const en: LocaleSpec = {
   retrievalNotice(r) {
     const head = `Unstable retrieval: ${r.attempts} ${r.attempts === 1 ? "attempt" : "attempts"} for ${r.requests} ${r.requests === 1 ? "request" : "requests"} to the source`;
     return r.anomalies.length > 0 ? `${head} (${listAnomalies(r, ANOMALY_EN)}).` : `${head}.`;
+  },
+  provisionalNotice(note) {
+    const head = "Preliminary data: the source may still complete or correct it.";
+    return note ? `${head} ${newSentence(note)}` : head;
+  },
+  derivedNotice(note) {
+    return `Values computed by the server from the source data: ${sentence(note)}`;
+  },
+  sourceNotices(notices) {
+    return `Notices from the source: ${sentence(notices.map((n) => n.trim()).join("; "))}`;
   },
 };
 

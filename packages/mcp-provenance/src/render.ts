@@ -4,7 +4,8 @@
  * - `concise` (padrão): piso legal + citação mínima + diagnóstico de origem — fonte,
  *   URL canônica, vintage, data de extração, `retrieval`, citação/atribuição, licença.
  *   Sete chaves (v1.1), sempre presentes, `null` explícito quando desconhecido; na v1.2
- *   uma oitava, `field_sources`, presente SÓ quando a resposta funde sub-fontes.
+ *   uma oitava, `field_sources`, presente SÓ quando a resposta funde sub-fontes; na v1.3
+ *   `notices`, `derived`/`derivation_note` e `revision`, cada uma SÓ quando há o que dizer.
  * - `detailed`: bloco canônico completo do contrato, todas as chaves em ordem
  *   fixa, ausência = `null` explícito.
  *
@@ -16,7 +17,14 @@
  * (`retrieved_at`, citação que embute data). Não reordenar campos: a ordem é contrato.
  */
 
-import type { CanonicalProvenance, ContractVersion, FieldSource, Retrieval } from "./schema.js";
+import {
+  contractAtLeast,
+  type CanonicalProvenance,
+  type ContractVersion,
+  type FieldSource,
+  type Retrieval,
+  type Revision,
+} from "./schema.js";
 
 export type ProvenanceMode = "concise" | "detailed";
 
@@ -32,7 +40,8 @@ export interface RenderedFieldSource {
 
 /**
  * Projeção concise — chaves e ordem fazem parte do contrato (v1.1: `retrieval` após
- * `retrieved_at`; v1.2: `field_sources` por último, SÓ quando a resposta funde sub-fontes).
+ * `retrieved_at`; v1.2: `field_sources`, SÓ quando a resposta funde sub-fontes; v1.3:
+ * `notices`, `derived` + `derivation_note` e `revision`, cada uma SÓ quando há o que dizer).
  */
 export interface ConciseBlock {
   source: string;
@@ -43,6 +52,15 @@ export interface ConciseBlock {
   citation: string;
   license: string | null;
   field_sources?: RenderedFieldSource[];
+  notices?: string[];
+  derived?: true;
+  derivation_note?: string;
+  revision?: Revision;
+}
+
+/** Cópia literal de `revision`, em ordem fixa de chaves. */
+function renderRevision(r: Revision): Revision {
+  return { status: r.status, note: r.note };
 }
 
 /** Cópia literal do bloco `retrieval`, em ordem fixa de chaves (determinismo). */
@@ -86,8 +104,19 @@ export function renderConcise(p: CanonicalProvenance): ConciseBlock {
   };
   // Ausente (não null) quando não há fusão: a resposta comum fica byte-idêntica à v1.1 e
   // um cliente com o outputSchema antigo só estranha as tools que de fato misturam (§8).
-  if (p.contract_version !== "1.1" && p.field_sources && p.field_sources.length > 0) {
+  if (contractAtLeast(p.contract_version, "1.2") && p.field_sources && p.field_sources.length > 0) {
     block.field_sources = p.field_sources.map((fs) => renderFieldSource(fs, p.contract_version));
+  }
+  // v1.3, mesma regra: o que o canônico já tinha e o concise descartava passa a sair, mas
+  // só quando há o que dizer — a resposta comum segue byte-idêntica à da 1.1.
+  if (contractAtLeast(p.contract_version, "1.3")) {
+    if (p.notices.length > 0) block.notices = [...p.notices];
+    if (p.derived) {
+      block.derived = true;
+      // assertSemantics garante a nota quando derived=true.
+      block.derivation_note = p.derivation_note!;
+    }
+    if (p.revision) block.revision = renderRevision(p.revision);
   }
   return block;
 }
@@ -116,10 +145,12 @@ export interface DetailedBlock {
   served_from_cache: boolean | null;
   retrieval: Retrieval | null;
   field_sources: RenderedFieldSource[] | null;
+  /** v1.3 em diante: sempre presente, `null` quando não se sabe. Antes da 1.3, ausente. */
+  revision?: Revision | null;
 }
 
 export function renderDetailed(p: CanonicalProvenance): DetailedBlock {
-  return {
+  const block: DetailedBlock = {
     contract_version: p.contract_version,
     source: {
       name: p.source.name,
@@ -148,6 +179,8 @@ export function renderDetailed(p: CanonicalProvenance): DetailedBlock {
     retrieval: renderRetrieval(p.retrieval),
     field_sources: p.field_sources ? p.field_sources.map((fs) => renderFieldSource(fs, p.contract_version)) : null,
   };
+  if (contractAtLeast(p.contract_version, "1.3")) block.revision = p.revision ? renderRevision(p.revision) : null;
+  return block;
 }
 
 export function renderProvenance(p: CanonicalProvenance, mode: ProvenanceMode): ConciseBlock | DetailedBlock {

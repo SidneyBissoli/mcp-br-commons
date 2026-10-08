@@ -20,12 +20,26 @@
  *       Replay retroativo de todas as versões publicadas; escreve
  *       <saida>/replay-<data>.md e .json. Padrões lidos do package.json e do
  *       server.json do diretório atual.
+ *
+ *   mcp-surface registro [--server-json server.json] [--trava surface.lock.json]
+ *                        [--endpoint <url>] [--config ...] [--rota ...] [--perfil ...]
+ *                        [--tool <nome> --args '<json>']
+ *       Grava no server.json, sob _meta → publisher-provided, a impressão
+ *       digital que o MCP Registry vai publicar com a versão (SPEC.md). Roda no
+ *       fim do `surface:lock`. Endpoint padrão: o remotes[] streamable-http.
+ *
+ *   mcp-surface conferir-registro [--nome <nome no registro>] [--versao <x.y.z>]
+ *                                 [--registro <url base>]
+ *       O que o registro publica para esta versão é o que está no ar — a
+ *       conferência de um cliente, sem ler a trava. Fim da release. Padrões
+ *       lidos do server.json do diretório atual. Sai com 1 se divergir.
  */
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { conferirRegistro, gravarMetaNoServerJson } from "./registro.js";
 import { replay } from "./replay.js";
 import { VAR_ESCRITA } from "./trava.js";
 import { verificarNoAr } from "./verificar.js";
@@ -106,7 +120,45 @@ async function main(): Promise<number> {
     return 0;
   }
 
-  console.error("uso: mcp-surface <travar|verificar|replay> … (ver o cabeçalho de src/cli.ts ou o README)");
+  if (comando === "registro") {
+    const tool = opcao("tool");
+    const caminho = opcao("server-json") ?? "server.json";
+    const meta = gravarMetaNoServerJson(caminho, opcao("trava") ?? "surface.lock.json", {
+      ...(opcao("endpoint") ? { endpoint: opcao("endpoint")! } : {}),
+      ...(opcao("config") ? { config: opcao("config")! } : {}),
+      ...(opcao("rota") ? { rota: opcao("rota")! } : {}),
+      ...(opcao("perfil") ? { perfil: opcao("perfil")! } : {}),
+      ...(tool ? { chamada: { name: tool, arguments: JSON.parse(opcao("args") ?? "{}") as Record<string, unknown> } } : {}),
+    });
+    console.log(
+      `${caminho}: publica declarada ${meta.declared.sha256.slice(0, 12)} e sem token ${meta.anonymous.sha256.slice(0, 12)} ` +
+        `(${Object.keys(meta.anonymous.answers).length} métodos) — commite-o junto com a trava.`,
+    );
+    return 0;
+  }
+
+  if (comando === "conferir-registro") {
+    const server = lerJson("server.json");
+    const nome = opcao("nome") ?? (server?.["name"] as string | undefined);
+    const versao = opcao("versao") ?? (server?.["version"] as string | undefined);
+    if (!nome || !versao) {
+      console.error("uso: mcp-surface conferir-registro --nome <nome no registro> --versao <x.y.z> (ou rode na raiz, com server.json)");
+      return 2;
+    }
+    const erro = await conferirRegistro({
+      nome,
+      versao,
+      ...(opcao("registro") ? { registro: opcao("registro")! } : {}),
+      log: linha => console.log(linha),
+    });
+    if (erro) {
+      console.error(`O que o registro promete para ${nome}@${versao} NÃO é o que está no ar: ${erro}`);
+      return 1;
+    }
+    return 0;
+  }
+
+  console.error("uso: mcp-surface <travar|verificar|replay|registro|conferir-registro> … (ver o cabeçalho de src/cli.ts ou o README)");
   return 2;
 }
 

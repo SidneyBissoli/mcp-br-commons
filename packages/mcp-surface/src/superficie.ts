@@ -34,10 +34,23 @@ function ordenarChaves(valor: unknown): unknown {
   return valor;
 }
 
+/**
+ * Ordem por unidade de código UTF-16 — a mesma de `Object.keys().sort()` e da
+ * RFC 8785. Até 0.4.x era `localeCompare`, que depende do locale e do ICU de
+ * quem roda: um host em Python ou noutro locale podia ordenar `_`, dígitos e
+ * maiúsculas de outro jeito e chegar a outro sha. A forma canônica tem de ser
+ * reproduzível por quem não roda este código (SPEC.md). Medido em 07/10/2026:
+ * as listas travadas dos seis servidores já estavam nesta ordem — nenhum sha
+ * mudou.
+ */
+export function compararUnidades(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function porChave(lista: unknown[] | undefined, chave: string): unknown[] | null {
   if (!lista) return null;
   return [...lista].sort((a, b) =>
-    String((a as Record<string, unknown>)[chave]).localeCompare(String((b as Record<string, unknown>)[chave])),
+    compararUnidades(String((a as Record<string, unknown>)[chave]), String((b as Record<string, unknown>)[chave])),
   );
 }
 

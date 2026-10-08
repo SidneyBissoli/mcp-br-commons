@@ -22,7 +22,8 @@ versão do `package.json` em que foi travada e o sha256 do conteúdo:
 
 - **`declarada`** — `initialize` (instructions, capabilities, `serverInfo` sem a versão) +
   `tools/list` + `resources/list` + `resources/templates/list` + `prompts/list`,
-  normalizados (chaves ordenadas, listas por nome/uri). Método não servido é `null`, não `[]`.
+  normalizados (chaves ordenadas, listas por nome/uri em unidade UTF-16; a forma canônica
+  inteira está em [SPEC.md](SPEC.md), em inglês). Método não servido é `null`, não `[]`.
 - **`semToken`** — QUAIS MÉTODOS RESPONDEM SEM CREDENCIAL, por configuração (ex.: `API_KEY`
   ausente e presente) e por rota. É comportamento que nenhuma listagem mostra.
 
@@ -71,6 +72,30 @@ travar superfície nova sob a versão antiga.
 
 Fluxo de quem muda a superfície: `npm version <nível> --no-git-tag-version` →
 `npm run surface:lock` → commitar o lock junto.
+
+## Publicar a impressão digital para o cliente conferir (0.5.0)
+
+A trava faz o publicador cumprir a promessa, mas sozinha não deixa o cliente conferir: o hash
+mora no repositório e a entrada do registro só leva a versão. Desde a 0.5.0 a impressão
+digital vai **com cada release, na entrada do registro**, sob
+`_meta["io.modelcontextprotocol.registry/publisher-provided"]` do `server.json`; o host
+recalcula na primeira conexão e recusa, ou pede nova aprovação, se divergir. A forma canônica
+está escrita em **[SPEC.md](SPEC.md)**, para um host de outra pessoa chegar aos mesmos bytes;
+[`exemplos/verify.mjs`](exemplos/verify.mjs) a implementa de novo, sem dependência, e os testes
+exigem que as duas concordem. Só se publica o que um estranho reproduz sem credencial.
+
+As duas ideias vieram de leitores do artigo do replay: publicar no registro e escrever a
+normalização, de [Mike Dabydeen](https://dev.to/_firelinks/comment/3glme); o recorte "só o que
+um estranho reproduz", de [Valentina Koniukhova](https://dev.to/yahhi/comment/3gmgp).
+
+6. **Publicar**: `mcp-surface registro --tool <tool> --args '{}'` no fim do `surface:lock`
+   (a mesma tool da conferência do deploy), e `conferirMetaDoServerJson("server.json",
+   "surface.lock.json", { chamada })` no teste da trava.
+7. **Depois do `mcp-publisher publish`**: `npx mcp-surface conferir-registro` lê a entrada da
+   versão do `server.json` e a compara com o endpoint no ar, como um cliente — sem ler a trava.
+
+Qualquer pessoa confere: `node verify.mjs io.github.SidneyBissoli/bcb-br-mcp`
+([script](exemplos/verify.mjs)).
 
 ## Teste com forma de cliente (`@sbissoli/mcp-surface/cliente`)
 

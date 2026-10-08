@@ -15,6 +15,9 @@ import type { InMemoryTransport } from "@modelcontextprotocol/server";
 /** O protocolo pedido no `initialize` de toda captura — fixo, para o eco não variar. */
 export const PROTOCOLO_DA_CAPTURA = "2025-06-18";
 
+/** Teto de páginas por lista na captura (`nextCursor`). */
+export const MAX_PAGINAS = 100;
+
 /** Resultados crus, como saem do JSON-RPC. Lista ausente = método não servido. */
 export interface SuperficieBruta {
   initialize: Record<string, unknown> | undefined;
@@ -48,7 +51,25 @@ export function paramsDoInitialize(cliente: string): Record<string, unknown> {
 export async function capturarBrutaPor(pedir: Pedir, cliente: string, notificar?: () => void): Promise<SuperficieBruta> {
   const initialize = await pedir("initialize", paramsDoInitialize(cliente));
   notificar?.();
-  const lista = async (method: string, chave: string) => (await pedir(method, {}))?.[chave] as unknown[] | undefined;
+  // Segue `nextCursor` até a última página. Sem isto, servidor que pagina
+  // teria o sha calculado sobre a primeira página, e cada host sobre o recorte
+  // que o seu cliente pede. A primeira página vai com `{}` (sem `cursor`),
+  // como sempre foi. Página que falha no meio = método sem resposta (`null`),
+  // nunca lista truncada. O teto só protege de cursor que não termina.
+  const lista = async (method: string, chave: string): Promise<unknown[] | undefined> => {
+    const itens: unknown[] = [];
+    let params: Record<string, unknown> = {};
+    for (let pagina = 0; pagina < MAX_PAGINAS; pagina++) {
+      const r = await pedir(method, params);
+      const parte = r?.[chave];
+      if (!Array.isArray(parte)) return undefined;
+      itens.push(...parte);
+      const cursor = r?.["nextCursor"];
+      if (typeof cursor !== "string" || cursor === "") return itens;
+      params = { cursor };
+    }
+    return undefined;
+  };
   return {
     initialize,
     tools: await lista("tools/list", "tools"),

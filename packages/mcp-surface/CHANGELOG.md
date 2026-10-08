@@ -8,6 +8,48 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [0.5.0] — 2026-10-07
+
+A impressão digital passa a ser publicada no MCP Registry, para o CLIENTE conferir. Ideia de
+dois leitores do artigo do replay no dev.to: publicar os hashes com cada release e escrever a
+normalização fora do código (Mike Dabydeen, comentário 3glme); publicar só o que um estranho
+reproduz sem credencial (Valentina Koniukhova, 3gmgp, que fez o mesmo no worklore 0.5.1).
+
+**Nenhum sha256 muda.** Medido em 07/10/2026: com este build, a captura ao vivo dos seis
+endpoints que usam o pacote (bcb, ibge, ilo, medical, sih, uis) dá o sha travado em cada
+`surface.lock.json`, no pacote e no `exemplos/verify.mjs`. Nenhum servidor precisa subir de
+versão por causa desta release.
+
+### Adicionado
+
+- **`SPEC.md`** — a forma canônica `mcp-surface/1` como contrato: captura (protocolo fixo,
+  paginação, "não servido" = `null`), normalização, serialização (RFC 8785), a parte sem
+  token, onde se publica, como um host confere, o que não prova. Com vetor de teste, que os
+  testes leem da própria SPEC e exigem das duas implementações.
+- **`exemplos/verify.mjs`** — segunda implementação, escrita a partir da SPEC, sem
+  dependência (Node 18+): `node verify.mjs <nome no registro> [versão]`. Vai no tarball.
+- **`mcp-surface registro`** / `gravarMetaNoServerJson` — grava no `server.json`, sob
+  `_meta["io.modelcontextprotocol.registry/publisher-provided"]["io.github.sidneybissoli/mcp-surface"]`,
+  o sha da `declarada` e o mapa de quem responde sem token na configuração de produção e na
+  rota publicada (`apiKeyAusente` / `POST /mcp`), com a chamada da sonda. Recusa passar do
+  teto de 4096 bytes do registro.
+- **`conferirMetaDoServerJson`** — para o teste da trava: o `server.json` commitado publica o
+  que a trava de hoje produz.
+- **`mcp-surface conferir-registro`** / `conferirRegistro` — lê a entrada da versão no
+  registro (`/v0.1/servers/{nome}/versions/{versão}`) e compara com o endpoint no ar, sem ler a
+  trava: a conferência de um cliente, para rodar depois do `mcp-publisher publish`.
+- **`compararUnidades`** — a ordem das listas, exportada.
+
+### Alterado
+
+- **Listas ordenadas por unidade de código UTF-16**, não por `localeCompare`. A ordem antiga
+  dependia do locale e do ICU de quem roda; a SPEC não podia ser implementada fora do
+  JavaScript. As listas travadas dos seis servidores já estavam nesta ordem.
+- **A captura segue `nextCursor`** em `tools/list`, `resources/list`,
+  `resources/templates/list` e `prompts/list` (até 100 páginas). Antes, servidor que paginasse
+  teria o sha da primeira página. Página que falha no meio = método sem resposta (`null`).
+  Nenhum dos seis pagina.
+
 ## [0.4.1] — 2026-10-07
 
 Só documentação e licença: código, API e normalização NÃO mudam.

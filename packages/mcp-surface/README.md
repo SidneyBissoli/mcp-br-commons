@@ -23,7 +23,8 @@ writing on the user's behalf.
 
 - **`declarada`** (declared) — `initialize` (instructions, capabilities, `serverInfo` without
   the version) + `tools/list` + `resources/list` + `resources/templates/list` +
-  `prompts/list`, normalised (sorted keys, lists ordered by name/uri). A method that is not
+  `prompts/list`, normalised (sorted keys, lists ordered by name/uri by UTF-16 code unit; the
+  full canonical form is in [SPEC.md](SPEC.md)). A method that is not
   served is `null`, not `[]`.
 - **`semToken`** (without token) — WHICH METHODS ANSWER WITHOUT A CREDENTIAL, per
   configuration (e.g. `API_KEY` unset and set) and per route. This is behaviour no listing
@@ -76,6 +77,49 @@ same rule and refuses to lock a new surface under the old version.
 
 Workflow for whoever changes the surface: `npm version <level> --no-git-tag-version` →
 `npm run surface:lock` → commit the lock with it.
+
+## Publishing the fingerprint so clients can check it (0.5.0)
+
+The lock makes the publisher keep the promise; on its own, a client still can't check it,
+because the hash lives in the repository and the registry entry carries only the version.
+From 0.5.0 the fingerprint is published **with each release, in the registry entry**, under
+`_meta["io.modelcontextprotocol.registry/publisher-provided"]` in `server.json`. A host can
+recompute it on first connect and refuse, or ask again, when it differs from what the registry
+lists for that version. The canonical form is written down in **[SPEC.md](SPEC.md)**, so that a
+host built by someone else hashes the same bytes; [`exemplos/verify.mjs`](exemplos/verify.mjs)
+is a second implementation of it with no dependencies, and the tests require both to agree.
+
+Only what a stranger can reproduce without a credential is published: the declared surface,
+and which methods answer anonymously on the published endpoint in the production configuration.
+
+Both ideas came from readers of the replay article: publishing the hashes in the registry and
+writing the normalisation down from [Mike Dabydeen](https://dev.to/_firelinks/comment/3glme);
+the "only what a stranger can reproduce" cut from
+[Valentina Koniukhova](https://dev.to/yahhi/comment/3gmgp), who shipped it in worklore 0.5.1.
+
+6. **Publish the fingerprint**: append `mcp-surface registro` to the lock script, with the same
+   tool the deploy check calls —
+   `"surface:lock": "… && mcp-surface travar --cmd \"…\" && mcp-surface registro --tool <tool> --args '{}'"`
+   — and check, in the lock test, that the committed `server.json` carries what the lock produces:
+
+   ```ts
+   import { conferirMetaDoServerJson } from "@sbissoli/mcp-surface";
+   it("server.json publishes the lock's fingerprint", () => {
+     const v = conferirMetaDoServerJson("server.json", "surface.lock.json", { chamada: { name: "<tool>", arguments: {} } });
+     expect(v.ok, v.mensagem).toBe(true);
+   });
+   ```
+
+7. **After `mcp-publisher publish`**: `npx mcp-surface conferir-registro` ("check the registry")
+   reads the entry for the version in `server.json` and compares it with the live endpoint, the
+   way a client would — it does not read the lock.
+
+Anyone can check a server themselves:
+
+```sh
+curl -sO https://raw.githubusercontent.com/SidneyBissoli/mcp-br-commons/main/packages/mcp-surface/exemplos/verify.mjs
+node verify.mjs io.github.SidneyBissoli/bcb-br-mcp
+```
 
 ## Client-shaped test (`@sbissoli/mcp-surface/cliente`)
 
@@ -172,6 +216,9 @@ The API keeps its Portuguese identifiers, so code that imports it uses them as w
 | `capturarSuperficie` | capture a server's surface in-process |
 | `impressaoDigital` | fingerprint (sha256 of the normalised value) |
 | `verificar` | verify the live endpoint against the lock |
+| `registro` | write the fingerprint into `server.json` for the registry |
+| `conferir-registro` / `conferirRegistro` | check the registry entry against the live endpoint, as a client |
+| `conferirMetaDoServerJson` | check that `server.json` publishes what the lock produces |
 | `apiKeyAusente` / `apiKeyPresente` | API key unset / set |
 
 ## License

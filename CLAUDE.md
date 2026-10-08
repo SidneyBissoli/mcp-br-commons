@@ -114,9 +114,14 @@ Para o `mcp-surface`, há uma prova mais direta: capturar os sete endpoints no a
   e o `npm ci` do CI (Linux) passa a instalar binário errado. Depois de mexer no lock:
   `node C:\dev\skills\scripts\restore-libc.mjs <lock do HEAD> package-lock.json` e conferir
   que o diff do lock ficou só com o que você mudou.
-- **`npm version ... -w <pacote> --dry-run` NÃO é ensaio**: medido em 08/10/2026, o npm
-  ignorou o `--dry-run` com `-w` e gravou a versão nova no `package.json`. Conferir
-  `git diff` depois de qualquer `npm version`.
+- **`npm version` não tem `--dry-run`**: a opção não existe para o comando (não está entre
+  as dele em `docs/content/commands/npm-version.md` do npm instalado), e o npm ignora em
+  silêncio flag que o comando não usa — então grava a versão nova, com ou sem `-w`.
+  Reproduzido em 08/10/2026 (npm 11.5.1) num workspace descartável: `npm version patch
+  --dry-run` gravou 1.0.1 no pacote solto, com `-w`, com `--workspace=` e com
+  `--dry-run=true`. Não é defeito do npm; é o comando. Para ver a versão seguinte sem
+  gravar, calcular à mão (ou `npx semver -i patch <versão>`); depois de qualquer `npm
+  version`, conferir `git diff`.
 - **Build antes de typecheck.** Em clone limpo não há `dist/`, e o template que importa um
   irmão pelo nome falha com TS2307 (derrubou a primeira execução do CI, 30/08/2026 —
   comentário do `ci.yml`).

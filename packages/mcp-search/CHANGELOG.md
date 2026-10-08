@@ -5,6 +5,18 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). As versões anteriores a 0.7.0 estão no
 histórico do git (`git log -- packages/mcp-search`).
 
+## [0.9.1] — 2026-10-08
+
+Só documentação e licença: código e API NÃO mudam.
+
+### Alterado
+
+- **README em inglês** (`README.md`), o que o npm exibe; o texto em português
+  passa a `LEIA-ME.md`. O npm empacota todo `README*` da pasta e pode exibir o
+  traduzido, por isso o par fica fora desse prefixo.
+- **`LICENSE`** (MIT) no tarball e autor com o nome completo no `package.json` (#39).
+- Só devDependencies: SDK do MCP 2.3.0 nos testes (#24, #36).
+
 ## [0.9.0] — 2026-10-02
 
 Fecha a última lacuna da classe medida em 11/09/2026 ("esquema que não recusa responde

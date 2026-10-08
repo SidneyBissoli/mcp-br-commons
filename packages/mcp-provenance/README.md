@@ -1,102 +1,105 @@
 # @sbissoli/mcp-provenance
 
-Contrato de proveniência para servidores MCP: todo retorno de tool carrega **fonte,
-endpoint, período, data de extração e licença**, com serialização determinística, em dois
-modos — `concise` (padrão, piso legal) e `detailed` (bloco canônico completo).
+🇧🇷 [Leia em Português](https://github.com/SidneyBissoli/mcp-br-commons/blob/main/packages/mcp-provenance/LEIA-ME.md)
 
-> Mantido para o meu portfólio de servidores MCP. Uso por terceiros é bem-vindo, mas o
-> roadmap segue as necessidades dos meus servidores.
+Provenance contract for MCP servers: every tool result carries **source, endpoint, period,
+retrieval date and licence**, with deterministic serialisation, in two modes — `concise`
+(default, legal floor) and `detailed` (full canonical block).
 
-Especificação completa: [`docs/contrato-proveniencia-v1.md`](docs/contrato-proveniencia-v1.md).
+> Maintained for my own portfolio of MCP servers. Third-party use is welcome, but the
+> roadmap follows what my servers need.
 
-## Uso
+Full specification (in Portuguese): [`docs/contrato-proveniencia-v1.md`](docs/contrato-proveniencia-v1.md).
+
+## Usage
 
 ```ts
 import { createProvenanceContext } from "@sbissoli/mcp-provenance";
 
-// 1. Uma vez, na inicialização do servidor:
+// 1. Once, when the server starts:
 const prov = createProvenanceContext({
-  metaNamespace: "com.sidneybissoli.senado",   // chaves de _meta (reverse-DNS, estável)
-  locale: "pt-BR",                             // idioma do rodapé ("pt-BR" | "en" | LocaleSpec)
+  metaNamespace: "com.sidneybissoli.senado",   // _meta keys (reverse-DNS, stable)
+  locale: "pt-BR",                             // footer language ("pt-BR" | "en" | LocaleSpec)
   timezone: { offset: "-03:00", label: "horário de Brasília" }, // default: "utc"
   defaultMode: "concise",                      // default: "concise"
 });
 
-// 2. Presets por fonte upstream (opcional):
+// 2. Presets per upstream source (optional):
 const SENADO_LEGIS = {
   source: "Senado Federal — Dados Abertos (Legislativo)",
   citation: "Fonte: Senado Federal, Portal de Dados Abertos (Legislativo) — legis.senado.leg.br/dadosabertos.",
   license: "Dados Abertos do Senado Federal — uso livre com atribuição da fonte.",
 };
 
-// 3. Em cada tool:
+// 3. In each tool:
 const p = prov.from(SENADO_LEGIS, {
   source_url: `${baseUrl}/processo.json`,
-  retrieved_at: fetchedAt,        // instante REAL da extração (preservado pelo cache)
+  retrieved_at: fetchedAt,        // the REAL retrieval instant (preserved by the cache)
   data_vintage: "2025",
 });
-return prov.result(shapedData, p);                      // modo concise (default)
-return prov.result(shapedData, p, { mode: "detailed" }); // bloco canônico completo
+return prov.result(shapedData, p);                      // concise mode (default)
+return prov.result(shapedData, p, { mode: "detailed" }); // full canonical block
 ```
 
-`result()` emite os três canais: `structuredContent` (bloco + `attribution` RFC #711,
-visível ao modelo), `_meta` namespaced (auditoria/UI, zero tokens) e rodapé de texto
-compacto para clientes text-only.
+`result()` emits the three channels: `structuredContent` (block + `attribution` RFC #711,
+visible to the model), namespaced `_meta` (audit/UI, zero tokens) and a compact text footer
+for text-only clients.
 
-### Diagnóstico de origem (`retrieval`, contrato v1.1)
+### Origin diagnosis (`retrieval`, contract v1.1)
 
-Como o dado foi obtido, para que o agente explique um dado instável em vez de inventar
-certeza. É a 7ª chave do modo `concise` (depois de `retrieved_at`) e entra no bloco
-canônico depois de `served_from_cache`. **Só o que foi medido**: servidor que não
-instrumenta suas idas à origem omite o campo e ele sai `null` — nunca `{attempts: 1}`
-inventado.
+How the data was obtained, so that the agent explains an unstable value instead of inventing
+certainty. It is the 7th key of `concise` mode (after `retrieved_at`) and enters the
+canonical block after `served_from_cache`. **Only what was measured**: a server that does not
+instrument its trips to the origin omits the field and it comes out `null` — never an
+invented `{attempts: 1}`.
 
 ```ts
 const p = prov.from(SENADO_LEGIS, {
   source_url,
   retrieved_at: fetchedAt,
   retrieval: {
-    requests: 3,                                   // idas distintas à origem nesta chamada (fatias, páginas)
-    attempts: 5,                                   // tentativas somadas (>= requests)
-    anomalies: [{ kind: "timeout", count: 2 }],    // opcional; classes: timeout | network | http_4xx |
+    requests: 3,                                   // distinct trips to the origin in this call (slices, pages)
+    attempts: 5,                                   // attempts added up (>= requests)
+    anomalies: [{ kind: "timeout", count: 2 }],    // optional; classes: timeout | network | http_4xx |
   },                                               //   http_5xx | rate_limited | malformed_body
 });
 // → provenance.retrieval = { requests: 3, attempts: 5, anomalies: [{kind:"timeout",count:2}], unstable: true }
 ```
 
-`unstable` é derivado pela lib (`attempts > requests` ou alguma anomalia); `anomalies` é
-somado por classe e ordenado no vocabulário, então a ordem de coleta não muda os bytes. No
-rodapé, uma linha ao leitor aparece **só quando instável**: *"Obtenção instável: 5
-tentativas para 3 consultas à origem (2 tempos de resposta esgotados)."* Semântica
-completa em [`docs/contrato-proveniencia-v1.md`](docs/contrato-proveniencia-v1.md) §3;
-regra de compatibilidade da linha 1.x em §8.
+`unstable` is derived by the library (`attempts > requests` or any anomaly); `anomalies` is
+summed per class and ordered by the vocabulary, so the collection order does not change the
+bytes. In the footer, a line for the reader appears **only when unstable**: *"Obtenção
+instável: 5 tentativas para 3 consultas à origem (2 tempos de resposta esgotados)."* ("Unstable
+retrieval: 5 attempts for 3 queries to the origin (2 timeouts)."). Full semantics in
+[`docs/contrato-proveniencia-v1.md`](docs/contrato-proveniencia-v1.md) §3; compatibility rule
+of the 1.x line in §8.
 
-### O `outputSchema` da tool: importe, não transcreva
+### The tool's `outputSchema`: import it, don't transcribe it
 
-O SDK do MCP valida `structuredContent` contra o `outputSchema` em runtime. Um servidor
-que fecha o bloco de proveniência com as chaves transcritas à mão
-(`additionalProperties: false`) e sobe o pacote sem reescrever a transcrição **falha em
-toda chamada** — foi o que a medição de 26/09/2026 mostrou em quatro servidores. Desde a
-0.2.0 o pacote publica a projeção que ele mesmo emite:
+The MCP SDK validates `structuredContent` against the `outputSchema` at runtime. A server
+that closes the provenance block with hand-transcribed keys (`additionalProperties: false`)
+and upgrades the package without rewriting the transcription **fails on every call** — that
+is what the measurement of 26/09/2026 showed in four servers. Since 0.2.0 the package
+publishes the projection it emits itself:
 
 ```ts
 import { CONCISE_BLOCK_JSON_SCHEMA, ConciseBlockSchema } from "@sbissoli/mcp-provenance";
 
-// outputSchema em JSON Schema verbatim (bcb, sih, medical):
+// outputSchema in verbatim JSON Schema (bcb, sih, medical):
 const outputSchema = {
   type: "object",
   properties: { total: { type: "integer" }, provenance: CONCISE_BLOCK_JSON_SCHEMA, attribution: ATTRIBUTION },
   required: ["total", "provenance", "attribution"],
 };
 
-// outputSchema em zod (ibge):
+// outputSchema in zod (ibge):
 const outputSchema = z.object({ total: z.number().int(), provenance: ConciseBlockSchema, attribution: z.array(z.string()) });
 ```
 
-`DETAILED_BLOCK_JSON_SCHEMA`/`DetailedBlockSchema` e `provenanceBlockJsonSchema(mode)`
-cobrem o modo `detailed`. Os testes do pacote prendem que schema e `render*` não divergem.
+`DETAILED_BLOCK_JSON_SCHEMA`/`DetailedBlockSchema` and `provenanceBlockJsonSchema(mode)`
+cover `detailed` mode. The package's tests pin that schema and `render*` do not diverge.
 
-### Fonte estruturada (ex.: ILOSTAT/SDMX)
+### Structured source (e.g. ILOSTAT/SDMX)
 
 ```ts
 const p = prov.build({
@@ -111,21 +114,21 @@ const p = prov.build({
 });
 ```
 
-### Multi-fonte (segregação de licenças)
+### Multi-source (licence segregation)
 
 ```ts
-// Um bloco POR FONTE; dados de cada fonte em estruturas separadas apontando para o seu bloco.
+// One block PER SOURCE; each source's data in separate structures pointing to its block.
 return prov.result({ ilostat: dadosIlo, uis: dadosUis }, [pIlo, pUis]);
 ```
 
-### Recortes múltiplos de uma mesma fonte (`field_sources`, contrato v1.2 no `concise`)
+### Several slices of the same source (`field_sources`, contract v1.2 in `concise`)
 
-Resposta que junta partes de endpoints ou de momentos distintos — parte do cache, parte
-buscada agora — diz de onde veio cada parte. O `retrieved_at` do bloco é o **mais antigo**
-entre elas (na 1.2 a lib cobra isso).
+A response that joins parts from different endpoints or moments — part from the cache, part
+fetched now — says where each part came from. The block's `retrieved_at` is the **oldest**
+among them (in 1.2 the library enforces it).
 
 ```ts
-const prov = createProvenanceContext({ metaNamespace, contractVersion: "1.2" }); // ver "Rollout" abaixo
+const prov = createProvenanceContext({ metaNamespace, contractVersion: "1.2" }); // see "Rollout" below
 const p = prov.build({ ...base, retrieved_at: call.retrievedAt(), field_sources: [
   call.fieldSource({ fields: ["vitoria"],    source_url: urlVitoria,   filter: (u) => u === urlVitoria }),
   call.fieldSource({ fields: ["vila_velha"], source_url: urlVilaVelha, filter: (u) => u === urlVilaVelha }),
@@ -135,28 +138,28 @@ const p = prov.build({ ...base, retrieved_at: call.retrievedAt(), field_sources:
 //   { "fields": ["vila_velha"], ..., "retrieved_at": "2026-10-05T21:30:00Z", "served_from_cache": false } ]
 ```
 
-`call.fieldSource` vem do `@sbissoli/mcp-upstream` ≥ 0.4.0. Resposta sem fusão não leva a
-chave (ausente, não `null`).
+`call.fieldSource` comes from `@sbissoli/mcp-upstream` ≥ 0.4.0. A response without a merge
+does not carry the key (absent, not `null`).
 
-**Rollout em dois tempos.** A 0.3.0 emite a versão **1.1 por padrão** — byte a byte o
-que a 0.2.0 emitia — e os schemas publicados aceitam 1.1 e 1.2. Subir o pacote só muda
-o que o `outputSchema` declara; o fio fica igual. Ligar `contractVersion: "1.2"` é um
-segundo passo, depois que os conectores renovaram o schema: um conector que guardou o
-schema antigo recusa a chave que não conhece (contrato §8).
+**Rollout in two steps.** 0.3.0 emits version **1.1 by default** — byte for byte what 0.2.0
+emitted — and the published schemas accept 1.1 and 1.2. Upgrading the package only changes
+what the `outputSchema` declares; the wire stays the same. Turning on
+`contractVersion: "1.2"` is a second step, after the connectors have renewed the schema: a
+connector that kept the old schema refuses the key it does not know (contract §8).
 
-## Regras que a lib impõe (server-side, antes de responder)
+## Rules the library enforces (server-side, before responding)
 
-- `license` com ao menos `id` ou `name` (piso legal);
-- `derived: true` exige `derivation_note`;
-- chaves em ordem fixa e ausência como `null` explícito (determinismo byte-a-byte por modo);
-  a exceção é `field_sources` no `concise` (v1.2), ausente quando não há fusão;
-- na 1.2, `retrieved_at` do bloco não pode ser mais novo que o de nenhuma sub-fonte;
-- timestamps ISO-8601 sem milissegundos, normalizados ao fuso configurado (datas puras
-  passam intactas — nunca inventa horário num vintage).
+- `license` with at least `id` or `name` (legal floor);
+- `derived: true` requires `derivation_note`;
+- keys in a fixed order and absence as an explicit `null` (byte-for-byte determinism per mode);
+  the exception is `field_sources` in `concise` (v1.2), absent when there is no merge;
+- in 1.2, the block's `retrieved_at` cannot be newer than any sub-source's;
+- ISO-8601 timestamps without milliseconds, normalised to the configured time zone (plain dates
+  pass through untouched — it never invents a time in a vintage).
 
 ## API
 
 `createProvenanceContext(options)` → `{ build, from, render, footer, result, metaKeys }`.
-Peças soltas também exportadas: `CanonicalProvenanceSchema`, `renderConcise`,
+Loose pieces also exported: `CanonicalProvenanceSchema`, `renderConcise`,
 `renderDetailed`, `attributionList`, `provenanceFooter`, `toCanonicalIso`, locales
 `ptBR`/`en`.

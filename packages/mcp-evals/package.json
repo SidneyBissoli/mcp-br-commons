@@ -1,6 +1,6 @@
 {
   "name": "@sbissoli/mcp-evals",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Harness de evals para servidores MCP: seleção de tool em turno único (catálogo, fixtures, scorer, gate, runner via Messages API) e SESSÃO LONGA (loop client-side por stdio, A/B do bloco `retrieval`, métrica de chamadas ruins por tarefa, teto de gasto, NDJSON com resume).",
   "repository": {
     "type": "git",

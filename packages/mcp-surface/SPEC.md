@@ -161,6 +161,28 @@ registry hash that does not match the tag's lock means the entry was not publish
 source. Measured on 2026-10-07 for `bcb-br-mcp` 1.16.2 from a clean clone: lock, `server.json` and
 registry entry carry the same `ff0973f91573…`.
 
+### 6.2 The promise holds per response, not per connection
+
+Step 3 checks the surface once, on connect. A server can answer `tools/list` one way at the start
+of a session and another way later, and the MCP spec only says it SHOULD send
+`notifications/tools/list_changed` when that happens; a server that wants to switch quietly just
+won't. So a host that checks should check every list response it acts on, not only the first:
+
+1. Assemble the complete list, following `nextCursor` to the last page (§1). A single page is not
+   the list.
+2. Put it in place of the same list in the surface captured on connect, keeping `initialize` and
+   the other lists as captured (or re-fetch them too).
+3. Normalise (§2) and hash (§3) the whole surface again, and compare with `declared.sha256`.
+
+The published hash covers the whole surface, never a list on its own, so a list response is not
+hashed by itself: it is checked by recomputing the surface with it in place. This needs no new
+field and no new form. Treat a mismatch found mid-session exactly like one found on connect
+(step 5). The same applies to `resources/list`, `resources/templates/list` and `prompts/list`.
+
+Raised by a reader of the article that introduced this form (dev.to, comment 3gpa6, 2026-10-08).
+`exemplos/verify.mjs` is a one-shot check run outside any session, so it does not do this; it is
+what a host does inside one.
+
 ## 7. Test vector
 
 This raw capture:

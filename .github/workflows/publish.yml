@@ -161,16 +161,21 @@ jobs:
             # ausente no package.json (está lá, com `directory`, desde 14/09),
             # nem npm velho (12.0.2), nem permissão do job (`id-token: write`
             # está), nem publicar de dentro de `packages/<pacote>`. É que este
-            # repositório é PRIVADO, e os seis MCPs do portfólio, que têm
-            # atestação, são públicos. Sem a flag o npm apenas PULAVA a
+            # repositório ERA PRIVADO naquele dia, e os MCPs do portfólio, que
+            # tinham atestação, eram públicos. Sem a flag o npm apenas PULAVA a
             # assinatura, calado — foi por isso que os quatro pacotes daqui
-            # nunca tiveram proveniência e ninguém viu.
+            # nunca tinham tido proveniência e ninguém viu.
             #
             # Então: pede a atestação quando o repositório é público, e quando
             # não é, publica sem ela DIZENDO por quê. Assim o publish não trava
-            # (com a flag fixa, E422 impedia publicar qualquer coisa) e o dia em
-            # que este repositório virar público a atestação passa a sair
-            # sozinha, sem mexer aqui.
+            # (com a flag fixa, E422 impedia publicar qualquer coisa) e, quando
+            # o repositório virasse público, a atestação passaria a sair
+            # sozinha, sem mexer aqui. FOI O QUE ACONTECEU, no mesmo dia: o
+            # repositório ficou público em 22/09/2026 e os quatro pacotes da
+            # época saíram em patch já atestados (search 0.6.2, stats 0.3.1,
+            # provenance 0.1.1, evals 0.1.1, entre 21:26 e 21:43 UTC); todo
+            # pacote publicado depois nasce atestado. O ramo privado abaixo
+            # segue de guarda, para o caso de a visibilidade mudar de novo.
             #
             # --access public segue necessário para escopo.
             if [ "$REPO_PRIVADO" = "true" ]; then
@@ -182,8 +187,9 @@ jobs:
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # "true" enquanto este repositório for privado — é o que decide se dá
-          # para pedir proveniência ao npm (ver o comentário no passo acima).
+          # "true" se este repositório for privado (é público desde 22/09/2026)
+          # — é o que decide se dá para pedir proveniência ao npm (ver o
+          # comentário no passo acima).
           REPO_PRIVADO: ${{ github.event.repository.private }}
 
       - name: Confirmar no registro

@@ -1,52 +1,52 @@
 # @sbissoli/mcp-search
 
-O Deep Research do ChatGPT (e o Company Knowledge, e os workflows de pesquisa
-da API Responses) só usa um servidor MCP que exponha **exatamente** duas
-tools, `search` e `fetch`, com um formato fixo de entrada e saída. Um servidor
-com vinte tools ricas e nenhuma dessas duas é invisível para ele. Este pacote
-é a parte desse contrato que é igual em todo servidor — nomes, schemas,
-envelope, descrições, telemetria — para cada servidor escrever só o que é
-dele: o **índice** (o que se pode achar) e o **renderizador** (o texto de um
-documento).
+🇧🇷 [Leia em Português](https://github.com/SidneyBissoli/mcp-br-commons/blob/main/packages/mcp-search/LEIA-ME.md)
 
-> Mantido para o meu portfólio de servidores MCP. Uso por terceiros é
-> bem-vindo, mas o roadmap segue as necessidades dos meus servidores.
+ChatGPT's Deep Research (and Company Knowledge, and the research workflows of the Responses
+API) only uses an MCP server that exposes **exactly** two tools, `search` and `fetch`, with a
+fixed input and output format. A server with twenty rich tools and neither of those two is
+invisible to it. This package is the part of that contract that is the same in every
+server — names, schemas, envelope, descriptions, telemetry — so that each server writes only
+what is its own: the **index** (what can be found) and the **renderer** (the text of a
+document).
 
-Contrato literal da doc da OpenAI (`developers.openai.com/api/docs/mcp`, lida
-em 2026-09-02):
+> Maintained for my own portfolio of MCP servers. Third-party use is welcome, but the
+> roadmap follows what my servers need.
+
+The literal contract from OpenAI's docs (`developers.openai.com/api/docs/mcp`, read on
+2026-09-02):
 
 - `search(query: string)` → `{ results: [{ id, title, url }] }`
 - `fetch(id: string)` → `{ id, title, text, url, metadata? }`
-- o objeto vai em `structuredContent` **e** serializado em `content[0].text`;
-- o ChatGPT só cria citação quando `url` é uma string não vazia.
+- the object goes in `structuredContent` **and** serialised in `content[0].text`;
+- ChatGPT only creates a citation when `url` is a non-empty string.
 
-## Regras que a lib impõe
+## Rules the library enforces
 
-- **Os nomes são `search` e `fetch`, sem prefixo.** É a única exceção ao
-  prefixo por servidor do portfólio (`ibge_*`, `bcb_*`…); `DEEP_RESEARCH_TOOLS`
-  existe para os testes que exigem o prefixo abrirem a exceção por allowlist,
-  não por regex frouxa.
-- **`content` tem um bloco só, o JSON compacto do objeto.** O envelope de
-  proveniência (`@sbissoli/mcp-provenance`) emite dois blocos; aqui o rodapé
-  fica de fora porque a doc descreve `content[0].text` como o objeto e nada
-  além. A proveniência entra pelos outros dois canais — `structuredContent` e
-  `_meta`, via os `extras` que `search`/`fetch` devolvem junto com o
-  resultado — e chaves extras ali não atrapalham o Deep Research. É a
-  chamada que entrega a proveniência, não um decorador de fora: o instante
-  real da extração e a chave de cache só existem dentro dela.
-- **As chaves do contrato vencem em colisão** com os extras anexados.
-- **`search` corta no `limit`** (padrão 10) mesmo que o índice devolva mais.
-- **Entrada estrita** (0.9.0): `searchInputSchema` e `fetchInputSchema` são
-  `z.strictObject` e publicam `additionalProperties: false`. Chave fora do
-  contrato é recusada com erro que a nomeia, em vez de descartada em
-  silêncio. Quem registra pelo `.shape` (`z.object(shape)`) PERDE a
-  estrição — passe o objeto, ou aplique `.strict()` do seu lado.
-- **Erro nunca sobe cru**: `search`/`fetch` que lançam viram resultado
-  `isError` com mensagem pt-BR; id desconhecido idem.
-- Tudo é somente leitura; o chamador passa as mesmas `annotations` das outras
-  tools, para os testes de superfície não distinguirem as duas.
+- **The names are `search` and `fetch`, with no prefix.** It is the only exception to the
+  per-server prefix in the portfolio (`ibge_*`, `bcb_*`…); `DEEP_RESEARCH_TOOLS` exists so
+  that tests that require the prefix open the exception through an allowlist, not a loose
+  regex.
+- **`content` has a single block, the compact JSON of the object.** The provenance envelope
+  (`@sbissoli/mcp-provenance`) emits two blocks; here the footer is left out because the docs
+  describe `content[0].text` as the object and nothing else. Provenance goes through the
+  other two channels — `structuredContent` and `_meta`, via the `extras` that `search`/`fetch`
+  return with the result — and extra keys there do not get in Deep Research's way. It is the
+  call that delivers the provenance, not an outside decorator: the real retrieval instant and
+  the cache key only exist inside it.
+- **The contract's keys win on collision** with the attached extras.
+- **`search` cuts at `limit`** (default 10) even if the index returns more.
+- **Strict input** (0.9.0): `searchInputSchema` and `fetchInputSchema` are `z.strictObject`
+  and publish `additionalProperties: false`. A key outside the contract is refused with an
+  error that names it, instead of being silently dropped. Whoever registers through `.shape`
+  (`z.object(shape)`) LOSES the strictness — pass the object, or apply `.strict()` on your
+  side.
+- **An error never surfaces raw**: a `search`/`fetch` that throws becomes an `isError` result
+  with a pt-BR message; an unknown id likewise.
+- Everything is read-only; the caller passes the same `annotations` as the other tools, so
+  that surface tests do not tell the two apart.
 
-## Uso
+## Usage
 
 ```ts
 import {
@@ -56,9 +56,9 @@ import {
   type IndexEntry,
 } from "@sbissoli/mcp-search";
 
-// 1. O índice: qualquer coisa que tenha id, título e URL pública. `keywords`
-//    e `text` só servem para ranquear. Monte-o uma vez (ou por TTL) a partir
-//    do catálogo real do servidor.
+// 1. The index: anything with an id, a title and a public URL. `keywords`
+//    and `text` only serve for ranking. Build it once (or per TTL) from
+//    the server's real catalogue.
 const entradas: IndexEntry[] = [
   {
     id: "sidra:6579",
@@ -69,8 +69,8 @@ const entradas: IndexEntry[] = [
 ];
 const indice = createIndex(entradas);
 
-// 2. O renderizador: dado um id, o documento inteiro (texto Markdown legível),
-//    com os extras do envelope quando houver proveniência a anexar.
+// 2. The renderer: given an id, the whole document (readable Markdown text),
+//    with the envelope extras when there is provenance to attach.
 async function documento(id: string): Promise<FetchReply | null> {
   const e = entradas.find((x) => x.id === id);
   if (!e) return null;
@@ -80,116 +80,112 @@ async function documento(id: string): Promise<FetchReply | null> {
   };
 }
 
-// 3. Dentro do registro central de tools do servidor:
+// 3. Inside the server's central tool registration:
 registerDeepResearchTools(server, {
-  search: async (query) => indice.search(query), // ou { results, extras }
+  search: async (query) => indice.search(query), // or { results, extras }
   fetch: documento,
   corpus: "IBGE official statistics (SIDRA tables, municipalities, indicators)",
   richTools: "the `ibge_*` tools",
   annotations: READ_ONLY,
-  extendOutputSchema: comProveniencia, // acrescenta o bloco de proveniência ao schema
-  record, // telemetria tool_call/tool_error, como o `handle` do servidor
+  extendOutputSchema: comProveniencia, // adds the provenance block to the schema
+  record, // tool_call/tool_error telemetry, like the server's `handle`
 });
 ```
 
-### Idioma da superfície
+### Surface language
 
-O padrão é pt-BR: títulos, `.describe()` dos schemas e mensagens de erro em
-português (a `description` que o modelo lê é sempre em inglês). Num servidor
-cuja superfície inteira é em inglês (medical, ilo, uis), `locale: "en"` troca
-os três de uma vez — `contractSchemas("en")` devolve os mesmos quatro schemas
-com as descrições em inglês, e `titles`/`notFound`/`onError` continuam
-sobrepondo o padrão do idioma quando passados.
+The default is pt-BR: titles, the schemas' `.describe()` and error messages in Portuguese
+(the `description` the model reads is always in English). In a server whose whole surface is
+in English (medical, ilo, uis), `locale: "en"` switches the three at once —
+`contractSchemas("en")` returns the same four schemas with English descriptions, and
+`titles`/`notFound`/`onError` still override the language default when passed.
 
-### Servidores que registram JSON Schema à mão
+### Servers that register JSON Schema by hand
 
-A fábrica registra os schemas zod no `McpServer`. Um servidor cujas
-definições são JSON Schema escrito à mão (o bcb, com `TOOL_DEFINITIONS` e
-`dispatchTool` por `case`) não precisa derivar nada: `contractJsonSchemas(locale)`
-devolve os mesmos quatro schemas em JSON Schema draft-07 (sem `$schema`,
-referências inline), derivados uma vez aqui dos mesmos zod — e o servidor os
-embrulha com o seu próprio wrapper de proveniência sobre JSON.
+The factory registers the zod schemas on the `McpServer`. A server whose definitions are
+hand-written JSON Schema (bcb, with `TOOL_DEFINITIONS` and a `dispatchTool` by `case`) does
+not need to derive anything: `contractJsonSchemas(locale)` returns the same four schemas in
+JSON Schema draft-07 (no `$schema`, inline references), derived once here from the same
+zod — and the server wraps them with its own provenance wrapper over JSON.
 
 ### Ranking
 
-`createIndex` pré-computa os tokens e devolve um buscador determinístico:
-normalização sem acentos e sem caixa, tokens `[a-z0-9]{2,}` sem as stopwords
-do pt-BR, pontuação por token da consulta com peso por campo (id 10, título 3,
-palavras-chave 2, texto 1; prefixo a partir de 3 caracteres vale metade),
-bônus por cobertura (cada token distinto casado) e por frase inteira no título,
-desempate pela ordem do acervo. Consulta vazia ou sem casamento devolve `[]`.
-`rankEntries(entradas, consulta)` é o atalho para acervos pequenos.
+`createIndex` precomputes the tokens and returns a deterministic searcher: normalisation
+without accents and without case, tokens `[a-z0-9]{2,}` minus the pt-BR stopwords, scoring
+per query token with a weight per field (id 10, title 3, keywords 2, text 1; a prefix from 3
+characters on is worth half), bonuses for coverage (each distinct token matched) and for the
+whole phrase in the title, ties broken by the collection's order. An empty query or one with
+no match returns `[]`. `rankEntries(entradas, consulta)` is the shortcut for small
+collections.
 
-## Vocabulário da pergunta
+## The question's vocabulary
 
-Toda busca por substring contra o nome que a fonte usa tem o mesmo defeito:
-quem pergunta com a palavra de todo dia, ou com a grafia de outro país, não
-recebe um resultado ruim — recebe **zero, calado**. Medido no portfólio em
-setembro de 2026: `labor` 0 × labour 176 no ILOSTAT; `enrollment` 0 × enrolment
-227 na UIS; `populacao` 0 × população 520 e `renda` 72 × rendimento 1.126 no
-IBGE; `câncer` 0 × neoplasia maligna 439 na CID-10; `calote` 0 × inadimplência
-484 no BCB. Desde a 0.5.0 a receita mora aqui; cada servidor traz só a tabela.
+Every substring search against the name the source uses has the same defect: whoever asks
+with the everyday word, or with another country's spelling, does not get a bad result — they
+get **zero, silently**. Measured in the portfolio in September 2026: `labor` 0 × labour 176 in
+ILOSTAT; `enrollment` 0 × enrolment 227 in UIS; `populacao` 0 × população 520 and `renda` 72 ×
+rendimento 1,126 in IBGE; `câncer` 0 × neoplasia maligna 439 in ICD-10 (CID-10); `calote` 0 ×
+inadimplência 484 in BCB. Since 0.5.0 the recipe lives here; each server brings only the table.
 
 ```ts
 import { createVocabulary } from "@sbissoli/mcp-search";
 
-// Só par MEDIDO: a palavra perguntada ausente do catálogo, a da fonte presente.
+// Only MEASURED pairs: the asked word absent from the catalogue, the source's present.
 const vocab = createVocabulary({
-  locale: "pt-BR",            // stopwords, singular e a frase da nota
+  locale: "pt-BR",            // stopwords, singular and the note's sentence
   sourceName: "o IBGE",       // "a palavra que o IBGE usa" / en: "the wording ILOSTAT uses"
   entries: [
     { asked: "renda", source: ["rendimento"] },
-    { asked: "pressão alta", source: ["hipertens"] },   // frase: vira UM termo antes da quebra
+    { asked: "pressão alta", source: ["hipertens"] },   // phrase: becomes ONE term before splitting
   ],
 });
 
 const expanded = vocab.expandQuery("renda média");       // [{ term, patterns, translated }]
 const hits = docs.filter((d) => vocab.matchesQuery(vocab.normalize(d.nome), expanded));
 const notes = vocab.vocabularyNotes(expanded);           // '"renda" também foi buscado como rendimento — …'
-// No índice de search: keywords: [...vocab.askedWordsFor(d.nome)]
+// In the search index: keywords: [...vocab.askedWordsFor(d.nome)]
 ```
 
-Regras: os dois lados passam por `normalize` (NFD sem diacríticos, caixa
-baixa); frases da tabela casam antes da quebra em palavras; stopwords do idioma
-ficam fora do AND (consulta só de stopword continua valendo); cada termo vira um
-OR do próprio termo, do singular (regras por idioma que não fabricam caco) e das
-grafias da fonte; termos em AND. Tabela vazia é expansão nula.
+Rules: both sides go through `normalize` (NFD without diacritics, lower case); the table's
+phrases match before splitting into words; the language's stopwords stay out of the AND (a
+stopword-only query still counts); each term becomes an OR of the term itself, its singular
+(per-language rules that do not fabricate fragments) and the source's spellings; terms are
+ANDed. An empty table is a null expansion.
 
-**Fronteira de palavra (desde a 0.6.0).** O padrão casa o **início** de uma
-palavra, nunca o miolo. Até a 0.5.0 era substring em qualquer posição, e
-substring sem fronteira inventa resultado sem dar erro: medido em 22/09/2026,
-`uber` casava 1 subclasse da CNAE e era dentro de `TUBÉRCULOS`; `ovo` casava 11
-e 9 eram `NOVOS`; `idade` casava 6.092 dos 9.336 agregados do SIDRA, quase
-todos dentro de `atividade`; e no catálogo da UIS `male` casava dentro de
-`female`, então perguntar por homens trazia mulheres. A fronteira é só no
-início porque as tabelas guardam RADICAIS de propósito (`ocupa` alcança
-ocupação/ocupadas, `odontolog` alcança odontológico/odontologia, `child`
-alcança children): exigir fronteira no fim levaria `ocupa` de 1.609 para 0.
+**Word boundary (since 0.6.0).** A pattern matches the **start** of a word, never the middle.
+Up to 0.5.0 it was a substring at any position, and a substring without a boundary invents
+results without raising an error: measured on 22/09/2026, `uber` matched 1 CNAE subclass and
+it was inside `TUBÉRCULOS`; `ovo` matched 11 and 9 were `NOVOS`; `idade` matched 6,092 of the
+9,336 SIDRA aggregates, almost all inside `atividade`; and in the UIS catalogue `male`
+matched inside `female`, so asking about men brought women. The boundary is only at the start
+because the tables keep STEMS on purpose (`ocupa` reaches ocupação/ocupadas, `odontolog`
+reaches odontológico/odontologia, `child` reaches children): requiring a boundary at the end
+would take `ocupa` from 1,609 to 0.
 
-**Para SQL (D1/SQLite)** a mesma regra é `GLOB`, não `LIKE` — `LIKE '%p%'` é
-justamente o casamento sem fronteira. Cada padrão de `patterns` vira:
+**For SQL (D1/SQLite)** the same rule is `GLOB`, not `LIKE` — `LIKE '%p%'` is exactly the match
+without a boundary. Each pattern in `patterns` becomes:
 
 ```sql
 (col GLOB ?n OR col GLOB ?m)   --  ?n = 'p*'   ?m = '*[^a-z0-9]p*'
 ```
 
-e os termos se juntam com AND. Higienize o padrão antes de ligá-lo
-(`p.replace(/[*?[\]]/g, "")`): `patterns[0]` é o texto que o USUÁRIO digitou, e
-`GLOB` não tem caractere de escape. A coluna precisa estar normalizada (é o que
-o sufixo `_lc` indica nos catálogos), senão a fronteira `[^a-z0-9]` não vale.
+and the terms are joined with AND. Sanitise the pattern before binding it
+(`p.replace(/[*?[\]]/g, "")`): `patterns[0]` is the text the USER typed, and `GLOB` has no
+escape character. The column must be normalised (that is what the `_lc` suffix means in the
+catalogues), otherwise the `[^a-z0-9]` boundary does not hold.
 
 ## API
 
-Contrato: `DEEP_RESEARCH_TOOLS`, `searchInputSchema`, `searchOutputSchema`,
+Contract: `DEEP_RESEARCH_TOOLS`, `searchInputSchema`, `searchOutputSchema`,
 `searchResultSchema`, `fetchInputSchema`, `fetchDocumentSchema` (pt-BR),
-`contractSchemas(locale)`, `contractJsonSchemas(locale)` e os tipos
+`contractSchemas(locale)`, `contractJsonSchemas(locale)` and the types
 `SearchInput`, `SearchResult`, `SearchOutput`, `FetchInput`, `FetchDocument`,
 `DeepResearchToolName`, `ContractLocale`, `JsonSchemaObject`. Ranking: `createIndex`, `rankEntries`, `normalizeText`,
-`tokenize`, `DEFAULT_LIMIT`, tipos `IndexEntry`, `SearchIndex`,
+`tokenize`, `DEFAULT_LIMIT`, types `IndexEntry`, `SearchIndex`,
 `SearchOptions`. Envelope: `deepResearchResult`, `deepResearchError`,
-`EnvelopeExtras`. Vocabulário: `createVocabulary`, tipos `Vocabulary`,
-`VocabularyOptions`, `VocabularyEntry`, `VocabularyLocale`, `ExpandedTerm`. Fábrica: `registerDeepResearchTools`,
+`EnvelopeExtras`. Vocabulary: `createVocabulary`, types `Vocabulary`,
+`VocabularyOptions`, `VocabularyEntry`, `VocabularyLocale`, `ExpandedTerm`. Factory: `registerDeepResearchTools`,
 `DeepResearchToolsOptions`, `SearchReply`, `FetchReply`, `UsageRecorder`.
 
-Dependências: `zod` (schemas); `@modelcontextprotocol/server` ^2 como peer
-(só tipos — o servidor que registra é o do chamador).
+Dependencies: `zod` (schemas); `@modelcontextprotocol/server` ^2 as a peer
+(types only — the server that registers is the caller's).

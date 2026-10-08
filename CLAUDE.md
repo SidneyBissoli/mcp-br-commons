@@ -56,9 +56,9 @@ Num pacote só: `npm test -w packages/mcp-surface` (ou de dentro da pasta).
 
 - **Nomes da API em português, README do npm em inglês.** O `README.md` de cada pacote é o
   que o npm exibe; quando há versão em português, ela se chama `LEIA-ME.md` — o npm
-  empacota todo `README*` da pasta e pode exibir o traduzido (hoje só o `mcp-surface` tem o
-  par; os outros READMEs ainda são em português). Nomes exportados ficam em português, com
-  glossário no README em inglês.
+  empacota todo `README*` da pasta e pode exibir o traduzido (os seis pacotes têm o par desde
+  08/10/2026; o `files` lista `README.md` e nunca `LEIA-ME.md`). Nomes exportados ficam em
+  português, com glossário no README em inglês quando o README os usa.
 - **Um `CHANGELOG.md` por pacote**, sem changelog na raiz (cada pacote tem seu histórico;
   um da raiz copiaria os seis). Em 0.x, **mudança de contrato ou de normalização é minor**:
   o caret `^0.x` não cobre o minor seguinte, então cada servidor faz bump explícito

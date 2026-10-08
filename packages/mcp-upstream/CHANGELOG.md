@@ -4,6 +4,17 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.4.1] — 2026-10-08
+
+Só documentação e licença: código e API NÃO mudam.
+
+### Alterado
+
+- **README em inglês** (`README.md`), o que o npm exibe; o texto em português
+  passa a `LEIA-ME.md`. O npm empacota todo `README*` da pasta e pode exibir o
+  traduzido, por isso o par fica fora desse prefixo.
+- **`LICENSE`** (MIT) no tarball e autor com o nome completo no `package.json` (#39).
+
 ## [0.4.0] — 2026-10-06
 
 ### Adicionado

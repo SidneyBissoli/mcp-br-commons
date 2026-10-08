@@ -3,6 +3,19 @@
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões seguem
 semver; em 0.x, superfície publicada que muda é minor.
 
+## [0.2.2] — 2026-10-08
+
+Documentação, licença e o piso de um peer: código e API NÃO mudam.
+
+### Alterado
+
+- **README em inglês** (`README.md`), o que o npm exibe, com glossário das decisões do gate, que seguem em português; o texto em português
+  passa a `LEIA-ME.md`. O npm empacota todo `README*` da pasta e pode exibir o
+  traduzido, por isso o par fica fora desse prefixo.
+- **`LICENSE`** (MIT) no tarball e autor com o nome completo no `package.json` (#39).
+- Peer `@modelcontextprotocol/client` `^2.0.0` → `^2.1.0` (#24); as devDependencies
+  subiram junto (#24, #36).
+
 ## [0.2.1] — 2026-09-28
 
 Achado pela primeira rodada PAGA do item 3 (bcb-br-mcp, 96 sessões, Sonnet 5, 28/09/2026): o

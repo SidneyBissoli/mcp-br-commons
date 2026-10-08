@@ -1,163 +1,168 @@
 # @sbissoli/mcp-upstream
 
-Fetch comum dos servidores MCP do portfólio: **retry com backoff e `Retry-After`, timeout
-por tentativa, orçamento total por ida à origem** — e a **contagem de idas, tentativas e
-anomalias** que alimenta o bloco `retrieval` do
-[contrato de proveniência v1.1](../mcp-provenance/docs/contrato-proveniencia-v1.md)
+🇧🇷 [Leia em Português](https://github.com/SidneyBissoli/mcp-br-commons/blob/main/packages/mcp-upstream/LEIA-ME.md)
+
+Common fetch for the portfolio's MCP servers: **retry with backoff and `Retry-After`, timeout
+per attempt, total budget per trip to the origin** — and the **count of trips, attempts and
+anomalies** that feeds the `retrieval` block of the
+[provenance contract v1.1](../mcp-provenance/docs/contrato-proveniencia-v1.md) (in Portuguese)
 (`@sbissoli/mcp-provenance` ≥ 0.2.0).
 
-> Mantido para o meu portfólio de servidores MCP. Uso por terceiros é bem-vindo, mas o
-> roadmap segue as necessidades dos meus servidores.
+> Maintained for my own portfolio of MCP servers. Third-party use is welcome, but the
+> roadmap follows what my servers need.
 
-O pacote **classifica**; o servidor **decide**. Ele diz "a origem respondeu 404", "o corpo
-veio em HTML", "repeti duas vezes por 503" — e nunca o que isso significa para o dado
-(ausência legítima × chave fora da cobertura × série inexistente é semântica de cada
-servidor, e fica nele).
+The package **classifies**; the server **decides**. It says "the origin answered 404", "the
+body came back as HTML", "I retried twice because of a 503" — and never what that means for
+the data (legitimate absence × key outside coverage × non-existent series is each server's
+semantics, and stays in it).
 
-## Uso
+## Usage
 
 ```ts
 import { createUpstream, UpstreamError } from "@sbissoli/mcp-upstream";
 
-// 1. Uma vez, na inicialização do servidor: a política de rede.
+// 1. Once, when the server starts: the network policy.
 const upstream = createUpstream({
   userAgent: "bcb-br-mcp/2.0 (+https://…)",
-  timeoutMs: 10_000,   // teto de UMA tentativa (cabeçalhos + corpo)
-  retries: 2,          // além da primeira tentativa (até 3 no total)
-  budgetMs: 30_000,    // orçamento TOTAL da ida, esperas incluídas
+  timeoutMs: 10_000,   // cap of ONE attempt (headers + body)
+  retries: 2,          // beyond the first attempt (up to 3 in total)
+  budgetMs: 30_000,    // TOTAL budget of the trip, waits included
   backoff: { baseMs: 1_000, maxMs: 8_000, jitterMs: 500 },
   honorRetryAfter: true,
   inspectBody: (_res, body) => (body.trimStart().startsWith("<") ? "malformed_body" : null),
 });
 
-// 2. Em cada chamada de tool: UM coletor, explícito.
+// 2. In each tool call: ONE collector, explicit.
 const call = upstream.call();
-const serie = await call.json(`${BASE}/serie/${codigo}`);      // 1 ida; conta tentativas
-const meta  = await call.json(`${BASE}/serie/${codigo}/meta`); // 2ª ida
-call.recordCache(urlDoCatalogo, catalogo.retrievedAt);         // acerto de cache do SERVIDOR
+const serie = await call.json(`${BASE}/serie/${codigo}`);      // 1 trip; counts attempts
+const meta  = await call.json(`${BASE}/serie/${codigo}/meta`); // 2nd trip
+call.recordCache(urlDoCatalogo, catalogo.retrievedAt);         // a cache hit of the SERVER
 
 return prov.result(dados, prov.from(PRESET, {
   source_url: …,
-  retrieved_at: call.retrievedAt(),      // o mais antigo entre rede e cache
+  retrieved_at: call.retrievedAt(),      // the oldest between network and cache
   served_from_cache: call.servedFromCache(),
   retrieval: call.retrieval(),           // { requests: 2, attempts: 3, anomalies: [...] } | null
 }));
 ```
 
-`call.retrieval()` devolve o `RetrievalInput` **cru**: quem soma `unstable` e normaliza é
-a lib de proveniência, como já faz. É `null` quando a chamada não foi à origem nenhuma
-vez (cache puro, dado local) — o contrato manda `null`, não `{ attempts: 1 }` inventado.
+`call.retrieval()` returns the **raw** `RetrievalInput`: whoever adds `unstable` and normalises
+is the provenance library, as it already does. It is `null` when the call did not go to the
+origin even once (pure cache, local data) — the contract requires `null`, not an invented
+`{ attempts: 1 }`.
 
-### Resposta que junta partes de procedências distintas (`field_sources`)
+### A response that joins parts of different provenance (`field_sources`)
 
-Quando a resposta funde sub-fontes — uma parte do cache, outra buscada agora —,
-`call.fieldSource()` monta o item de `field_sources` (contrato de proveniência v1.2,
-`@sbissoli/mcp-provenance` ≥ 0.3.0) a partir dos acessos registrados. O servidor diz
-quais campos vêm de qual URL; o coletor põe o instante mais antigo e o `served_from_cache`
-daquela sub-fonte:
+When the response merges sub-sources — one part from the cache, another fetched now —,
+`call.fieldSource()` builds the `field_sources` item (provenance contract v1.2,
+`@sbissoli/mcp-provenance` ≥ 0.3.0) from the recorded accesses. The server says which fields
+come from which URL; the collector puts in that sub-source's oldest instant and its
+`served_from_cache`:
 
 ```ts
 field_sources: [
-  call.fieldSource({ fields: ["serie"], source_url: urlSerie }),                    // acessos com URL igual
+  call.fieldSource({ fields: ["serie"], source_url: urlSerie }),                    // accesses with an equal URL
   call.fieldSource({ fields: ["meta"],  source_url: urlMeta, filter: (u) => u.startsWith(urlMeta) }),
 ],
 ```
 
-Sub-fonte sem nenhum acesso nesta chamada sai com `retrieved_at` e `served_from_cache`
-`null` — diferente de `retrievedAt()`, que devolve "agora" para o bloco, o item nunca
-afirma uma extração que não aconteceu.
+A sub-source with no access in this call comes out with `retrieved_at` and `served_from_cache`
+`null` — unlike `retrievedAt()`, which returns "now" for the block, the item never asserts a
+retrieval that did not happen.
 
-### Três modos de ida
+### Three trip modes
 
-| método | corpo | `inspectBody` | `malformed_body` |
+| method | body | `inspectBody` | `malformed_body` |
 |---|---|---|---|
-| `call.json(url, init?)` | lido e parseado | sim | corpo rejeitado ou JSON inválido |
-| `call.text(url, init?)` | lido | sim | corpo rejeitado |
-| `call.response(url, init?)` | **não consumido** | não | nunca (o corpo é seu) |
+| `call.json(url, init?)` | read and parsed | yes | body rejected or invalid JSON |
+| `call.text(url, init?)` | read | yes | body rejected |
+| `call.response(url, init?)` | **not consumed** | no | never (the body is yours) |
 
-`init` é um `RequestInit` normal; um `signal` seu é combinado com o do timeout. Quatro chaves
-a mais trocam a política **só naquela ida**, no mesmo coletor, porque prazo e repetição justos
-dependem da FORMA do pedido, não do servidor: `timeoutMs` (teto de UMA tentativa — o bcb dá
-6 s a um pedido de 20 observações e 30 s a uma janela larga), `retries`, `backoff` (parcial,
-mesclado sobre o da política) e `retryOn` (o ibge dá 4 retries de 2→16 s à consulta principal,
-2 de 0,5→2 s a um enriquecimento de melhor esforço, e não repete o 500 determinístico da API
-de Agregados). Nenhuma delas vaza para o `fetch`; `budgetMs` segue o da política, por cima.
+`init` is a normal `RequestInit`; a `signal` of yours is combined with the timeout's. Four extra
+keys change the policy **for that trip only**, in the same collector, because a fair deadline
+and retry depend on the SHAPE of the request, not on the server: `timeoutMs` (cap of ONE
+attempt — bcb gives 6 s to a request for 20 observations and 30 s to a wide window),
+`retries`, `backoff` (partial, merged over the policy's) and `retryOn` (ibge gives 4 retries of
+2→16 s to the main query, 2 of 0.5→2 s to a best-effort enrichment, and does not retry the
+deterministic 500 of the Aggregates API). None of them leaks into `fetch`; `budgetMs` follows the
+policy's, on top.
 
-### Classificação e repetição
+### Classification and retry
 
-| o que aconteceu | `kind` | repete por padrão | `transport` |
+| what happened | `kind` | retried by default | `transport` |
 |---|---|---|---|
-| tentativa estourou `timeoutMs` (ou o orçamento) | `timeout` | sim | sim (não, se foi lendo o corpo) |
-| `fetch` lançou (DNS/TCP/TLS) | `network` | sim | sim |
-| HTTP 429 | `rate_limited` | sim, honrando `Retry-After` | não |
-| HTTP 5xx | `http_5xx` | sim | não |
-| HTTP 4xx (exceto 404) | `http_4xx` | **não** | não |
-| 200 com corpo rejeitado / JSON inválido | `malformed_body` | sim | não |
-| HTTP 404 | `not_found` | não | não |
-| o `signal` do chamador abortou | `aborted` | não | sim |
+| an attempt exceeded `timeoutMs` (or the budget) | `timeout` | yes | yes (no, if it was while reading the body) |
+| `fetch` threw (DNS/TCP/TLS) | `network` | yes | yes |
+| HTTP 429 | `rate_limited` | yes, honouring `Retry-After` | no |
+| HTTP 5xx | `http_5xx` | yes | no |
+| HTTP 4xx (except 404) | `http_4xx` | **no** | no |
+| 200 with a rejected body / invalid JSON | `malformed_body` | yes | no |
+| HTTP 404 | `not_found` | no | no |
+| the caller's `signal` aborted | `aborted` | no | yes |
 
-Os seis primeiros são o vocabulário fechado de `retrieval.anomalies`. **`not_found` e
-`aborted` não são anomalias**: ausência é resposta da origem, e cancelamento é decisão
-do chamador. `retryOn(ctx)` troca a política de repetição (ex.: repetir um 4xx que a
-origem usa como "tente de novo"); `retries` e `budgetMs` continuam valendo por cima. O `ctx`
-traz `url`, `attempt`, `kind`, `status`, `response`, `body` e `cause` (o que o `fetch` ou o
-parse lançou) — é pelo `cause` que um servidor separa `ECONNRESET` de um erro que outra camada
-lançou dentro do fetch.
+The first six are the closed vocabulary of `retrieval.anomalies`. **`not_found` and `aborted`
+are not anomalies**: absence is an answer from the origin, and cancellation is the caller's
+decision. `retryOn(ctx)` replaces the retry policy (e.g. retrying a 4xx that the origin uses
+as "try again"); `retries` and `budgetMs` still apply on top. The `ctx` carries `url`,
+`attempt`, `kind`, `status`, `response`, `body` and `cause` (what `fetch` or the parse threw) —
+it is through `cause` that a server tells an `ECONNRESET` from an error another layer threw
+inside the fetch.
 
-**Toda tentativa falha conta como anomalia** — a superada e a final. Como `retrieval`
-só sai no sucesso da tool, a diferença só aparece quando o servidor engole a falha de
-uma fatia e responde parcial: e aí a resposta **é** instável, e o bloco tem de dizer.
+**Every failed attempt counts as an anomaly** — the overcome one and the final one. Since
+`retrieval` only comes out when the tool succeeds, the difference only shows when the server
+swallows the failure of a slice and answers partially: and then the response **is**
+unstable, and the block has to say so.
 
-### Espera entre tentativas
+### Wait between attempts
 
-`max(Retry-After, backoff exponencial) + jitter`, com `backoff = min(baseMs · 2ⁿ, maxMs)`.
-Uma espera que estouraria o que sobra de `budgetMs` **desiste na hora**, com o erro
-repetível — esperar só adiaria o mesmo timeout. Cada tentativa recebe, no máximo, o que
-sobra do orçamento.
+`max(Retry-After, exponential backoff) + jitter`, with `backoff = min(baseMs · 2ⁿ, maxMs)`.
+A wait that would exceed what is left of `budgetMs` **gives up immediately**, with the
+retryable error — waiting would only postpone the same timeout. Each attempt gets, at most,
+what is left of the budget.
 
-### O erro
+### The error
 
 ```ts
 try { await call.json(url); }
 catch (e) {
   if (e instanceof UpstreamError) {
     e.kind;        // "timeout" | "network" | "rate_limited" | "http_5xx" | "http_4xx" | "malformed_body" | "not_found" | "aborted"
-    e.status;      // número quando uma resposta chegou
-    e.retryable;   // a classe era repetível (informativo: os retries já se esgotaram)
-    e.transport;   // true só quando NADA chegou da origem
-    e.attempts;    // tentativas desta ida
-    e.body;        // corpo lido (modos text/json) — é aqui que o servidor lê o 404
-    e.response;    // Response sem corpo consumido (modo response)
+    e.status;      // a number when a response arrived
+    e.retryable;   // the class was retryable (informative: the retries are already exhausted)
+    e.transport;   // true only when NOTHING arrived from the origin
+    e.attempts;    // attempts of this trip
+    e.body;        // body read (text/json modes) — this is where the server reads the 404
+    e.response;    // Response with the body not consumed (response mode)
     e.retryAfterMs;
-    e.isAnomaly;   // kind pertence ao vocabulário do contrato
+    e.isAnomaly;   // kind belongs to the contract's vocabulary
   }
 }
 ```
 
-### Adaptador por AsyncLocalStorage (opcional)
+### AsyncLocalStorage adapter (optional)
 
-Para servidores que já propagam contexto assim:
+For servers that already propagate context this way:
 
 ```ts
 import { withCall, currentCall, requireCall } from "@sbissoli/mcp-upstream/als";
 
 server.tool("x", schema, (args) =>
   withCall(upstream, async (call) => {
-    const dados = await buscar(args);            // lá no fundo: requireCall().json(url)
+    const dados = await buscar(args);            // deep down: requireCall().json(url)
     return prov.result(dados, prov.from(PRESET, { retrieval: call.retrieval(), … }));
   }),
 );
 ```
 
-Entrypoint separado para o núcleo não depender de `node:async_hooks`. Exige Node ou
-Worker com `nodejs_compat`.
+A separate entrypoint so that the core does not depend on `node:async_hooks`. Requires Node or
+a Worker with `nodejs_compat`.
 
-## Testes offline
+## Offline tests
 
-`fetchImpl`, `sleep`, `now` e `random` são injetáveis: os testes do pacote provam
-contagens exatas, esperas exatas e desistência por orçamento sem rede e sem esperar.
-Servidores que adotam testam do mesmo jeito.
+`fetchImpl`, `sleep`, `now` and `random` are injectable: the package's tests prove exact
+counts, exact waits and giving up by budget without network and without waiting. Servers that
+adopt it test the same way.
 
-## Licença
+## License
 
 MIT

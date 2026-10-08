@@ -1,10 +1,12 @@
 name: CI
 
 # Este repositório passou a ter CI em 30/08/2026. Até então NADA rodava em push:
-# os 188 testes das cinco workspaces só existiam para quem lembrasse de chamá-los
-# à mão. É a peça de maior alcance do portfólio — os três `@sbissoli/*` são
-# consumidos pelos seis servidores MCP —, então uma regressão aqui sai em release
-# e chega em bcb, ibge e senado ao mesmo tempo.
+# os testes das workspaces (188 naquele dia) só existiam para quem lembrasse de
+# chamá-los à mão. É a peça de maior alcance do portfólio — os pacotes
+# `@sbissoli/*` daqui são consumidos pelos servidores MCP —, então uma regressão
+# aqui sai em release e chega a vários servidores ao mesmo tempo. Quem usa qual
+# pacote está na tabela do CLAUDE.md; contagem escrita aqui envelhece calada (este
+# cabeçalho dizia "três pacotes, seis servidores" quando já eram seis e sete).
 
 on:
   push:
@@ -17,8 +19,9 @@ jobs:
 
     strategy:
       # Matriz, ao contrário dos servidores que fixam uma versão: isto é
-      # BIBLIOTECA. Quem consome roda em 20 e em 22, então é nas duas que
-      # precisa compilar e passar — não na que o autor tem instalada.
+      # BIBLIOTECA. Quem consome roda no piso (22) e pode rodar na LTS seguinte
+      # (24), então é nas duas que precisa compilar e passar — não na que o autor
+      # tem instalada.
       fail-fast: false
       matrix:
         # Piso é node >= 22 (engines do package). O 20 saiu em 31/08/2026: fim

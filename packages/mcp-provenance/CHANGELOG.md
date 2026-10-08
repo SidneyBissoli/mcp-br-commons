@@ -5,6 +5,17 @@ seguem semver; a versão do **contrato** (`contract_version`) é outra numeraç�
 em `docs/contrato-proveniencia-v1.md` §8. Este arquivo nasceu na 0.2.0; as entradas
 anteriores foram reconstruídas do histórico do repositório.
 
+## [0.3.1] — 2026-10-08
+
+Só documentação e licença: código e API NÃO mudam.
+
+### Alterado
+
+- **README em inglês** (`README.md`), o que o npm exibe; o texto em português
+  passa a `LEIA-ME.md`. O npm empacota todo `README*` da pasta e pode exibir o
+  traduzido, por isso o par fica fora desse prefixo.
+- **`LICENSE`** (MIT) no tarball e autor com o nome completo no `package.json` (#39).
+
 ## [0.3.0] — 2026-10-06 — contrato v1.2
 
 Superfície publicada muda → minor. **`^0.2.0` não cobre esta versão**: bump explícito em

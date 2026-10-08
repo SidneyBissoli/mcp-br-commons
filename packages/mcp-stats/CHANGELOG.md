@@ -11,12 +11,17 @@ commits de `packages/mcp-stats` (o que sobe `version` no `package.json` marca a 
 os PRs citados. As 0.1.0 e 0.2.0 foram publicadas à mão, sem atestação; a 0.3.0 por
 trusted publishing (OIDC), ainda sem atestação; a 0.3.1 é a primeira atestada (SLSA).
 
-## [Não lançado]
+## [0.3.2] — 2026-10-08
+
+Só documentação e licença: código e API NÃO mudam.
 
 ### Alterado
 
-- `LICENSE` (MIT) no pacote e autor com o nome completo no `package.json` (#39). Entram
-  na próxima versão publicada.
+- **README em inglês** (`README.md`), o que o npm exibe, com glossário das chaves do locale `pt-BR`; o texto em português
+  passa a `LEIA-ME.md`. O npm empacota todo `README*` da pasta e pode exibir o
+  traduzido, por isso o par fica fora desse prefixo.
+- **`LICENSE`** (MIT) no tarball e autor com o nome completo no `package.json` (#39).
+- `CHANGELOG.md` passa a ir no tarball, como nos outros cinco pacotes (#43).
 
 ## [0.3.1] — 2026-09-22
 

@@ -1,46 +1,49 @@
 # @sbissoli/mcp-stats
 
-Motor de estatísticas para tools MCP que retornam registros tabulares: o servidor
-computa a distribuição completa **antes** do truncamento/paginação e devolve um bloco
-compacto — sem isso, o modelo só vê uma fatia e nunca responde "qual o maior?",
-"qual a média?", "como se distribui?". Zero dependências; roda em Workers e Node.
+🇧🇷 [Leia em Português](https://github.com/SidneyBissoli/mcp-br-commons/blob/main/packages/mcp-stats/LEIA-ME.md)
 
-> Mantido para o meu portfólio de servidores MCP. Uso por terceiros é bem-vindo, mas o
-> roadmap segue as necessidades dos meus servidores.
+Statistics engine for MCP tools that return tabular records: the server computes the full
+distribution **before** truncation/pagination and returns a compact block — without it, the
+model only sees a slice and never answers "which is the largest?", "what is the average?",
+"how is it distributed?". Zero dependencies; runs on Workers and Node.
 
-Origem: generalização do `src/utils/estatisticas.ts` do senado-br-mcp-cloudflare (em
-produção nas 5 tools quantitativas). O locale `pt-BR` reproduz o shape do senado
-byte-a-byte — a adoção lá não muda resposta nenhuma.
+> Maintained for my own portfolio of MCP servers. Third-party use is welcome, but the
+> roadmap follows what my servers need. With the `pt-BR` locale the output keys are
+> Portuguese; they are glossed at the end.
 
-## Convenções fixadas (não alterar sem decisão)
+Origin: a generalisation of senado-br-mcp-cloudflare's `src/utils/estatisticas.ts` (in
+production in its 5 quantitative tools). The `pt-BR` locale reproduces the senado's shape
+byte for byte — adopting it there changes no response at all.
 
-- **Percentis**: interpolação linear type 7 (== `numpy.percentile` / Excel INC);
-- **Desvio-padrão populacional** (÷n) — os datasets são censos, não amostras;
-- **Desempate estável** em argMax/argMin/ranking: menor `tieBreak` vence;
-- **Grupos** ordenados por soma decrescente, teto default de 50 com aviso;
-- Núcleo em precisão total; arredondamento (default 2 casas) só na exibição.
-- **Conjunto vazio é INDEFINIDO, nunca zero** (desde 0.3.0). `min`, `max`, `mean`,
-  `median`, `stdDev` e todos os percentis saem `null` com `reason: "no-records"`;
-  `n` e `sum` seguem numéricos (zero registro é um fato, e a soma vazia é zero por
-  definição). Na exibição, `formatStats` e `formatGrouped` trocam o bloco por um
-  aviso, e `labeledPercentiles` rotula sem citar valor.
+## Fixed conventions (do not change without a decision)
 
-  Por quê: até a 0.2.0 o bloco vazio saía com zero em todo campo, e a camada de
-  exibição o NARRAVA — *"mediana — metade dos valores é igual ou inferior a
-  R$ 0,00"*. Medido em produção no senado-br-mcp em 14/09/2026, numa consulta com
-  ano válido e filtro que não casava nenhum registro: a resposta entregava ao
-  modelo uma frase pronta, com proveniência completa, afirmando um valor que
-  ninguém mediu. Zero é a resposta errada mais perigosa possível aqui — atravessa
-  qualquer validação de tipo, tem cara de medida e não deixa rastro. O ibge e o
-  bcb nunca exibiram o defeito, mas só porque os chamadores deles guardavam antes:
-  o motor era a arma carregada. Ver `tests/sem-registros.test.ts`.
+- **Percentiles**: linear interpolation type 7 (== `numpy.percentile` / Excel INC);
+- **Population standard deviation** (÷n) — the datasets are censuses, not samples;
+- **Stable tie-break** in argMax/argMin/ranking: the smallest `tieBreak` wins;
+- **Groups** sorted by descending sum, default cap of 50 with a notice;
+- Full precision in the core; rounding (default 2 decimals) only for display.
+- **An empty set is UNDEFINED, never zero** (since 0.3.0). `min`, `max`, `mean`,
+  `median`, `stdDev` and every percentile come out `null` with `reason: "no-records"`;
+  `n` and `sum` stay numeric (zero records is a fact, and the empty sum is zero by
+  definition). For display, `formatStats` and `formatGrouped` replace the block with a
+  notice, and `labeledPercentiles` labels without quoting a value.
 
-  **Migração da 0.2.x:** os campos passaram de `number` para `number | null`. Quem
-  arredonda ou formata o bloco cru precisa tratar o nulo — `Math.round(null)` é `0`
-  e reintroduz exatamente o defeito. Quem já guardava lista vazia antes de chamar
-  (ibge, bcb) não muda nada.
+  Why: up to 0.2.0 the empty block came out with zero in every field, and the display layer
+  NARRATED it — *"mediana — metade dos valores é igual ou inferior a R$ 0,00"* ("median —
+  half of the values are equal to or below R$ 0.00"). Measured in production in
+  senado-br-mcp on 14/09/2026, in a query with a valid year and a filter that matched no
+  record: the response handed the model a ready-made sentence, with full provenance,
+  asserting a value nobody measured. Zero is the most dangerous wrong answer possible here —
+  it passes any type validation, looks like a measurement and leaves no trace. ibge and bcb
+  never showed the defect, but only because their callers guarded before: the engine was the
+  loaded gun. See `tests/sem-registros.test.ts`.
 
-## Uso
+  **Migrating from 0.2.x:** the fields went from `number` to `number | null`. Whoever rounds
+  or formats the raw block must handle the null — `Math.round(null)` is `0` and reintroduces
+  exactly the defect. Whoever already guarded an empty list before calling (ibge, bcb)
+  changes nothing.
+
+## Usage
 
 ```ts
 import {
@@ -48,69 +51,85 @@ import {
   formatStats, formatEntries, formatGrouped, parseBRL,
 } from "@sbissoli/mcp-stats";
 
-// Dataset completo já no servidor (ex.: folha do mês, ~5 MB, valores em string pt-BR):
+// Full dataset already on the server (e.g. the month's payroll, ~5 MB, values as pt-BR strings):
 const e = computeStats(linhas, (r) => parseBRL(r.remuneracao_total), {
   topN: 10,
-  identify: (r) => ({ nome: r.nome, cargo: r.cargo }),  // o que vai nos extremos
-  tieBreak: (r) => r.sequencial,                        // desempate determinístico
+  identify: (r) => ({ nome: r.nome, cargo: r.cargo }),  // what goes into the extremes
+  tieBreak: (r) => r.sequencial,                        // deterministic tie-break
 });
 
 return {
   distribuicao: formatStats(e),          // n/soma/minimo/maximo/media/mediana/desvioPadrao
-  top: formatEntries(e.top),             //   + percentis ROTULADOS (o leitor nunca vê "p99")
+  top: formatEntries(e.top),             //   + LABELLED percentiles (the reader never sees "p99")
   bottom: formatEntries(e.bottom),
 };
 
-// Agrupado (ex.: agruparPor=uf):
+// Grouped (e.g. agruparPor=uf):
 const g = computeGroupedStats(linhas, (r) => parseBRL(r.valor), (r) => r.uf);
 return formatGrouped(g);                 // { totalGrupos, aviso?, grupos: [...] }
 ```
 
-### Correlação entre duas séries
+### Correlation between two series
 
 ```ts
 import { computeCorrelation } from "@sbissoli/mcp-stats";
 
-// `linhas` já vem PAREADA por quem chama (mesma data, mesma grade):
+// `linhas` arrives already PAIRED by the caller (same date, same grid):
 const c = computeCorrelation(linhas, (r) => r.ipca ?? NaN, (r) => r.selic ?? NaN, {
   method: "spearman",                    // default: "pearson"
 });
 // { method, n, dropped, coefficient: number | null, reason? }
 ```
 
-Este módulo **não pareia**, de propósito: alinhar grades temporais é trabalho de
-domínio e erra de formas específicas de cada fonte. Quem alinha é quem conhece a fonte.
+This module **does not pair**, on purpose: aligning time grids is domain work and goes wrong
+in ways specific to each source. Whoever knows the source aligns it.
 
-Três convenções que evitam número plausível e errado:
+Three conventions that avoid a plausible and wrong number:
 
-- **Spearman é Pearson sobre os postos**, com posto médio nos empates — não o atalho
-  `1 - 6Σd²/n(n²-1)`, que só vale sem empate e não avisa quando há;
-- **descarte aos pares**, com `n` (usados) e `dropped` (fora) na resposta — sem isso,
-  um coeficiente calculado sobre 7 de 250 pontos passaria despercebido;
-- **coeficiente indefinido é `null` com `reason`**, nunca 0: zero é "medi e não há
-  relação", `null` é "não dá para medir" (menos de 2 pares, ou série constante).
+- **Spearman is Pearson over the ranks**, with the average rank on ties — not the
+  `1 - 6Σd²/n(n²-1)` shortcut, which only holds without ties and does not warn when there are;
+- **pairwise dropping**, with `n` (used) and `dropped` (left out) in the response — without
+  that, a coefficient computed over 7 of 250 points would go unnoticed;
+- **an undefined coefficient is `null` with `reason`**, never 0: zero is "I measured and there
+  is no relationship", `null` is "it cannot be measured" (fewer than 2 pairs, or a constant
+  series).
 
-Não há formatador de exibição para correlação: os consumidores atuais montam o bloco
-de resposta com as próprias chaves. Quando o segundo consumidor aparecer, ele entra em
-`display.ts` como os demais.
+There is no display formatter for correlation: the current consumers build the response block
+with their own keys. When the second consumer appears, it goes into `display.ts` like the
+others.
 
-### Outro idioma / outra unidade
+### Another language / another unit
 
 ```ts
-// Servidor en (ex.: ilostat) — chaves e rótulos em inglês, taxas com 4 casas:
+// en server (e.g. ilostat) — keys and labels in English, rates with 4 decimals:
 formatStats(e, { locale: "en", decimals: 4, formatValue: (n) => `${n}%` });
-// Locale customizado: passe um StatsLocale próprio (chaves + rótulos + formatador).
+// Custom locale: pass your own StatsLocale (keys + labels + formatter).
 ```
 
-A separação núcleo/exibição existe porque as chaves e rótulos do bloco são lidos pelo
-modelo e repassados ao leitor — devem estar no idioma do servidor; o cálculo, não.
+The core/display split exists because the block's keys and labels are read by the model and
+passed on to the reader — they must be in the server's language; the computation, not.
 
 ## API
 
-Núcleo: `computeStats`, `computeGroupedStats`, `percentile`, `computeCorrelation` —
-recebem **funções de acesso** (`valueOf`, `identify`, `tieBreak`, `groupBy`, `xOf`,
-`yOf`), não nomes de campo, porque o valor canônico costuma ser computado ou precisar
-de parsing.
-Exibição: `formatStats`, `formatGrouped`, `formatEntries`, `labeledPercentiles`,
-locales `ptBR`/`en` (`StatsLocale` customizável), `formatBRL`, `formatNumberEn`.
-Parsing: `parseBRL` ("1.234,56" → 1234.56; números nativos passam inalterados).
+Core: `computeStats`, `computeGroupedStats`, `percentile`, `computeCorrelation` —
+they take **accessor functions** (`valueOf`, `identify`, `tieBreak`, `groupBy`, `xOf`,
+`yOf`), not field names, because the canonical value is often computed or needs parsing.
+Display: `formatStats`, `formatGrouped`, `formatEntries`, `labeledPercentiles`,
+locales `ptBR`/`en` (`StatsLocale` customisable), `formatBRL`, `formatNumberEn`.
+Parsing: `parseBRL` ("1.234,56" → 1234.56; native numbers pass unchanged).
+
+## Glossary
+
+Output keys of the `pt-BR` locale (the `en` locale uses English keys):
+
+| Key (as emitted) | Meaning in English |
+|:--|:--|
+| `soma` | sum |
+| `minimo` / `maximo` | minimum / maximum |
+| `media` / `mediana` | mean / median |
+| `desvioPadrao` | standard deviation |
+| `percentis` / `percentil` | percentiles / percentile |
+| `valor` / `rotulo` | value / label |
+| `grupo` / `grupos` | group / groups |
+| `totalGrupos` | number of groups |
+| `aviso` | notice |

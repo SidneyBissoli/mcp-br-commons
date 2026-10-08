@@ -16,6 +16,8 @@ import {
   medirSemToken,
   sondaSemToken,
   verificarNoAr,
+  vereditoDoMetodoInexistente,
+  METODO_INEXISTENTE,
 } from "../src/index.js";
 
 describe("sonda", () => {
@@ -46,6 +48,14 @@ describe("sonda", () => {
     expect(Object.values(m["fechado"]?.["POST /mcp"] ?? {})).toEqual(Array(6).fill(false));
   });
 
+  // Ideia de Valentina Koniukhova (dev.to, 3gmbl): uma sonda que não sabe dizer não não prova nada.
+  it("o método inexistente: só um `result` reprova; erro, 401 ou corpo vazio contam como saber dizer não", () => {
+    expect(vereditoDoMetodoInexistente({ status: 200 })).toBeNull();
+    expect(vereditoDoMetodoInexistente({ status: 401 })).toBeNull();
+    expect(vereditoDoMetodoInexistente({ status: 200, result: {} })).toContain("não sabe dizer não");
+    expect(vereditoDoMetodoInexistente({ status: 200, result: {} })).toContain(METODO_INEXISTENTE);
+  });
+
   it("comHost põe o Host que o Request do Node descartaria", () => {
     const r = comHost(new Request("https://x.example/mcp", { method: "POST" }), "x.example");
     expect(r.headers.get("host")).toBe("x.example");
@@ -58,7 +68,7 @@ describe("verificarNoAr contra um endpoint de verdade (HTTP local)", () => {
   afterEach(() => http?.close());
 
   /** Endpoint MCP mínimo, stateless, sem auth; `exigeToken` derruba tools/list sem credencial. */
-  async function subir(instructions: string, exigeToken = false): Promise<string> {
+  async function subir(instructions: string, exigeToken = false, simATudo = false): Promise<string> {
     http = createServer((req, res) => {
       let corpo = "";
       req.on("data", c => (corpo += c));
@@ -75,7 +85,9 @@ describe("verificarNoAr contra um endpoint de verdade (HTTP local)", () => {
         };
         const r = results[method];
         res.writeHead(200, { "Content-Type": "application/json" }).end(
-          JSON.stringify(r ? { jsonrpc: "2.0", id, result: r } : { jsonrpc: "2.0", id, error: { code: -32601, message: "não" } }),
+          JSON.stringify(
+            r || simATudo ? { jsonrpc: "2.0", id, result: r ?? {} } : { jsonrpc: "2.0", id, error: { code: -32601, message: "não" } },
+          ),
         );
       });
     });
@@ -118,6 +130,15 @@ describe("verificarNoAr contra um endpoint de verdade (HTTP local)", () => {
     expect(await verificarNoAr({ url, caminhoDaTrava: f, perfil: "outro", tentativas: 1 })).toContain("declarada no ar");
     expect(await verificarNoAr({ url, caminhoDaTrava: f, perfil: "inexistente", tentativas: 1 })).toContain('não tem o perfil "inexistente"');
     expect(await verificarNoAr({ url, caminhoDaTrava: f, tentativas: 1 })).toContain("declarada no ar");
+  });
+
+  it("recusa comparar quando o endpoint diz sim a tudo, inclusive ao método inexistente", async () => {
+    const f = await travar(await subir("instruções"));
+    http!.close();
+    const url = await subir("instruções", false, true);
+    const erro = await verificarNoAr({ url, caminhoDaTrava: f, tentativas: 1 });
+    expect(erro).toContain("não sabe dizer não");
+    expect(erro).not.toContain("declarada no ar"); // não chegou a comparar
   });
 
   it("acusa tools/list que deixou de responder sem token (ou passou a responder)", async () => {

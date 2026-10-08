@@ -27,7 +27,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 
-import { capturarHttp, pedirHttp } from "./remoto.js";
+import { capturarHttp, endpointSabeDizerNao, pedirHttp } from "./remoto.js";
 import { sondaSemToken, type ChamadaLocal } from "./sonda.js";
 import { impressaoDigital } from "./superficie.js";
 import { lerTrava, type Trava, type Veredito } from "./trava.js";
@@ -204,6 +204,14 @@ export async function conferirRegistro(o: OpcoesConferirRegistro): Promise<strin
   const tentativas = o.tentativas ?? 6;
   let ultimo = "";
   for (let t = 1; t <= tentativas; t++) {
+    // Como um cliente cuidadoso faria: antes de comparar, o endpoint sabe dizer não?
+    const surdo = await endpointSabeDizerNao(meta.endpoint);
+    if (surdo !== null) {
+      ultimo = surdo;
+      log(`tentativa ${t}: ${ultimo}`);
+      if (t < tentativas) await new Promise(r => setTimeout(r, o.esperaMs ?? 10_000));
+      continue;
+    }
     const sha = impressaoDigital(await capturarHttp(meta.endpoint));
     const divergentes: string[] = [];
     for (const pedido of sonda) {

@@ -72,6 +72,13 @@ async function list(url, method, key) {
   return undefined;
 }
 
+// SPEC §6, step 2: before comparing anything, the endpoint must say "no" to a method that does not exist.
+// One that answers it answers everything (a proxy, a test double), and nothing measured after would mean anything.
+export const MADE_UP_METHOD = "mcp-surface/metodo-que-nao-existe";
+export async function saysNo(url) {
+  return (await rpc(url, MADE_UP_METHOD)).result === undefined;
+}
+
 export async function capture(url) {
   const init = { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: "mcp-surface-verify", version: "1.0.0" } };
   return canonical({
@@ -90,6 +97,9 @@ async function main([name, version = "latest"]) {
   ).json();
   const m = entry.server?._meta?.[PUBLISHER]?.[KEY];
   if (m?.form !== "mcp-surface/1") return console.error(`${name}@${version}: no mcp-surface/1 fingerprint in the registry`), 1;
+  if (!(await saysNo(m.endpoint))) {
+    return console.error(`${m.endpoint} answered "${MADE_UP_METHOD}": it says yes to everything, so nothing was compared`), 1;
+  }
   const declared = sha256(await capture(m.endpoint));
   const calls = {
     initialize: ["initialize", { protocolVersion: PROTOCOL, capabilities: {}, clientInfo: { name: "mcp-surface-verify", version: "1.0.0" } }],

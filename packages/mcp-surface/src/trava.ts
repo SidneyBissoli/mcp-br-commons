@@ -13,6 +13,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 
+import { resumoDoQueMudou } from "./o-que-mudou.js";
 import { impressaoDigital } from "./superficie.js";
 
 export type NomeDaSecao = "declarada" | "semToken";
@@ -79,8 +80,9 @@ export function conferirSecao(
       ok: false,
       mensagem:
         `A superfície "${secao}" MUDOU e a versão continua ${versaoDoPacote} ` +
-        `(travada ${atual.sha256.slice(0, 12)}, medida ${sha.slice(0, 12)}). ` +
-        "Quem compara o registro com o servidor só enxerga a versão: suba-a " +
+        `(travada ${atual.sha256.slice(0, 12)}, medida ${sha.slice(0, 12)}).` +
+        resumoDoQueMudou(atual.conteudo, medido) +
+        " Quem compara o registro com o servidor só enxerga a versão: suba-a " +
         "(`npm version <patch|minor|major> --no-git-tag-version`) e rode `npm run surface:lock`.",
     };
   }
@@ -88,7 +90,8 @@ export function conferirSecao(
     return {
       ok: false,
       mensagem: atual
-        ? `A superfície "${secao}" mudou junto com a versão (${atual.versao} → ${versaoDoPacote}): rode \`npm run surface:lock\` e commite o surface.lock.json.`
+        ? `A superfície "${secao}" mudou junto com a versão (${atual.versao} → ${versaoDoPacote}):` +
+          `${resumoDoQueMudou(atual.conteudo, medido)} Rode \`npm run surface:lock\` e commite o surface.lock.json.`
         : `surface.lock.json não tem a seção "${secao}": rode \`npm run surface:lock\`.`,
     };
   }

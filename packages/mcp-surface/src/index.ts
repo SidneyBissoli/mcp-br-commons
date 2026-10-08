@@ -22,6 +22,7 @@ export {
   type ChamadaLocal,
   type Pedido,
 } from "./sonda.js";
+export { oQueMudou, resumoDoQueMudou } from "./o-que-mudou.js";
 export { VAR_ESCRITA, conferirSecao, lerTrava, modoEscrita, type NomeDaSecao, type Trava, type Veredito } from "./trava.js";
 export { capturarHttp, capturarStdio, endpointSabeDizerNao, pedirHttp } from "./remoto.js";
 export { verificarNoAr, type OpcoesVerificar } from "./verificar.js";

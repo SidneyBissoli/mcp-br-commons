@@ -10,6 +10,23 @@ Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
 ## [Não lançado]
 
+## [0.5.2] — 2026-10-08
+
+A forma canônica NÃO muda (nenhum sha256 muda); muda a mensagem da trava vermelha.
+
+### Adicionado
+
+- **A trava vermelha diz o QUE mudou**, não só os dois sha: `O que mudou:
+  tools[bcb_comparar].description: mudou; tools[bcb_focus_referencias]: removida.` A
+  diferença sai do `conteudo` que a trava já guarda — listas da superfície comparadas pela
+  chave do item (`name`, `uri`, `uriTemplate`), objetos por chave, perfil no caminho quando a
+  seção é por perfil (senado: `full.tools[…]`), configuração/rota/método no `semToken`; no
+  máximo 10 caminhos, com o resto contado. Calculada só quando a trava já falhou. Ideia de
+  Chris Sellers (dev.to, comentário 3gnh0): "per-tool hashes ... so a red test names the tool
+  that drifted" — sem hash por tool, que mudaria a forma canônica. Exportados `oQueMudou` e
+  `resumoDoQueMudou`. Medido nas travas reais com uma mudança plantada: senado (dois perfis)
+  em 38 ms, bcb em 7 ms, os dois caminhos nomeados certo.
+
 ## [0.5.1] — 2026-10-08
 
 A forma canônica NÃO muda (nenhum sha256 muda, nenhuma trava precisa ser regravada); muda o

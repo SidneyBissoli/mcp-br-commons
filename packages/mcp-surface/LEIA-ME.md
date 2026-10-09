@@ -103,6 +103,12 @@ público**, e não só a palavra do publicador, rode os testes da trava a partir
 ([SPEC.md §6.1](SPEC.md)): `git clone --depth 1 --branch v<versão> <repo>`, `npm ci && npm test`, e
 compare `declarada.sha256` do `surface.lock.json` com o `declared.sha256` do registro.
 
+**Quem publica.** Além dos sete servidores para os quais este pacote foi escrito, o **worklore**
+publica a forma com implementação própria, desde a 0.6.0: `node verify.mjs
+io.github.worklore/worklore` aceita a entrada dele no registro contra a produção (conferido em
+08/10/2026). Foi essa segunda implementação que achou o defeito das chaves de cara inteira,
+corrigido na 0.5.3 ([SPEC.md §3](SPEC.md)).
+
 ## Teste com forma de cliente (`@sbissoli/mcp-surface/cliente`)
 
 O servidor interrogado pelo `Client` do SDK, que reprova o resultado de `tools/call`

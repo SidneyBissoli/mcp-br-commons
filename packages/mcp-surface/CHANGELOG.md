@@ -8,6 +8,17 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
+## [Não lançado]
+
+Só documentação; código e forma canônica NÃO mudam.
+
+### Adicionado
+
+- **README/LEIA-ME — "Quem publica":** o worklore publica `mcp-surface/1` com implementação
+  própria desde a 0.6.0, conferido com `node verify.mjs io.github.worklore/worklore` contra a
+  produção em 08/10/2026 (oferta de Valentina Koniukhova, dev.to 3gp9e). A página do npm só
+  mostra o texto novo na próxima versão publicada.
+
 ## [0.5.3] — 2026-10-08
 
 A forma canônica NÃO muda (`mcp-surface/1`, SPEC §3 intacta): muda o código, que não a cumpria

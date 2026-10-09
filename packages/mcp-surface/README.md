@@ -123,6 +123,12 @@ curl -sO https://raw.githubusercontent.com/SidneyBissoli/mcp-br-commons/main/pac
 node verify.mjs io.github.SidneyBissoli/bcb-br-mcp
 ```
 
+**Who publishes it.** Besides the seven servers this package was written for, **worklore**
+publishes the form with its own implementation, from 0.6.0: `node verify.mjs
+io.github.worklore/worklore` accepts its registry entry against production (checked on
+2026-10-08). That second implementation is also what found the integer-key bug fixed in 0.5.3
+([SPEC.md §3](SPEC.md)).
+
 That shows the live server is what the registry published for that version (the registry does not
 let a published version change). To check that the published hash is the **public source's**, not
 just the publisher's word, run the lock tests from the tag ([SPEC.md §6.1](SPEC.md)):

@@ -20,7 +20,18 @@ export function sortKeys(v) {
   if (v && typeof v === "object") return Object.fromEntries(Object.keys(v).sort().map(k => [k, sortKeys(v[k])]));
   return v;
 }
-export const sha256 = v => createHash("sha256").update(JSON.stringify(sortKeys(v)), "utf8").digest("hex");
+// SPEC §3, written key by key. Not JSON.stringify(sortKeys(v)): a JavaScript
+// object puts integer-like keys first in numeric order ("9" before "10"),
+// whatever order they were inserted in, while §3 wants "10" before "9".
+export function canonicalJson(v) {
+  if (Array.isArray(v)) return `[${v.map(x => canonicalJson(x === undefined ? null : x)).join(",")}]`;
+  if (v && typeof v === "object") {
+    const keys = Object.keys(v).filter(k => v[k] !== undefined).sort();
+    return `{${keys.map(k => `${JSON.stringify(k)}:${canonicalJson(v[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v);
+}
+export const sha256 = v => createHash("sha256").update(canonicalJson(v), "utf8").digest("hex");
 const byKey = (list, key) =>
   list ? [...list].sort((a, b) => (String(a[key]) < String(b[key]) ? -1 : String(a[key]) > String(b[key]) ? 1 : 0)) : null;
 

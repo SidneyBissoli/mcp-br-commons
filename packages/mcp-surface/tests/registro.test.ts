@@ -15,6 +15,7 @@ import {
   conferirSecao,
   gravarMetaNoServerJson,
   impressaoDigital,
+  serializarCanonico,
   metaDoRegistro,
   normalizarSuperficie,
   type SuperficieBruta,
@@ -27,8 +28,12 @@ import * as verify from "../exemplos/verify.mjs";
 
 const SPEC = readFileSync(new URL("../SPEC.md", import.meta.url), "utf8");
 
-describe("SPEC.md §7: o vetor de teste é o que as DUAS implementações calculam", () => {
-  const secao = SPEC.slice(SPEC.indexOf("## 7. Test vector"), SPEC.indexOf("## 8."));
+describe.each([
+  ["7.1", "### 7.1", "### 7.2"],
+  // 7.2: chaves de cara inteira — "10" antes de "9" (achado de Valentina Koniukhova, 08/10/2026)
+  ["7.2", "### 7.2", "## 8."],
+])("SPEC.md §%s: o vetor de teste é o que as DUAS implementações calculam", (_n, de, ate) => {
+  const secao = SPEC.slice(SPEC.indexOf(de), SPEC.indexOf(ate));
   const bruta = JSON.parse(/```json\n([\s\S]*?)```/.exec(secao)![1]!) as SuperficieBruta;
   // o bloco SEM linguagem que começa com "{" (o anterior é ```json)
   const serializada = /\n```\n(\{.*\})\n```/.exec(secao)![1]!;
@@ -36,14 +41,23 @@ describe("SPEC.md §7: o vetor de teste é o que as DUAS implementações calcul
 
   it("pacote: mesma serialização e mesmo sha da SPEC", () => {
     const n = normalizarSuperficie(bruta);
-    expect(JSON.stringify(n)).toBe(serializada);
+    expect(serializarCanonico(n)).toBe(serializada);
     expect(impressaoDigital(n)).toBe(sha);
   });
 
   it("verify.mjs: mesma serialização e mesmo sha da SPEC", () => {
     const n = verify.canonical(bruta);
-    expect(JSON.stringify(n)).toBe(serializada);
+    expect(verify.canonicalJson(n)).toBe(serializada);
     expect(verify.sha256(n)).toBe(sha);
+  });
+});
+
+describe("SPEC.md §3: ordem por unidade UTF-16", () => {
+  it("chave de cara inteira: o objeto JS põe '9' antes de '10'; a forma canônica, não", () => {
+    const v = { a: 1, "9": 2, "10": 3 };
+    expect(JSON.stringify(v)).toBe('{"9":2,"10":3,"a":1}');
+    expect(serializarCanonico(v)).toBe('{"10":3,"9":2,"a":1}');
+    expect(verify.canonicalJson(v)).toBe('{"10":3,"9":2,"a":1}');
   });
 
   it("a ordem é por unidade UTF-16, nunca por locale (o localeCompare de até 0.4.x)", () => {

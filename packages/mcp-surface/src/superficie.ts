@@ -79,9 +79,29 @@ export function normalizarSuperficie(bruta: SuperficieBruta): Record<string, unk
   }) as Record<string, unknown>;
 }
 
-/** sha256 do JSON canônico (chaves ordenadas) — a impressão digital. */
+/**
+ * JSON canônico (SPEC §3), escrito chave a chave na ordem por unidade UTF-16.
+ * NÃO é `JSON.stringify(ordenarChaves(v))`: objeto JavaScript põe as chaves
+ * de cara inteira ("9", "10") na frente, em ordem NUMÉRICA, seja qual for a
+ * ordem de inserção — "9" saía antes de "10", e a SPEC e a RFC 8785 mandam
+ * "10" antes de "9". Até 0.5.2 era assim. Achado de Valentina Koniukhova
+ * (worklore, dev.to 3h046, 08/10/2026) ao reimplementar a forma; medido no
+ * mesmo dia: nenhuma das sete travas do portfólio tem chave assim, nenhum sha
+ * mudou. Escalares seguem `JSON.stringify` (SPEC §3.2).
+ */
+export function serializarCanonico(valor: unknown): string {
+  if (Array.isArray(valor)) return `[${valor.map(v => serializarCanonico(v === undefined ? null : v)).join(",")}]`;
+  if (valor && typeof valor === "object") {
+    const obj = valor as Record<string, unknown>;
+    const chaves = Object.keys(obj).filter(k => obj[k] !== undefined).sort(compararUnidades);
+    return `{${chaves.map(k => `${JSON.stringify(k)}:${serializarCanonico(obj[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(valor);
+}
+
+/** sha256 do JSON canônico (SPEC §3) — a impressão digital. */
 export function impressaoDigital(valor: unknown): string {
-  return createHash("sha256").update(JSON.stringify(ordenarChaves(valor))).digest("hex");
+  return createHash("sha256").update(serializarCanonico(valor), "utf8").digest("hex");
 }
 
 /**

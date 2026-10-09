@@ -79,6 +79,14 @@ today has such a list (measured on 2026-10-07: every resource list is fixed in c
    [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785).
 3. sha256 of the UTF-8 bytes, as 64 lowercase hex characters.
 
+In JavaScript, write the keys out in that order yourself; do not sort an object and hand it to
+`JSON.stringify`. A JavaScript object enumerates integer-like keys (`"9"`, `"10"`) first, in
+numeric order, whatever order they were inserted in, so the sorted object serialises `"9"` before
+`"10"`; step 1 wants `"10"` before `"9"`. The package's code and `verify.mjs` did exactly that up
+to `@sbissoli/mcp-surface` 0.5.2. None of the surfaces published at the time had such a key, so no
+published hash was affected. Valentina Koniukhova found it while implementing this form in
+worklore. The vector in §7.2 exercises it.
+
 ## 4. Anonymous answers
 
 Which methods answer **without a credential**, on the published endpoint, in the configuration
@@ -183,7 +191,9 @@ Raised by a reader of the article that introduced this form (dev.to, comment 3gp
 `exemplos/verify.mjs` is a one-shot check run outside any session, so it does not do this; it is
 what a host does inside one.
 
-## 7. Test vector
+## 7. Test vectors
+
+### 7.1 The basic vector
 
 This raw capture:
 
@@ -218,6 +228,41 @@ What the vector exercises: `tools` in code-unit order (`B` 0x42 < `a` 0x61 < `b`
 locale-aware sort puts `B_tool` after `a_tool` and gives another hash); `required` keeping the
 server's order (`z` before `a`); the `version` gone from `serverInfo`; `instructions` absent
 becoming `null`; a non-ASCII character hashed as UTF-8; `[]` and `null` kept apart.
+
+### 7.2 Integer-like keys
+
+This raw capture:
+
+```json
+{
+  "initialize": {
+    "protocolVersion": "2025-06-18",
+    "capabilities": {},
+    "serverInfo": { "name": "exemplo", "version": "1.0.0" }
+  },
+  "tools": [
+    {
+      "name": "por_ano",
+      "inputSchema": {
+        "type": "object",
+        "properties": { "10": { "type": "string" }, "9": { "type": "string" }, "a": { "type": "string" } }
+      }
+    }
+  ],
+  "resources": null,
+  "resourceTemplates": null,
+  "prompts": null
+}
+```
+
+serialises to:
+
+```
+{"initialize":{"capabilities":{},"instructions":null,"protocolVersion":"2025-06-18","serverInfo":{"name":"exemplo"}},"prompts":null,"resourceTemplates":null,"resources":null,"tools":[{"inputSchema":{"properties":{"10":{"type":"string"},"9":{"type":"string"},"a":{"type":"string"}},"type":"object"},"name":"por_ano"}]}
+```
+
+and its sha256 is `c7255a44a9d70ea6417ae2757c0530895b628551c3ae9fbfc440878a375539b1`. An
+implementation that writes `"9"` before `"10"` (§3) gets another hash.
 
 ## 8. What it does not prove
 

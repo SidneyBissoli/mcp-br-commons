@@ -5,6 +5,7 @@ export {
   impressaoDigital,
   normalizarSuperficie,
   paramsDoInitialize,
+  serializarCanonico,
   type SuperficieBruta,
 } from "./superficie.js";
 export { capturarSuperficie, type ServidorConectavel } from "./memoria.js";

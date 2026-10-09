@@ -8,13 +8,31 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
-## [Não lançado]
+## [0.5.3] — 2026-10-08
 
-Só documentação (a SPEC é lida do GitHub, pelo link que vai no registro); código e forma
-canônica NÃO mudam.
+A forma canônica NÃO muda (`mcp-surface/1`, SPEC §3 intacta): muda o código, que não a cumpria
+num caso. Nenhum sha256 publicado muda.
+
+### Corrigido
+
+- **Chaves de cara inteira saíam na ordem numérica, não na da SPEC.** `impressaoDigital` fazia
+  `JSON.stringify(ordenarChaves(v))`, e objeto JavaScript enumera chaves como `"9"` e `"10"`
+  primeiro, em ordem NUMÉRICA, seja qual for a ordem de inserção: saía `"9"` antes de `"10"`,
+  e a §3 (e a RFC 8785) mandam `"10"` antes de `"9"`. O mesmo no `exemplos/verify.mjs`, de modo
+  que as duas implementações erravam juntas e os testes não viam. Agora `serializarCanonico`
+  (exportada) e `canonicalJson` (no `verify.mjs`) escrevem o JSON chave a chave. Achado de
+  Valentina Koniukhova ao reimplementar a forma no worklore (dev.to, comentário 3h046).
+- **Medido antes de publicar (08/10/2026):** as sete travas (`surface.lock.json`, superfície
+  inteira) têm zero chaves assim; os sete endpoints capturados no ar com o código novo dão o
+  `declared.sha256` publicado, e as respostas anônimas o `anonymous.sha256`. Por isso é patch:
+  nenhum servidor precisa subir de versão.
 
 ### Adicionado
 
+- **SPEC §7.2 — segundo vetor de teste**, com `properties` de chaves `"10"`, `"9"`, `"a"`;
+  conferido por uma terceira implementação (Python, `json.dumps(sort_keys=True)`). O teste lê
+  os dois vetores da SPEC e exige o mesmo sha do pacote e do `verify.mjs`. A §3 ganhou a nota
+  do porquê, para quem implementa em JavaScript.
 - **SPEC §6.2 — a promessa vale por resposta, não por conexão.** O passo 3 confere uma vez, ao
   conectar; um servidor pode mudar o `tools/list` no meio da sessão sem mandar
   `notifications/tools/list_changed` (a spec do MCP diz SHOULD). O host que confere monta a lista

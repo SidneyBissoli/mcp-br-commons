@@ -28,6 +28,35 @@ describe("a regra da trava", () => {
     expect(conferirSecao(f, "declarada", { tools: ["a", "b"] }, "1.1.0", false).ok).toBe(true);
   });
 
+  it("quebra de contrato exige a linha de compatibilidade nova, nos dois modos", () => {
+    const f = trava();
+    const sup = (type: string) => ({ tools: [{ name: "t", inputSchema: { type: "object", properties: { ano: { type } } } }] });
+    conferirSecao(f, "declarada", sup("string"), "1.4.0", true);
+    for (const escrever of [false, true]) {
+      const v = conferirSecao(f, "declarada", sup("integer"), "1.5.0", escrever);
+      expect(v.ok).toBe(false);
+      expect(v.mensagem).toContain("QUEBRA quem já a usa");
+      expect(v.mensagem).toContain("t: `ano` deixou de aceitar o tipo string");
+    }
+    // major novo: aceita
+    expect(conferirSecao(f, "declarada", sup("integer"), "2.0.0", true).ok).toBe(true);
+    // em 0.x, o minor é a linha
+    const g = trava();
+    conferirSecao(g, "declarada", sup("string"), "0.5.0", true);
+    expect(conferirSecao(g, "declarada", sup("integer"), "0.5.1", true).ok).toBe(false);
+    expect(conferirSecao(g, "declarada", sup("integer"), "0.6.0", true).ok).toBe(true);
+  });
+
+  it("mudança compatível segue aceitando minor; a seção semToken não é julgada", () => {
+    const f = trava();
+    const sup = (enumerado: string[]) => ({ tools: [{ name: "t", inputSchema: { properties: { uf: { enum: enumerado } } } }] });
+    conferirSecao(f, "declarada", sup(["SP"]), "1.4.0", true);
+    expect(conferirSecao(f, "declarada", sup(["SP", "RJ"]), "1.5.0", true).ok).toBe(true);
+    const g = trava();
+    conferirSecao(g, "semToken", { tools: [] }, "1.0.0", true);
+    expect(conferirSecao(g, "semToken", { tools: null }, "1.1.0", true).ok).toBe(true);
+  });
+
   it("versão nova sem mudança de superfície não exige nada", () => {
     const f = trava();
     conferirSecao(f, "declarada", { tools: ["a"] }, "1.0.0", true);

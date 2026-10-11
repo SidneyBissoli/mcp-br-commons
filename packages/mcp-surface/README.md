@@ -34,6 +34,21 @@ The rule (`conferirSecao`, "check section"): measured ≠ locked with the same v
 **fail**; different version → fail, asking for `npm run surface:lock`. Write mode follows the
 same rule and refuses to lock a new surface under the old version.
 
+Since 0.6.0, a new version is not always enough: when the declared surface changed in a way
+that **breaks an existing client** (`quebrasDeContrato`, "contract breaks"), the new version
+must be on a new compatibility line — major, or minor in 0.x — in both modes. Breaks it knows:
+a tool, resource, resource template or prompt removed; a method that answered `[]` no longer
+served; on a tool's input, a parameter removed or newly required, a type or `enum`/`const`
+value no longer accepted, a min/max/length/items bound tightened (nested properties and
+`items` included); on its output, a guaranteed field removed or made optional, a type or value
+the client did not expect, or the `outputSchema` dropped; a prompt argument removed or newly
+required. Not judged, so never a break: `anyOf`/`oneOf`/`allOf`/`$ref`/`not`, `pattern`, and a
+new `additionalProperties: false` (an undeclared parameter used to be ignored silently;
+refusing it makes an existing error visible). Applied to the history of the seven servers'
+locks (35 surface changes), it finds one break: the medical server's 2.0.0, which was a major.
+The question came from a reader of the replay article (jkming): a changed argument shape on an
+existing tool is the most common silent break.
+
 ## Adopting it in a server
 
 1. **Declared-surface test** (where the server factory can be imported):
@@ -74,7 +89,8 @@ same rule and refuses to lock a new surface under the old version.
 
 5. **Once**: `npx mcp-surface replay --url https://<host>/mcp` writes
    `baselines/replay-<date>.md` with every version published on npm, each against the
-   previous one, the removals outside a major release, and the live endpoint against the
+   previous one, the contract breaks outside a new compatibility line (the same
+   `quebrasDeContrato` as the lock rule), and the live endpoint against the
    version its `/status` declares.
 
 Workflow for whoever changes the surface: `npm version <level> --no-git-tag-version` →

@@ -31,6 +31,22 @@ A regra (`conferirSecao`): medido ≠ travado e versão igual → **falha**; ver
 falha pedindo `npm run surface:lock`. O modo de escrita obedece à mesma regra e recusa
 travar superfície nova sob a versão antiga.
 
+Desde a 0.6.0, versão nova nem sempre basta: quando a superfície declarada mudou de um jeito
+que **quebra cliente existente** (`quebrasDeContrato`), a versão nova tem de estar numa linha
+de compatibilidade nova — major, ou minor em 0.x —, nos dois modos. Quebras reconhecidas:
+tool, resource, resource template ou prompt removido; método que respondia `[]` e deixou de
+ser servido; na entrada de uma tool, parâmetro removido ou que passou a obrigatório, tipo ou
+valor de `enum`/`const` que deixou de ser aceito, limite mínimo/máximo/tamanho/itens que
+apertou (inclusive em propriedades aninhadas e `items`); na saída, campo garantido removido ou
+que virou opcional, tipo ou valor que o cliente não esperava, `outputSchema` retirado; argumento
+de prompt removido ou que passou a obrigatório. Não julgados, logo nunca quebra:
+`anyOf`/`oneOf`/`allOf`/`$ref`/`not`, `pattern` e `additionalProperties: false` novo (o
+parâmetro não declarado era ignorado calado; recusá-lo torna visível um erro que já existia —
+decisão do dono, 11/10/2026). Aplicada ao histórico das travas dos sete servidores (35
+mudanças de superfície), acusa uma quebra só: a 2.0.0 do medical, que saiu em major. A
+pergunta veio de um leitor do artigo do replay (jkming, dev.to 3h0n8): mudar a forma dos
+argumentos de uma tool existente é a quebra calada mais comum.
+
 ## Adoção num servidor
 
 1. **Teste da superfície declarada** (onde a fábrica do servidor é importável):

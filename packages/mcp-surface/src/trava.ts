@@ -9,11 +9,14 @@
  * travar`) obedece à mesma regra: ele se RECUSA a travar superfície nova sob a
  * versão antiga. É isso que transforma a disciplina da receita de release em
  * teste. O sha gravado também denuncia edição à mão do conteúdo.
+ *  - versão diferente, mas na MESMA linha de compatibilidade, e a mudança
+ *    quebra cliente (src/quebras.ts) → FALHA pedindo o major, nos dois modos.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
 
 import { resumoDoQueMudou } from "./o-que-mudou.js";
+import { linhaDeCompatibilidade, quebrasDeContrato } from "./quebras.js";
 import { impressaoDigital } from "./superficie.js";
 
 export type NomeDaSecao = "declarada" | "semToken";
@@ -85,6 +88,22 @@ export function conferirSecao(
         " Quem compara o registro com o servidor só enxerga a versão: suba-a " +
         "(`npm version <patch|minor|major> --no-git-tag-version`) e rode `npm run surface:lock`.",
     };
+  }
+  // Desde a 0.6.0: subir A versão não basta quando a mudança QUEBRA cliente — tem
+  // de subir a linha de compatibilidade (major; minor em 0.x). Só a `declarada`
+  // tem a forma de superfície que src/quebras.ts sabe julgar.
+  if (atual && secao === "declarada") {
+    const quebras = quebrasDeContrato(atual.conteudo, medido);
+    if (quebras.length && linhaDeCompatibilidade(atual.versao) === linhaDeCompatibilidade(versaoDoPacote)) {
+      return {
+        ok: false,
+        mensagem:
+          `A superfície "declarada" mudou de um jeito que QUEBRA quem já a usa, e ${atual.versao} → ` +
+          `${versaoDoPacote} fica na mesma linha de compatibilidade:\n  - ${quebras.join("\n  - ")}\n` +
+          "Suba o major (em 0.x, o minor) — `npm version major --no-git-tag-version` — e rode " +
+          "`npm run surface:lock`; ou desfaça a mudança.",
+      };
+    }
   }
   if (!escrever) {
     return {

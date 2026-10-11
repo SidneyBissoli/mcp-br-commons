@@ -8,16 +8,48 @@ seguinte — cada servidor faz bump explícito).
 e, pela regra da trava, obrigaria cada servidor a subir de versão sem ter mudado nada.
 Mudança de normalização é major (ou minor em 0.x), com nota de migração.
 
-## [Não lançado]
+## [0.6.0] — 2026-10-11
 
-Só documentação; código e forma canônica NÃO mudam.
+A forma canônica NÃO muda (`mcp-surface/1`, SPEC intacta): nenhum sha256 publicado muda. Muda
+a REGRA da trava, que passa a recusar o que antes aceitava — por isso minor (a regra de 0.x do
+cabeçalho): cada servidor sobe `^0.6.0` explicitamente.
 
 ### Adicionado
 
+- **`quebrasDeContrato(antes, depois)`** (`src/quebras.ts`): o que, do que mudou entre duas
+  superfícies, quebra um cliente escrito contra a anterior. Além dos quatro casos de antes
+  (tool/resource/prompt removido, parâmetro removido, parâmetro novo obrigatório): tipo e valor
+  de `enum`/`const` que a entrada deixou de aceitar, limite que apertou, resource template
+  removido, método que respondia `[]` e passou a não ser servido, e — na saída — campo
+  garantido removido ou que virou opcional, tipo ou valor novo, `outputSchema` retirado;
+  argumentos de prompt. Recursivo em `properties` e `items`, com o caminho na mensagem
+  (`codes.[].terminology`). Composição, `pattern` e `additionalProperties` não são julgados.
+  Pergunta de jkming (dev.to 3h0n8, 09/10/2026).
+
+### Mudado
+
+- **A trava exige a linha de compatibilidade nova quando há quebra.** `conferirSecao` na seção
+  `declarada`: medido ≠ travado, versão diferente mas na MESMA linha (major; minor em 0.x) e
+  `quebrasDeContrato` não vazia → falha listando as quebras, nos dois modos. Antes qualquer
+  versão nova bastava, e uma quebra saía em minor sem alarme.
+- **`diferenca` (replay) usa a mesma lista**, e `linhaDeCompatibilidade` mudou de módulo
+  (`src/quebras.ts`; a exportação pública é a mesma).
+
+### Provado
+
+- Contra o histórico real: as 35 mudanças de superfície travadas nos sete servidores dão uma
+  quebra só, a 2.0.0 do medical (SNOMED aposentado: 1 tool removida + 5 lugares que deixaram
+  de aceitar `"snomed"`), que saiu em major — zero recusas. A primeira versão da regra contava
+  `additionalProperties: false` novo como quebra e recusaria 4 releases (search/fetch estritos
+  em ibge, ilo, medical e uis); o dono decidiu que não é quebra.
+- Os sete servidores passam o próprio teste da trava com o pacote local trocado em
+  `node_modules`.
+
+### Documentação
+
 - **README/LEIA-ME — "Quem publica":** o worklore publica `mcp-surface/1` com implementação
   própria desde a 0.6.0, conferido com `node verify.mjs io.github.worklore/worklore` contra a
-  produção em 08/10/2026 (oferta de Valentina Koniukhova, dev.to 3gp9e). A página do npm só
-  mostra o texto novo na próxima versão publicada.
+  produção em 08/10/2026 (oferta de Valentina Koniukhova, dev.to 3gp9e).
 
 ## [0.5.3] — 2026-10-08
 

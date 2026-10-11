@@ -15,6 +15,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { linhaDeCompatibilidade, quebrasDeContrato } from "./quebras.js";
 import { capturarHttp, capturarStdio } from "./remoto.js";
 import { impressaoDigital } from "./superficie.js";
 
@@ -79,48 +80,22 @@ export function diferenca(antes: Item, depois: Item) {
     const d = td.get(n);
     if (!d) {
       r.tools.menos.push(n);
-      r.quebras.push(`tool removida: ${n}`);
       continue;
     }
-    if (impressaoDigital(a) === impressaoDigital(d)) continue;
-    r.tools.mudou.push(n);
-    const sa = (a["inputSchema"] ?? {}) as Item;
-    const sd = (d["inputSchema"] ?? {}) as Item;
-    const pd = (sd["properties"] ?? {}) as Item;
-    for (const p of Object.keys((sa["properties"] ?? {}) as Item)) {
-      if (!(p in pd)) r.quebras.push(`${n}: parâmetro removido \`${p}\``);
-    }
-    const ra = new Set((sa["required"] as string[] | undefined) ?? []);
-    for (const p of (sd["required"] as string[] | undefined) ?? []) {
-      if (!ra.has(p)) r.quebras.push(`${n}: parâmetro passou a obrigatório \`${p}\``);
-    }
+    if (impressaoDigital(a) !== impressaoDigital(d)) r.tools.mudou.push(n);
   }
   for (const [campo, chave] of [["resources", "uri"], ["prompts", "name"]] as const) {
     const a = new Set(nomes(lista(antes, campo), chave));
     const d = new Set(nomes(lista(depois, campo), chave));
     for (const x of d) if (!a.has(x)) r[campo].mais.push(x);
-    for (const x of a) {
-      if (!d.has(x)) {
-        r[campo].menos.push(x);
-        r.quebras.push(`${campo === "resources" ? "resource" : "prompt"} removido: ${x}`);
-      }
-    }
+    for (const x of a) if (!d.has(x)) r[campo].menos.push(x);
   }
+  // O julgamento do que quebra cliente é o mesmo da regra da trava (src/quebras.ts).
+  r.quebras.push(...quebrasDeContrato(antes, depois));
   r.instructions = impressaoDigital(init(antes)["instructions"]) !== impressaoDigital(init(depois)["instructions"]);
   r.capabilities = impressaoDigital(init(antes)["capabilities"]) !== impressaoDigital(init(depois)["capabilities"]);
   r.identidade = impressaoDigital(init(antes)["serverInfo"]) !== impressaoDigital(init(depois)["serverInfo"]);
   return r;
-}
-
-/**
- * A linha de compatibilidade da versão: o major — e, em 0.x, o minor, porque
- * no semver de série 0 mudança incompatível em minor é permitida. Medido no
- * replay do ilo-mcp-server (0.5.0 → 0.6.0 tornou `filters` obrigatório): a
- * 0.1.0 do pacote listava isso como quebra fora de major.
- */
-export function linhaDeCompatibilidade(v: string): string {
-  const [maior, menor] = v.split(".");
-  return maior === "0" ? `0.${menor}` : String(maior);
 }
 
 export async function replay(o: OpcoesReplay): Promise<{ markdown: string; json: unknown }> {

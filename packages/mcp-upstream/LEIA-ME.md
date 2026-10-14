@@ -24,7 +24,7 @@ import { createUpstream, UpstreamError } from "@sbissoli/mcp-upstream";
 // 1. Uma vez, na inicialização do servidor: a política de rede.
 const upstream = createUpstream({
   userAgent: "bcb-br-mcp/2.0 (+https://…)",
-  timeoutMs: 10_000,   // teto de UMA tentativa (cabeçalhos + corpo)
+  timeoutMs: 10_000,   // teto de UMA tentativa (cabeçalhos + corpo em json/text; só cabeçalhos em response)
   retries: 2,          // além da primeira tentativa (até 3 no total)
   budgetMs: 30_000,    // orçamento TOTAL da ida, esperas incluídas
   backoff: { baseMs: 1_000, maxMs: 8_000, jitterMs: 500 },
@@ -77,6 +77,15 @@ afirma uma extração que não aconteceu.
 | `call.text(url, init?)` | lido | sim | corpo rejeitado |
 | `call.response(url, init?)` | **não consumido** | não | nunca (o corpo é seu) |
 
+**No modo `response` o prazo termina nos cabeçalhos.** `timeoutMs` e `budgetMs` cobrem a ida
+até a `Response` ser devolvida; aí o cronômetro é desarmado, e o corpo que você lê depois
+fica **sem prazo** do pacote. Uma origem que manda os cabeçalhos e trava o corpo pendura a
+sua leitura. Se você lê o corpo, use `text()`/`json()` (o corpo é lido dentro da tentativa,
+sob o prazo, e corpo travado é `timeout`) ou passe um `signal` seu que continue vivo durante
+a leitura e aborte-o quando o seu prazo acabar — o pacote o combina ao fetch, então
+abortá-lo depois dos cabeçalhos também aborta o fluxo do corpo. Aborte só **depois** que a
+chamada voltar: abortar durante a ida é `aborted`, não `timeout`, e não conta como anomalia.
+
 `init` é um `RequestInit` normal; um `signal` seu é combinado com o do timeout. Quatro chaves
 a mais trocam a política **só naquela ida**, no mesmo coletor, porque prazo e repetição justos
 dependem da FORMA do pedido, não do servidor: `timeoutMs` (teto de UMA tentativa — o bcb dá
@@ -89,7 +98,7 @@ de Agregados). Nenhuma delas vaza para o `fetch`; `budgetMs` segue o da polític
 
 | o que aconteceu | `kind` | repete por padrão | `transport` |
 |---|---|---|---|
-| tentativa estourou `timeoutMs` (ou o orçamento) | `timeout` | sim | sim (não, se foi lendo o corpo) |
+| tentativa estourou `timeoutMs` (ou o orçamento) | `timeout` | sim | sim (não, se foi lendo o corpo em json/text) |
 | `fetch` lançou (DNS/TCP/TLS) | `network` | sim | sim |
 | HTTP 429 | `rate_limited` | sim, honrando `Retry-After` | não |
 | HTTP 5xx | `http_5xx` | sim | não |

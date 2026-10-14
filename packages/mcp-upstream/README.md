@@ -24,7 +24,7 @@ import { createUpstream, UpstreamError } from "@sbissoli/mcp-upstream";
 // 1. Once, when the server starts: the network policy.
 const upstream = createUpstream({
   userAgent: "bcb-br-mcp/2.0 (+https://…)",
-  timeoutMs: 10_000,   // cap of ONE attempt (headers + body)
+  timeoutMs: 10_000,   // cap of ONE attempt (headers + body in json/text; headers only in response)
   retries: 2,          // beyond the first attempt (up to 3 in total)
   budgetMs: 30_000,    // TOTAL budget of the trip, waits included
   backoff: { baseMs: 1_000, maxMs: 8_000, jitterMs: 500 },
@@ -78,6 +78,16 @@ retrieval that did not happen.
 | `call.text(url, init?)` | read | yes | body rejected |
 | `call.response(url, init?)` | **not consumed** | no | never (the body is yours) |
 
+**In `response` mode the deadline ends at the headers.** `timeoutMs` and `budgetMs` cover the
+trip until the `Response` is returned; the timer is cleared then, and the body you read
+afterwards has **no deadline** from the package. An origin that sends the headers and stalls
+the body hangs your read. If you read the body, either use `text()`/`json()` (the body is read
+inside the attempt, under the deadline, and a stalled body is a `timeout`), or pass a `signal`
+of yours that stays alive while you read and abort it when your own deadline runs out — the
+package combines it with the fetch, so aborting it after the headers also aborts the body
+stream. Abort it only **after** the call returns: aborting during the trip is `aborted`, not
+`timeout`, and is not counted as an anomaly.
+
 `init` is a normal `RequestInit`; a `signal` of yours is combined with the timeout's. Four extra
 keys change the policy **for that trip only**, in the same collector, because a fair deadline
 and retry depend on the SHAPE of the request, not on the server: `timeoutMs` (cap of ONE
@@ -91,7 +101,7 @@ policy's, on top.
 
 | what happened | `kind` | retried by default | `transport` |
 |---|---|---|---|
-| an attempt exceeded `timeoutMs` (or the budget) | `timeout` | yes | yes (no, if it was while reading the body) |
+| an attempt exceeded `timeoutMs` (or the budget) | `timeout` | yes | yes (no, if it was while reading the body in json/text) |
 | `fetch` threw (DNS/TCP/TLS) | `network` | yes | yes |
 | HTTP 429 | `rate_limited` | yes, honouring `Retry-After` | no |
 | HTTP 5xx | `http_5xx` | yes | no |

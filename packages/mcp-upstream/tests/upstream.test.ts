@@ -342,6 +342,36 @@ describe("orçamento e timeout", () => {
     expect(err.status).toBe(200);
   });
 
+  it("modo response: o prazo termina nos cabeçalhos; o corpo só para pelo signal do chamador", async () => {
+    // O que o README promete (e o que o senado mordeu, 13/10/2026): o cronômetro é
+    // desarmado ao devolver a Response; quem lê o corpo depois precisa do próprio prazo.
+    let sinalDaIda: AbortSignal | undefined;
+    const corpoQueTrava = (_u: string, init: RequestInit) => {
+      sinalDaIda = init.signal!;
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            init.signal!.addEventListener("abort", () => controller.error(new DOMException("aborted", "AbortError")));
+          },
+        }),
+        { status: 200 },
+      );
+    };
+    const ac = new AbortController();
+    const h = harness([corpoQueTrava], { timeoutMs: 20, retries: 0 });
+    const call = h.upstream.call();
+    const res = await call.response(URL_A, { signal: ac.signal });
+    const leitura = res.text();
+    // Bem depois do teto de 20 ms, o pacote não abortou nada: a leitura segue pendente.
+    await new Promise((r) => setTimeout(r, 60));
+    expect(sinalDaIda!.aborted).toBe(false);
+    // O signal do chamador, abortado DEPOIS da ida, encerra o corpo…
+    ac.abort();
+    await expect(leitura).rejects.toThrow();
+    // …e a ida continua contada como sucesso limpo (o abort não virou anomalia).
+    expect(call.retrieval()).toEqual({ requests: 1, attempts: 1, anomalies: [] });
+  });
+
   it("abort do chamador é `aborted`: não é anomalia e não repete", async () => {
     const ac = new AbortController();
     const h = harness([

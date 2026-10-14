@@ -4,6 +4,19 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.4.3] — 2026-10-14
+
+Só documentação e teste: código e API NÃO mudam.
+
+### Corrigido
+- **O README dizia que `timeoutMs` cobre "cabeçalhos + corpo" em todo modo**, e no modo
+  `response` isso é falso: o cronômetro é desarmado quando a `Response` é devolvida, e o corpo
+  lido depois não tem prazo do pacote. README, LEIA-ME e o JSDoc de `timeoutMs` e de
+  `response()` agora dizem onde o prazo termina e dão a receita (usar `text()`/`json()`, ou
+  um `signal` próprio abortado só depois da ida). Achado em 13/10/2026: o senado lia o corpo
+  sem prazo em dois pontos, confiando na frase (consertado no servidor, 3.18.4). Um teste
+  novo trava o comportamento documentado.
+
 ## [0.4.2] — 2026-10-08
 
 ### Mudado

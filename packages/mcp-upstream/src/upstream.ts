@@ -42,7 +42,11 @@ export interface RetryContext {
 export interface UpstreamOptions {
   /** Enviado como `User-Agent` quando o chamador não define o seu. */
   userAgent?: string | undefined;
-  /** Teto de UMA tentativa (cabeçalhos + corpo), em ms. Default 10 000. */
+  /**
+   * Teto de UMA tentativa, em ms. Default 10 000. Nos modos `text`/`json` cobre cabeçalhos +
+   * corpo; no modo `response`, só até os cabeçalhos — o corpo lido depois não tem prazo do
+   * pacote (ver `UpstreamCall.response`).
+   */
   timeoutMs?: number | undefined;
   /** Retries ALÉM da primeira tentativa. Default 2 (até 3 tentativas). */
   retries?: number | undefined;
@@ -220,6 +224,12 @@ export class UpstreamCall {
   /**
    * Uma ida à origem que devolve a `Response` sem consumir o corpo. Repete em
    * status/rede/timeout; `inspectBody` NÃO se aplica (o corpo é seu).
+   *
+   * O prazo (`timeoutMs`, `budgetMs`) termina quando a `Response` é devolvida: o
+   * cronômetro é desarmado aí, e o corpo lido depois NÃO tem prazo do pacote — uma
+   * origem que manda os cabeçalhos e trava o corpo pendura a leitura. Quem lê o corpo
+   * usa `text()`/`json()`, ou passa um `signal` próprio vivo durante a leitura e o
+   * aborta só DEPOIS desta chamada voltar (antes, seria `aborted`, não `timeout`).
    */
   response(url: string, init: UpstreamRequestInit = {}): Promise<Response> {
     return this.#request(url, init, "response").then((r) => r.response);

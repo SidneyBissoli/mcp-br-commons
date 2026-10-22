@@ -5,6 +5,37 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). Os TÍTULOS das anotações (`TITULO_*`) são
 contrato com o painel do portfólio: mudar um é minor com nota de migração.
 
+## [0.3.0] — 2026-10-22
+
+Minor: superfície nova (`criarSmoke`, `registrarVeredito`, `vocabulario` do `Relatorio`);
+nada do que existia muda de comportamento. Item `mcp:smoke-fonte-fora-nao-e-deploy` do
+painel: o terceiro formato do repórter, o smoke pós-deploy.
+
+### Adicionado
+- **`criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`** →
+  `{ verificar, naoMedida, sondar, concluir, relatorio }`. O smoke só vê o que viaja no
+  fio (`isError` + texto; a classe do erro da origem é chave-símbolo e não viaja), então
+  quando uma tool devolve `isError` inesperado ele SONDA a fonte declarada — um
+  `createUpstream` com `retries: 0` e prazo curto (8 s) — e decide por `entregaDaOrigem`,
+  nunca por frase: fonte que não entregou o esperado (timeout, rede, 429, 5xx, corpo que
+  `aceita` recusou) = `indisponivel`, **verde** com `::warning title=Fonte indisponível::tool`;
+  fonte servindo (ou de pé e recusando a sonda com 4xx) = `alheio`, **vermelho** com o texto
+  da tool no motivo; sem sonda declarada = vermelho. Verificação que lança (asserção, HTTP
+  do endpoint) é defeito do deploy, sem sondar; `esperaErro: true` exige a recusa. Cada
+  verificação pode nomear quais sondas a explicam (`sondas: ["sidra"]`). O disjuntor não
+  vale (limite infinito): num smoke, toda tool falhando com a fonte fora é verde com aviso,
+  não código 3 — não há retry a disparar e a versão hospedada já foi provada pelo passo
+  anterior do workflow. Medido em 22/10/2026: bcb #75 (duas reexecuções vermelhas com o
+  SGS em 502, conserto local em #76 por sonda + regex) e ibge run 39853335263
+  (`ibge_estados retornou erro` com o IBGE recusando conexões de parte das nuvens e o
+  Worker na versão certa).
+- `Relatorio.registrarVeredito(nome, falha, ms)`: falha JÁ classificada por quem mediu de
+  outro jeito; entra no disjuntor como `registrarFalha`.
+- `Relatorio({ vocabulario })`, `VOCABULARIO_DA_CAPTURA`, `VOCABULARIO_DO_SMOKE`: o título
+  do resumo, o particípio ("capturadas" × "verificadas") e a nota de "não medida" mudam
+  com o formato; `linhasDeConclusao` e `resumoMarkdown` recebem `vocabulario` opcional. A
+  política e os títulos das anotações são os mesmos.
+
 ## [0.2.1] — 2026-10-22
 
 Patch: o único comportamento que muda é o do arquivo vitest em que NADA foi capturado.

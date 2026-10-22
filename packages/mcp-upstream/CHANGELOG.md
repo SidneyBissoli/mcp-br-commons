@@ -4,6 +4,28 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.5.0] — 2026-10-22
+
+Export novo; nada do que existia muda. Minor porque a superfície publicada cresce
+(caret `^0.4` não a alcança — cada servidor faz bump explícito quando for consumir).
+
+### Adicionado
+- **`entregaDaOrigem(err)`: a origem entregou algo medível?** Vocabulário fechado de
+  quatro vereditos pelo `kind` do `UpstreamError`, nunca pela frase: `indisponivel`
+  (timeout, rede, 429, 5xx — deriva NÃO foi medida), `respondeu` (404, outro 4xx — é
+  resposta, território de contrato), `ambiguo` (`malformed_body` — formato mudou OU a
+  origem serviu a página de erro a um pedido bom; se resolve por repetição) e `alheio`
+  (abort do chamador ou erro que não é da origem). Com `motivo` em pt-BR para o log e
+  `kind`/`status`/`url` de passagem. Motivo, medido em 22/10/2026 duas vezes no mesmo
+  dia: o smoke pós-deploy do bcb reprovou duas reexecuções com o SGS em 502 (a frase do
+  erro escapava da regex de "upstream fora"), e o teste de contrato do senado reprovou
+  três tentativas porque UM endpoint respondeu 502 — o classificador local só separava
+  "nada respondeu" de "outra coisa", e o painel do portfólio abriu "a fonte mudou". Os
+  dois reinventavam por frase uma decisão que é função do `kind`; agora ela é uma só.
+  A função NÃO carrega política (aviso, teste pulado, código de saída é do repórter de
+  cada formato — peça seguinte do mesmo item). Testes cobrem a tabela inteira de kinds,
+  os erros reais de 22/10 e uma ida de ponta a ponta pelo `createUpstream`.
+
 ## [0.4.3] — 2026-10-14
 
 Só documentação e teste: código e API NÃO mudam.

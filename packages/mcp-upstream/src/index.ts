@@ -1,4 +1,5 @@
 export { UpstreamError, type UpstreamErrorInit, type UpstreamErrorKind } from "./errors.js";
+export { entregaDaOrigem, type EntregaDaOrigem, type VereditoDeEntrega } from "./entrega.js";
 export { backoffMs, parseRetryAfterMs, retryWaitMs, type BackoffSpec } from "./retry-after.js";
 export {
   DEFAULT_BACKOFF,

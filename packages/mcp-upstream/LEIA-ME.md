@@ -179,7 +179,7 @@ lugar nenhum da cadeia é `alheio`.
 
 O que a função **não** faz: política. Se `indisponivel` vira aviso, teste pulado ou
 código de saída é decisão de quem relata, por formato — e esse repórter é o
-[`@sbissoli/mcp-fonte-viva`](https://www.npmjs.com/package/@sbissoli/mcp-fonte-viva).
+[`@sbissoli/mcp-live-source`](https://www.npmjs.com/package/@sbissoli/mcp-live-source).
 
 ### Adaptador por AsyncLocalStorage (opcional)
 

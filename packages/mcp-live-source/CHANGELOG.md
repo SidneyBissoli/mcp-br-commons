@@ -1,4 +1,4 @@
-# Changelog — @sbissoli/mcp-fonte-viva
+# Changelog — @sbissoli/mcp-live-source
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões seguem
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor

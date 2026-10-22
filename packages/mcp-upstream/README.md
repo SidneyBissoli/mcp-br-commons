@@ -184,7 +184,7 @@ the package error as `cause` (`new MyError(msg, { cause: err })`). An error with
 
 What the function does **not** do: policy. Whether `indisponivel` becomes a warning, a
 skipped test or an exit code is the reporter's decision, per format — that reporter is
-[`@sbissoli/mcp-fonte-viva`](https://www.npmjs.com/package/@sbissoli/mcp-fonte-viva).
+[`@sbissoli/mcp-live-source`](https://www.npmjs.com/package/@sbissoli/mcp-live-source).
 
 ### AsyncLocalStorage adapter (optional)
 

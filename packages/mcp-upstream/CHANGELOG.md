@@ -17,7 +17,7 @@ Patch: o único comportamento que muda é o de um erro que na 0.5.0 saía `alhei
   veredito volta a ser o da origem; a classe e a mensagem locais ficam. A busca para no
   primeiro `UpstreamError` e tem teto de profundidade (ciclo em `cause` não trava). Erro
   sem `UpstreamError` na cadeia continua `alheio`. É o que o repórter de teste vivo
-  (`@sbissoli/mcp-fonte-viva`) precisa para classificar sem que cada servidor reescreva
+  (`@sbissoli/mcp-live-source`) precisa para classificar sem que cada servidor reescreva
   a tradução.
 
 ## [0.5.0] — 2026-10-22

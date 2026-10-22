@@ -112,7 +112,7 @@ sai 0 quando os únicos testes que não passaram foram pulados:
 | `ambiguo` (persistiu) | falha | `::error title=Ambíguo (deriva ou página de erro)::a` |
 | `respondeu` (404/4xx **ou a asserção do próprio teste**) | falha | `::error title=Deriva de formato::a` |
 | `alheio` (um `TypeError` nosso) | falha | `::error title=Falha alheia à origem::a` |
-| disjuntor (N indisponíveis seguidos, nada capturado) | os testes seguintes pulam **sem ir à rede** | `::error title=Fonte inalcançável::…` (job segue verde: quem decide a saída é o runner) |
+| disjuntor (N indisponíveis seguidos, nada capturado) | os testes seguintes pulam **sem ir à rede**; o arquivo **falha** no `afterAll` (`falharSeInalcancavel`, padrão) para o retry automático re-rodar num runner novo — o código 3 do script | `::error title=Fonte inalcançável::…` |
 
 Só `indisponivel` e `ambiguo` são repetidos (`repetirAoVivo`); a asserção que falha é a
 deriva que o teste existe para medir, então não se repete e sai rotulada como deriva, não

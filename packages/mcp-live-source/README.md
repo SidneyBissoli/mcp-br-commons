@@ -114,7 +114,7 @@ when the only non-passing tests are skipped:
 | `ambiguo` (persisted) | fails | `::error title=Ambíguo (deriva ou página de erro)::a` |
 | `respondeu` (404/4xx **or the test's own assertion**) | fails | `::error title=Deriva de formato::a` |
 | `alheio` (a `TypeError` of ours) | fails | `::error title=Falha alheia à origem::a` |
-| circuit breaker (N unavailable in a row, nothing captured) | the following tests skip **without touching the network** | `::error title=Fonte inalcançável::…` (job still green: the runner decides the exit code) |
+| circuit breaker (N unavailable in a row, nothing captured) | the following tests skip **without touching the network**; the file **fails** in `afterAll` (`falharSeInalcancavel`, default) so the automatic retry reruns on a fresh runner — the script's exit code 3 | `::error title=Fonte inalcançável::…` |
 
 Only `indisponivel` and `ambiguo` are retried (`repetirAoVivo`); an assertion failure is the
 drift the test exists to measure, so it is not retried and is labelled drift, not "our

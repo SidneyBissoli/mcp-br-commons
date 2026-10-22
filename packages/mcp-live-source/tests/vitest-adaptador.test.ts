@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
-import { TITULO_DERIVA, TITULO_FONTE_INDISPONIVEL } from "../src/index.js";
+import { TITULO_DERIVA, TITULO_FONTE_INALCANCAVEL, TITULO_FONTE_INDISPONIVEL } from "../src/index.js";
 
 const aqui = dirname(fileURLToPath(import.meta.url));
 const fixtures = join(aqui, "fixtures", "vitest");
@@ -54,6 +54,19 @@ describe("adaptador vitest, de ponta a ponta", () => {
     expect(r.markdown).toContain("1 de 3 capturadas.");
     expect(r.markdown).toContain("Deriva NÃO medida em 2 endpoints");
     expect(r.markdown).toMatch(/\| `b` \| 502 \| 3 \|/);
+  }, 60_000);
+
+  it("nada respondeu (disjuntor): testes pulados, mas o arquivo FALHA (1) com `Fonte inalcançável` — para o retry re-rodar", () => {
+    const r = rodarFixture("inalcancavel");
+    expect(r.status, r.stdout).toBe(1);
+    // a e b pagam 3 idas cada; c e d pulam sem ir à rede
+    expect(r.stdout.match(/^IDA [ab]$/gm)).toHaveLength(6);
+    expect(r.stdout).not.toMatch(/^IDA [cd]$/m);
+    expect(r.stdout).toMatch(/Tests\s+4 skipped/);
+    expect(r.stdout).toMatch(new RegExp(`^::error title=${TITULO_FONTE_INALCANCAVEL}::`, "m"));
+    expect(r.stdout).toMatch(/FAIL\s+inalcancavel\.fixture\.ts/);
+    expect(r.stdout).toMatch(/O arquivo falha de propósito para o retry automático/);
+    expect(r.markdown).toContain("### Fonte inalcançável");
   }, 60_000);
 
   it("deriva medida (asserção): processo VERMELHO (1) com `Deriva de formato`", () => {

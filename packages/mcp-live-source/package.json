@@ -1,11 +1,11 @@
 {
-  "name": "@sbissoli/mcp-fonte-viva",
+  "name": "@sbissoli/mcp-live-source",
   "version": "0.1.0",
   "description": "Repórter de teste contra a fonte viva (contrato, smoke, sonda): separa 'a fonte mudou' de 'a fonte está fora' pelo veredito do mcp-upstream, conta o disjuntor, repete o que vale repetir e escreve resumo e anotações do GitHub Actions num contrato fixo que o painel do portfólio lê",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
-    "directory": "packages/mcp-fonte-viva"
+    "directory": "packages/mcp-live-source"
   },
   "type": "module",
   "engines": {

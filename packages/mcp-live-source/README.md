@@ -1,4 +1,4 @@
-# @sbissoli/mcp-fonte-viva
+# @sbissoli/mcp-live-source
 
 Reporter for tests that run against the **live source** (contract tests, post-deploy
 smokes, recovery probes). It separates "the source changed" (drift, a defect to fix)
@@ -49,7 +49,7 @@ is changing the contract.
 ## Usage (capture script)
 
 ```ts
-import { Relatorio, capturarComRetentativa, linhaDeResultado } from "@sbissoli/mcp-fonte-viva";
+import { Relatorio, capturarComRetentativa, linhaDeResultado } from "@sbissoli/mcp-live-source";
 
 const relatorio = new Relatorio({ dependencia: (e) => e instanceof MissingDependencyError });
 

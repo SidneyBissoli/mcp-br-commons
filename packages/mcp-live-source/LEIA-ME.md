@@ -1,4 +1,4 @@
-# @sbissoli/mcp-fonte-viva
+# @sbissoli/mcp-live-source
 
 Repórter de teste contra a **fonte viva** (teste de contrato, smoke pós-deploy, sonda de
 recuperação). Separa "a fonte mudou" (deriva, defeito a corrigir) de "a fonte está fora"
@@ -47,7 +47,7 @@ mudar o contrato.
 ## Uso (script de captura)
 
 ```ts
-import { Relatorio, capturarComRetentativa, linhaDeResultado } from "@sbissoli/mcp-fonte-viva";
+import { Relatorio, capturarComRetentativa, linhaDeResultado } from "@sbissoli/mcp-live-source";
 
 const relatorio = new Relatorio({ dependencia: (e) => e instanceof MissingDependencyError });
 

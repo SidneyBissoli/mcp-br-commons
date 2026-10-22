@@ -20,6 +20,7 @@ em release e chega a vários servidores ao mesmo tempo (comentário de abertura 
 | `packages/mcp-upstream` | Fetch comum: retry com backoff e Retry-After, timeout, orçamento por chamada e a contagem que alimenta o `retrieval` |
 | `packages/mcp-surface` | Impressão digital da superfície (`surface.lock.json`), publicada no MCP Registry desde a 0.5.0; CLI `mcp-surface` (`travar`, `verificar`, `replay`, `registro`, `conferir-registro`); forma canônica em `SPEC.md` |
 | `packages/mcp-evals` | Harness de evals de seleção de tool e de sessão longa (Messages API — **custa dinheiro**, só com pedido do dono) |
+| `packages/mcp-fonte-viva` | Repórter de teste contra a fonte viva: veredito (`entregaDaOrigem` do mcp-upstream + `dependencia`), disjuntor, retentativa e a POLÍTICA (verde com `::warning title=Fonte indisponível::a, b`; 3 no disjuntor; 1 em deriva/ambíguo/alheio). Os títulos `TITULO_*` são contrato com o painel do portfólio |
 | `templates/cloudflare-worker` | Esqueleto de hosting Cloudflare — copiar a pasta, não importar |
 | `templates/pipeline-dados` | Receita R → parquet versionado → consulta (Frictionless v2) — copiar, não importar |
 

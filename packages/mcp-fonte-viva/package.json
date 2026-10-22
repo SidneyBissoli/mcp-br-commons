@@ -1,0 +1,46 @@
+{
+  "name": "@sbissoli/mcp-fonte-viva",
+  "version": "0.1.0",
+  "description": "Repórter de teste contra a fonte viva (contrato, smoke, sonda): separa 'a fonte mudou' de 'a fonte está fora' pelo veredito do mcp-upstream, conta o disjuntor, repete o que vale repetir e escreve resumo e anotações do GitHub Actions num contrato fixo que o painel do portfólio lê",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
+    "directory": "packages/mcp-fonte-viva"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sbissoli/mcp-upstream": "^0.5.1"
+  },
+  "keywords": [
+    "mcp",
+    "contract-testing",
+    "live-source",
+    "drift",
+    "outage",
+    "github-actions",
+    "open-data"
+  ],
+  "author": "Sidney da Silva Pereira Bissoli <sbissoli76@gmail.com>",
+  "license": "MIT"
+}

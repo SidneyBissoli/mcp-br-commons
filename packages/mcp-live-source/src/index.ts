@@ -29,6 +29,7 @@ export {
   SAIDA_FALHA,
   SAIDA_FONTE_INALCANCAVEL,
   SAIDA_OK,
+  VOCABULARIO_DA_CAPTURA,
   linhaDeResultado,
   linhasDeConclusao,
   resumoMarkdown,
@@ -38,4 +39,16 @@ export {
   type ResultadoFalho,
   type ResultadoOk,
   type Resumo,
+  type Vocabulario,
 } from "./relatorio.js";
+export {
+  TEMPO_DA_SONDA_MS,
+  VOCABULARIO_DO_SMOKE,
+  criarSmoke,
+  type EstadoDaSonda,
+  type OpcoesDeVerificacao,
+  type OpcoesDoSmoke,
+  type Smoke,
+  type Sonda,
+  type VereditoDaSonda,
+} from "./smoke.js";

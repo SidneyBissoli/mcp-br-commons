@@ -129,6 +129,57 @@ O núcleo independente de runner é `criarSuiteAoVivo({ it, afterAll }, opcoes)`
 entrypoint raiz: liga-se a outro runner (node:test) dando os ganchos e um contexto cujo
 `skip(nota)` lança.
 
+## Uso (smoke pós-deploy)
+
+O smoke chama as tools do servidor **no ar** logo depois do deploy, e só vê o que viaja no
+fio: `isError` e um texto. A classe do erro da origem não viaja, então o smoke não pode
+decidir pela frase. Quando uma tool devolve `isError` inesperado, `criarSmoke` **sonda a
+fonte declarada diretamente** (um `createUpstream` sem retries e com prazo curto) e decide
+por `entregaDaOrigem`:
+
+| A tool devolveu `isError` e… | Veredito | Efeito |
+|---|---|---|
+| a sonda não obteve o esperado (timeout, rede, 429, 5xx, corpo que `aceita` recusou) | `indisponivel` | **verde** com `::warning title=Fonte indisponível::tool` |
+| a sonda obteve, ou a origem respondeu (4xx) | `alheio` | **vermelho**: a tool quebrou com a fonte de pé; o texto da tool vai no motivo |
+| não há sonda declarada para a verificação | `alheio` | vermelho: ninguém mediu a fonte |
+
+Verificação que lança (asserção sobre o resultado, HTTP do endpoint) é defeito do deploy e
+sai vermelha sem sondar; `esperaErro: true` exige a recusa. O disjuntor não vale: toda tool
+falhando com a fonte fora é verde com aviso, nunca código 3.
+
+```js
+import { criarSmoke } from "@sbissoli/mcp-live-source";
+
+const smoke = criarSmoke({
+  sondas: [
+    { nome: "sidra", url: "https://servicodados.ibge.gov.br/api/v3/agregados/6579/periodos/-1/variaveis/9324?localidades=N1[all]",
+      aceita: (corpo) => Array.isArray(JSON.parse(corpo)) },
+    { nome: "localidades", url: "https://servicodados.ibge.gov.br/api/v1/localidades/estados/33" },
+  ],
+});
+
+if (process.argv.includes("--sonda")) {
+  const estados = await smoke.sondar();
+  process.exit(estados.every((e) => e.veredito === "servindo") ? 0 : 2);
+}
+
+const estados = await smoke.verificar("ibge_estados", async () => {
+  const r = await rpc("tools/call", { name: "ibge_estados", arguments: { regiao: "SE" } });
+  if (!r.isError && !r.structuredContent?.provenance) throw new Error("bloco de proveniência ausente");
+  return r;
+}, { sondas: ["localidades"] });
+
+await smoke.verificar("agruparPor inválido", () => rpc("tools/call", { name: "ibge_sidra", arguments: { tabela: "6579", agruparPor: "x" } }), { esperaErro: true });
+
+const resumo = smoke.concluir(); // stdout + anotações + $GITHUB_STEP_SUMMARY
+await new Promise((r) => setTimeout(r, 200)); // Node 24 no Windows: sair no tick em que o socket fecha derruba o processo
+process.exit(resumo.codigoDeSaida);
+```
+
+`verificar` nunca lança: devolve o resultado quando a verificação passou (para o roteiro
+encadear o `fetch` no id que o `search` devolveu) e `undefined` quando falhou; `naoMedida`
+registra a verificação que nem foi tentada porque depende de outra que falhou.
+
 ## API
 
 - `classificarFalha(err, { dependencia?, deriva? })` → `Falha { veredito, motivo, kind, status, url }`.
@@ -143,12 +194,20 @@ entrypoint raiz: liga-se a outro runner (node:test) dando os ganchos e um contex
   dispara enquanto nada foi capturado.
 - `capturarComRetentativa(fn, { tentativas = 3, esperaMs = n => 2000·n, repetir, aoRepetir, aoDesistir, dependencia, deriva, dormir })`:
   relança o **último** erro intacto. Por padrão repete tudo menos `dependencia` e `respondeu`.
-- `Relatorio({ dependencia?, deriva?, limiteDoDisjuntor? })`: `registrarCaptura(nome, ms)`,
-  `registrarFalha(nome, err, ms, { idas? })`, `registrarNaoMedida(nome, motivo)` (nem foi
+- `Relatorio({ dependencia?, deriva?, limiteDoDisjuntor?, vocabulario? })`: `registrarCaptura(nome, ms)`,
+  `registrarFalha(nome, err, ms, { idas? })`, `registrarVeredito(nome, falha, ms)` (falha já
+  classificada por quem mediu de outro jeito), `registrarNaoMedida(nome, motivo)` (nem foi
   tentada: o disjuntor já tinha disparado), `deveParar`, `resumo()`, `codigoDeSaida()`,
   `anotacoes()`, `escrever({ log?, comando?, env?, anexar?, codigoDeSaida? })` (todo destino
   é injetável; o resumo vai ao arquivo nomeado por `GITHUB_STEP_SUMMARY` quando a variável
   existe; `codigoDeSaida: false` tira a linha "código de saída" quando a saída é do runner).
+  `vocabulario` (`{ titulo, capturadas, naoMedidas }`) é o que muda de palavra com o
+  formato: `VOCABULARIO_DA_CAPTURA` (padrão) e `VOCABULARIO_DO_SMOKE`.
+- Smoke pós-deploy: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`
+  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe? }), naoMedida(nome, motivo),
+  sondar(nomes?), concluir(), relatorio }`. Uma `Sonda` é `{ nome, url, aceita?, cabecalhos?,
+  timeoutMs? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` devolve `EstadoDaSonda[]` com
+  `veredito` `servindo` / `fora` / `nao-sondada`.
 - `anotacao(nivel, titulo, mensagem)`, `escaparMensagem`, `escaparPropriedade`: comandos
   de workflow com o escape do runner (`%`, `\r`, `\n` na mensagem; `:` e `,` também nas
   propriedades). `resumoMarkdown(resumo)`, `linhasDeConclusao(resumo, { codigoDeSaida? })`,

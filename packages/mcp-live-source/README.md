@@ -130,6 +130,57 @@ The runner-agnostic core is `criarSuiteAoVivo({ it, afterAll }, opcoes)` on the 
 bind it to another runner (node:test) by supplying the hooks and a context whose `skip(nota)`
 throws.
 
+## Usage (post-deploy smoke)
+
+A smoke calls the tools of the server **on the air** right after a deploy, and only sees
+what travels on the wire: `isError` and a text. The class of the source error does not
+travel, so the smoke must not decide by phrase. When a tool answers `isError`
+unexpectedly, `criarSmoke` **probes the declared source directly** (a `createUpstream`
+with no retries and a short deadline) and decides by `entregaDaOrigem`:
+
+| The tool answered `isError` and… | Verdict | Effect |
+|---|---|---|
+| the probe did not get what it expected (timeout, network, 429, 5xx, body refused by `aceita`) | `indisponivel` | **green** with `::warning title=Fonte indisponível::tool` |
+| the probe got it, or the source answered (4xx) | `alheio` | **red**: the tool broke with the source up; the tool's text is in the reason |
+| no probe is declared for that check | `alheio` | red: nobody measured the source |
+
+A check that throws (an assertion on the result, the endpoint's HTTP) is a deploy defect
+and goes red without probing; `esperaErro: true` requires the refusal. The breaker does
+not apply: every tool failing with the source down is green with a warning, never exit 3.
+
+```js
+import { criarSmoke } from "@sbissoli/mcp-live-source";
+
+const smoke = criarSmoke({
+  sondas: [
+    { nome: "sidra", url: "https://servicodados.ibge.gov.br/api/v3/agregados/6579/periodos/-1/variaveis/9324?localidades=N1[all]",
+      aceita: (corpo) => Array.isArray(JSON.parse(corpo)) },
+    { nome: "localidades", url: "https://servicodados.ibge.gov.br/api/v1/localidades/estados/33" },
+  ],
+});
+
+if (process.argv.includes("--sonda")) {
+  const estados = await smoke.sondar();
+  process.exit(estados.every((e) => e.veredito === "servindo") ? 0 : 2);
+}
+
+const estados = await smoke.verificar("ibge_estados", async () => {
+  const r = await rpc("tools/call", { name: "ibge_estados", arguments: { regiao: "SE" } });
+  if (!r.isError && !r.structuredContent?.provenance) throw new Error("provenance block missing");
+  return r;
+}, { sondas: ["localidades"] });
+
+await smoke.verificar("agruparPor inválido", () => rpc("tools/call", { name: "ibge_sidra", arguments: { tabela: "6579", agruparPor: "x" } }), { esperaErro: true });
+
+const resumo = smoke.concluir(); // stdout + annotations + $GITHUB_STEP_SUMMARY
+await new Promise((r) => setTimeout(r, 200)); // Node 24 on Windows: exiting in the tick the socket closes aborts the process
+process.exit(resumo.codigoDeSaida);
+```
+
+`verificar` never throws: it returns the result when the check passed (so the script can
+chain `fetch` on the id `search` returned) and `undefined` when it failed; `naoMedida`
+records a check that was never attempted because one it depends on failed.
+
 ## API
 
 - `classificarFalha(err, { dependencia?, deriva? })` → `Falha { veredito, motivo, kind, status, url }`.
@@ -145,13 +196,20 @@ throws.
 - `capturarComRetentativa(fn, { tentativas = 3, esperaMs = n => 2000·n, repetir, aoRepetir, aoDesistir, dependencia, deriva, dormir })`:
   rethrows the **last** error intact. By default repeats everything except `dependencia`
   and `respondeu`.
-- `Relatorio({ dependencia?, deriva?, limiteDoDisjuntor? })`: `registrarCaptura(nome, ms)`,
-  `registrarFalha(nome, err, ms, { idas? })`, `registrarNaoMedida(nome, motivo)` (never
-  attempted: the breaker had tripped), `deveParar`, `resumo()`, `codigoDeSaida()`,
+- `Relatorio({ dependencia?, deriva?, limiteDoDisjuntor?, vocabulario? })`: `registrarCaptura(nome, ms)`,
+  `registrarFalha(nome, err, ms, { idas? })`, `registrarVeredito(nome, falha, ms)` (a failure
+  already classified by whoever measured it another way), `registrarNaoMedida(nome, motivo)`
+  (never attempted: the breaker had tripped), `deveParar`, `resumo()`, `codigoDeSaida()`,
   `anotacoes()`, `escrever({ log?, comando?, env?, anexar?, codigoDeSaida? })` (every sink
   injectable; the summary goes to the file named by `GITHUB_STEP_SUMMARY` when the variable
   exists; `codigoDeSaida: false` drops the "código de saída" line when the runner owns the
-  exit code).
+  exit code). `vocabulario` (`{ titulo, capturadas, naoMedidas }`) is the wording that
+  changes with the format: `VOCABULARIO_DA_CAPTURA` (default) and `VOCABULARIO_DO_SMOKE`.
+- Post-deploy smoke: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`
+  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe? }), naoMedida(nome, motivo),
+  sondar(nomes?), concluir(), relatorio }`. A `Sonda` is `{ nome, url, aceita?, cabecalhos?,
+  timeoutMs? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` returns `EstadoDaSonda[]` with
+  `veredito` `servindo` / `fora` / `nao-sondada`.
 - `anotacao(nivel, titulo, mensagem)`, `escaparMensagem`, `escaparPropriedade`: workflow
   commands with the runner's escaping (`%`, `\r`, `\n` in the message; `:` and `,` too in
   properties). `resumoMarkdown(resumo)`, `linhasDeConclusao(resumo, { codigoDeSaida? })`,
@@ -177,6 +235,11 @@ throws.
 | ao vivo, suíte ao vivo | live, live suite |
 | asserção | assertion |
 | não medida | not measured |
+| smoke, sonda, sondar | smoke, probe, to probe |
+| verificar, verificada | check, checked |
+| servindo / fora / não sondada | serving / down / not probed |
+| espera erro | expects an error |
+| vocabulário | wording |
 
 ## License
 

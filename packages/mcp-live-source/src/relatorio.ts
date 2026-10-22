@@ -50,8 +50,30 @@ export interface Resumo {
   codigoDeSaida: number;
 }
 
+/**
+ * As palavras do log e do resumo que mudam com o FORMATO do repórter. O script de
+ * captura e o vitest "capturam" fixtures e, quando a fonte está fora, a fixture
+ * commitada fica no lugar; o smoke pós-deploy "verifica" tools no ar, e fonte fora
+ * significa que a tool degradou como devia. A política é a mesma; a frase, não.
+ */
+export interface Vocabulario {
+  /** Título do bloco do `$GITHUB_STEP_SUMMARY`. */
+  titulo: string;
+  /** Particípio da contagem: "N de M capturadas". */
+  capturadas: string;
+  /** O que significa "não medida" neste formato (entre parênteses, no resumo). */
+  naoMedidas: string;
+}
+
+export const VOCABULARIO_DA_CAPTURA: Vocabulario = {
+  titulo: "Teste contra a fonte viva",
+  capturadas: "capturadas",
+  naoMedidas: "fonte indisponível; a fixture commitada ficou no lugar",
+};
+
 export interface OpcoesDoRelatorio extends OpcoesDeClassificacao {
   limiteDoDisjuntor?: number | undefined;
+  vocabulario?: Partial<Vocabulario> | undefined;
 }
 
 export interface Destinos {
@@ -96,10 +118,12 @@ export class Relatorio {
   readonly #resultados: Resultado[] = [];
   readonly #disjuntor: Disjuntor;
   readonly #classificacao: OpcoesDeClassificacao;
+  readonly vocabulario: Vocabulario;
 
   constructor(opcoes: OpcoesDoRelatorio = {}) {
     this.#disjuntor = new Disjuntor(opcoes.limiteDoDisjuntor ?? LIMITE_PADRAO_DO_DISJUNTOR);
     this.#classificacao = { dependencia: opcoes.dependencia, deriva: opcoes.deriva };
+    this.vocabulario = { ...VOCABULARIO_DA_CAPTURA, ...semIndefinidos(opcoes.vocabulario ?? {}) };
   }
 
   get disjuntor(): Disjuntor {
@@ -118,7 +142,15 @@ export class Relatorio {
   }
 
   registrarFalha(nome: string, err: unknown, ms: number, opcoes: { idas?: number | undefined } = {}): ResultadoFalho {
-    const falha = classificarFalha(err, this.#classificacao);
+    return this.registrarVeredito(nome, classificarFalha(err, this.#classificacao), ms, opcoes);
+  }
+
+  /**
+   * Falha JÁ classificada por quem mediu de outro jeito — o smoke pós-deploy, que não
+   * tem o erro da origem em mãos (a tool devolveu `isError` no fio) e decide pela
+   * SONDA direta na fonte. Entra no disjuntor como qualquer falha.
+   */
+  registrarVeredito(nome: string, falha: Falha, ms: number, opcoes: { idas?: number | undefined } = {}): ResultadoFalho {
     const r: ResultadoFalho = { nome, ok: false, falha, ms, idas: opcoes.idas };
     this.#resultados.push(r);
     this.#disjuntor.registrarFalha(falha.veredito);
@@ -200,12 +232,19 @@ export class Relatorio {
     const anexar = destinos.anexar ?? ((caminho: string, texto: string) => appendFileSync(caminho, texto, "utf8"));
     const resumo = this.resumo();
 
-    for (const linha of linhasDeConclusao(resumo, { codigoDeSaida: destinos.codigoDeSaida ?? true })) log(linha);
+    const vocabulario = this.vocabulario;
+    for (const linha of linhasDeConclusao(resumo, { codigoDeSaida: destinos.codigoDeSaida ?? true, vocabulario })) log(linha);
     for (const a of this.anotacoes(resumo)) comando(a);
     const arquivo = env["GITHUB_STEP_SUMMARY"];
-    if (arquivo !== undefined && arquivo !== "") anexar(arquivo, resumoMarkdown(resumo));
+    if (arquivo !== undefined && arquivo !== "") anexar(arquivo, resumoMarkdown(resumo, { vocabulario }));
     return resumo;
   }
+}
+
+function semIndefinidos<T extends object>(o: T): Partial<T> {
+  const saida: Partial<T> = {};
+  for (const [k, v] of Object.entries(o)) if (v !== undefined) (saida as Record<string, unknown>)[k] = v;
+  return saida;
 }
 
 /** A linha de log de uma captura, como o script a imprime ao vivo. */
@@ -220,7 +259,11 @@ function idasTexto(r: ResultadoFalho): string {
   return r.idas === 1 ? ", 1 ida" : `, ${r.idas} idas`;
 }
 
-export function linhasDeConclusao(resumo: Resumo, opcoes: { codigoDeSaida?: boolean | undefined } = {}): string[] {
+export function linhasDeConclusao(
+  resumo: Resumo,
+  opcoes: { codigoDeSaida?: boolean | undefined; vocabulario?: Vocabulario | undefined } = {},
+): string[] {
+  const v = opcoes.vocabulario ?? VOCABULARIO_DA_CAPTURA;
   const linhas: string[] = [];
   const lista = (titulo: string, itens: ResultadoFalho[]) => {
     if (itens.length === 0) return;
@@ -233,7 +276,7 @@ export function linhasDeConclusao(resumo: Resumo, opcoes: { codigoDeSaida?: bool
         "a deriva não foi medida nesta rodada. Re-rodar o job cai em outro IP de saída.",
     );
   }
-  linhas.push(`${resumo.capturadas} de ${resumo.total} capturadas.`);
+  linhas.push(`${resumo.capturadas} de ${resumo.total} ${v.capturadas}.`);
   lista("Fonte indisponível — deriva NÃO medida", resumo.naoMedidas);
   lista("Deriva de formato (a origem recusou o pedido)", resumo.derivas);
   lista("Ambíguo (formato mudou OU página de erro; persistiu nas tentativas)", resumo.ambiguas);
@@ -243,7 +286,8 @@ export function linhasDeConclusao(resumo: Resumo, opcoes: { codigoDeSaida?: bool
 }
 
 /** O bloco de `$GITHUB_STEP_SUMMARY` (markdown do GitHub). */
-export function resumoMarkdown(resumo: Resumo): string {
+export function resumoMarkdown(resumo: Resumo, opcoes: { vocabulario?: Vocabulario | undefined } = {}): string {
+  const v = opcoes.vocabulario ?? VOCABULARIO_DA_CAPTURA;
   const partes: string[] = [];
   if (resumo.disjuntor) {
     partes.push("### Fonte inalcançável", "");
@@ -253,12 +297,12 @@ export function resumoMarkdown(resumo: Resumo): string {
       "",
     );
   } else {
-    partes.push("### Teste contra a fonte viva", "");
-    partes.push(`${resumo.capturadas} de ${resumo.total} capturadas.`, "");
+    partes.push(`### ${v.titulo}`, "");
+    partes.push(`${resumo.capturadas} de ${resumo.total} ${v.capturadas}.`, "");
     if (resumo.naoMedidas.length > 0) {
       partes.push(
         `**Deriva NÃO medida em ${resumo.naoMedidas.length} endpoint${resumo.naoMedidas.length === 1 ? "" : "s"}** ` +
-          "(fonte indisponível; a fixture commitada ficou no lugar):",
+          `(${v.naoMedidas}):`,
         "",
       );
     }

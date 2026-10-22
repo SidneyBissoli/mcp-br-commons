@@ -149,6 +149,37 @@ catch (e) {
 }
 ```
 
+### Did the origin deliver anything measurable? (`entregaDaOrigem`)
+
+Contract tests, post-deploy smokes and recovery probes run against the live source and
+need to tell "the source changed" (drift, a defect to fix) from "the source is down"
+(nothing to fix, try again later). Deciding by the error's wording is brittle: measured
+on 2026-10-22, two formats in this portfolio turned a deploy and a contract run red with
+the origin answering 502. The decision is a function of `kind`, so it lives here, the
+same for every consumer:
+
+```ts
+import { entregaDaOrigem } from "@sbissoli/mcp-upstream";
+
+try { await call.json(url); }
+catch (e) {
+  const r = entregaDaOrigem(e);   // "delivery from the origin"
+  r.veredito; // verdict: "indisponivel" | "respondeu" | "ambiguo" | "alheio"
+  r.motivo;   // one pt-BR sentence for the log — never the basis of the decision
+  r.kind; r.status; r.url;
+}
+```
+
+| Verdict | When | Meaning |
+|---|---|---|
+| `indisponivel` (unavailable) | timeout, network, 429, 5xx | The origin delivered no body to compare. Drift was **not measured**; it is not drift. A 5xx lands here even though "a response arrived": what arrived is the gateway's error page, not the resource. |
+| `respondeu` (answered) | 404, other 4xx | The origin answered, and the answer is a refusal of the request. Contract territory (route, key, parameter); whoever reads `status`/`body` decides. |
+| `ambiguo` (ambiguous) | `malformed_body` | A body arrived that is not the expected one: either the format changed (real drift) or the origin served its error page to a sound request (the Central Bank's SGS does that for series that exist). Resolved by **repeating** on another trip, not by reading this one. |
+| `alheio` (not the origin's) | `aborted`, or an error that is not an `UpstreamError` | The caller aborted, or it is a defect in our own code. Failing the contract for it would blame the source for what is ours. |
+
+What the function does **not** do: policy. Whether `indisponivel` becomes a warning, a
+skipped test or an exit code is the reporter's decision, per format.
+
 ### AsyncLocalStorage adapter (optional)
 
 For servers that already propagate context this way:

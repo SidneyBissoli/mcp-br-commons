@@ -145,6 +145,36 @@ catch (e) {
 }
 ```
 
+### A origem entregou algo medível? (`entregaDaOrigem`)
+
+Quem roda teste de contrato, smoke pós-deploy ou sonda contra a fonte viva precisa
+separar "a fonte mudou" (deriva, defeito a corrigir) de "a fonte está fora" (nada a
+corrigir, repetir depois). Decidir pela frase do erro é frágil — medido em 22/10/2026,
+dois formatos do portfólio pintaram o deploy e o contrato de vermelho com a origem em
+502. A decisão é função do `kind`, e por isso mora aqui, igual para todos:
+
+```ts
+import { entregaDaOrigem } from "@sbissoli/mcp-upstream";
+
+try { await call.json(url); }
+catch (e) {
+  const r = entregaDaOrigem(e);
+  r.veredito; // "indisponivel" | "respondeu" | "ambiguo" | "alheio"
+  r.motivo;   // uma frase em pt-BR para o log — nunca a base da decisão
+  r.kind; r.status; r.url;
+}
+```
+
+| Veredito | Quando | O que significa |
+|---|---|---|
+| `indisponivel` | timeout, rede, 429, 5xx | A origem não entregou corpo para comparar. Deriva **não foi medida**; não é deriva. O 5xx entra aqui mesmo "tendo chegado resposta": o que chegou é a página do gateway, não o recurso. |
+| `respondeu` | 404, outro 4xx | A origem respondeu, e a resposta é a recusa do pedido. Território de contrato (rota, chave, parâmetro); quem lê `status`/`body` decide. |
+| `ambiguo` | `malformed_body` | Chegou corpo que não é o esperado: ou o formato mudou (deriva), ou a origem serviu a página de erro num pedido bom (o SGS faz isso em série que existe). Se resolve por **repetição** em outra ida, não por leitura desta. |
+| `alheio` | `aborted`, ou erro que não é `UpstreamError` | Não é a origem: o chamador abortou, ou é defeito do próprio código. Reprovar o contrato por isso culparia a fonte pelo que é nosso. |
+
+O que a função **não** faz: política. Se `indisponivel` vira aviso, teste pulado ou
+código de saída é decisão de quem relata, por formato.
+
 ### Adaptador por AsyncLocalStorage (opcional)
 
 Para servidores que já propagam contexto assim:

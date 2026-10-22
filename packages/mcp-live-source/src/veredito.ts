@@ -28,15 +28,23 @@ export interface OpcoesDeClassificacao {
    * conhece a classe de cada script; por padrão nada é dependência.
    */
   dependencia?: ((err: unknown) => boolean) | undefined;
+  /**
+   * Reconhece "a origem respondeu, e o que respondeu quebra o contrato" — a asserção
+   * de um teste que roda contra a fonte viva (`expect` do vitest, `node:assert`). Só é
+   * consultado para erro que NÃO veio da origem; vira `respondeu` (deriva medida), não
+   * `alheio` ("defeito nosso"). Por padrão nada é deriva.
+   */
+  deriva?: ((err: unknown) => boolean) | undefined;
 }
 
 /**
  * Classifica a falha de uma captura. Delega à origem (`entregaDaOrigem`, que segue a
- * cadeia `cause` até o `UpstreamError` do pacote) e acrescenta `dependencia`.
+ * cadeia `cause` até o `UpstreamError` do pacote) e acrescenta `dependencia` e a deriva
+ * por asserção.
  */
 export function classificarFalha(err: unknown, opcoes: OpcoesDeClassificacao = {}): Falha {
+  const texto = err instanceof Error ? err.message : String(err);
   if (opcoes.dependencia?.(err) === true) {
-    const texto = err instanceof Error ? err.message : String(err);
     return {
       veredito: "dependencia",
       motivo: `não medida: depende de captura que falhou (${texto})`,
@@ -46,5 +54,14 @@ export function classificarFalha(err: unknown, opcoes: OpcoesDeClassificacao = {
     };
   }
   const e = entregaDaOrigem(err);
+  if (e.veredito === "alheio" && opcoes.deriva?.(err) === true) {
+    return {
+      veredito: "respondeu",
+      motivo: `a origem respondeu e o contrato falhou no que chegou: ${texto}`,
+      kind: undefined,
+      status: undefined,
+      url: undefined,
+    };
+  }
   return { veredito: e.veredito, motivo: e.motivo, kind: e.kind, status: e.status, url: e.url };
 }

@@ -5,6 +5,44 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). Os TÍTULOS das anotações (`TITULO_*`) são
 contrato com o painel do portfólio: mudar um é minor com nota de migração.
 
+## [0.2.0] — 2026-10-22
+
+Minor: superfície nova (subpath `./vitest`, `criarSuiteAoVivo`, predicado `deriva`,
+`registrarNaoMedida`); nada do que existia muda. Peça 4 do item
+`mcp:fonte-indisponivel-nao-e-deriva`: os irmãos cujo tier vivo é um arquivo de teste
+(bcb, ilo, ibge, medical) passam a emitir o mesmo contrato de anotações que o senado.
+
+### Adicionado
+- **`@sbissoli/mcp-live-source/vitest`** — `suiteAoVivo(opcoes?)` → `{ aoVivo, relatorio }`.
+  `aoVivo(nome, fn, { endpoint?, timeout?, tentativas?, … })` envolve `it`: `indisponivel`
+  (depois das idas) → teste **pulado** com a nota `Fonte indisponível: …` (vitest sai 0 quando
+  só há skips); `ambiguo` → repete e, se persistir, falha; `respondeu` e `alheio` → falha sem
+  repetir. Um `Relatorio` por arquivo, escrito no `afterAll` (log, anotações,
+  `$GITHUB_STEP_SUMMARY`; nada quando o arquivo não rodou teste ao vivo). O disjuntor vale:
+  depois de N indisponíveis seguidos sem captura, os testes seguintes pulam **sem ir à rede**
+  (`Fonte inalcançável`, job verde — a saída é do runner). `vitest` é peer OPCIONAL (`^5`);
+  o entrypoint raiz não o importa.
+- **`criarSuiteAoVivo(ganchos, opcoes)`** no entrypoint raiz: o núcleo sem runner (`it`,
+  `afterAll` e um contexto cujo `skip(nota)` lança) — testável com dublê, ligável a outro
+  runner. `repetirAoVivo` (só `indisponivel` e `ambiguo`) e `ehAssercao`.
+- **`deriva`** em `OpcoesDeClassificacao` (e por tabela em `capturarComRetentativa` e
+  `Relatorio`): predicado consultado só para erro que NÃO veio da origem; vira `respondeu`
+  ("a origem respondeu e o contrato falhou no que chegou"). Num teste, a asserção que falha
+  é a deriva que ele existe para medir — sem isso saía `alheio`, "defeito nosso", e o
+  painel leria "falha alheia" onde houve deriva medida. Padrão do adaptador: `AssertionError`.
+- **`Relatorio.registrarNaoMedida(nome, motivo)`**: captura nem tentada porque o disjuntor
+  já tinha disparado; conta em `naoMedidas`, não mexe no disjuntor.
+- **`escrever({ codigoDeSaida: false })`** / `linhasDeConclusao(resumo, { codigoDeSaida })`:
+  sem a linha "código de saída: N" quando quem decide a saída é o runner.
+
+### Medido
+- O reporter padrão do vitest 5.0.5 ENGOLE o `console.log` de testes e hooks (só
+  `--reporter=verbose` mostra, prefixado com `stdout | arquivo`); `process.stdout.write` do
+  worker chega ao stdout do processo no início da linha, que é onde o runner do Actions
+  reconhece `::warning`. O adaptador escreve por `process.stdout.write`. Provado de ponta a
+  ponta por `tests/vitest-adaptador.test.ts`, que roda um vitest filho sobre
+  `tests/fixtures/vitest/` e lê código de saída, stdout e resumo.
+
 ## [0.1.1] — 2026-10-22
 
 Primeira versão publicada pelo workflow (trusted publishing, com atestação); a 0.1.0 saiu

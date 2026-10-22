@@ -1,7 +1,7 @@
 {
   "name": "@sbissoli/mcp-live-source",
-  "version": "0.1.1",
-  "description": "Repórter de teste contra a fonte viva (contrato, smoke, sonda): separa 'a fonte mudou' de 'a fonte está fora' pelo veredito do mcp-upstream, conta o disjuntor, repete o que vale repetir e escreve resumo e anotações do GitHub Actions num contrato fixo que o painel do portfólio lê",
+  "version": "0.2.0",
+  "description": "Repórter de teste contra a fonte viva (contrato, smoke, sonda): separa 'a fonte mudou' de 'a fonte está fora' pelo veredito do mcp-upstream, conta o disjuntor, repete o que vale repetir e escreve resumo e anotações do GitHub Actions num contrato fixo que o painel do portfólio lê — como script de captura ou como adaptador do vitest (`aoVivo`: fonte fora = teste pulado, verde)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/SidneyBissoli/mcp-br-commons.git",
@@ -17,6 +17,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./vitest": {
+      "types": "./dist/vitest.d.ts",
+      "default": "./dist/vitest.js"
     }
   },
   "files": [
@@ -32,9 +36,21 @@
   "dependencies": {
     "@sbissoli/mcp-upstream": "^0.5.1"
   },
+  "peerDependencies": {
+    "vitest": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "vitest": "^5.0.2"
+  },
   "keywords": [
     "mcp",
     "contract-testing",
+    "vitest",
     "live-source",
     "drift",
     "outage",

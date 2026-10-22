@@ -45,7 +45,7 @@ export async function capturarComRetentativa<T>(fn: () => Promise<T>, opcoes: Op
   const esperaMs = opcoes.esperaMs ?? ((n) => 2000 * n);
   const repetir = opcoes.repetir ?? repetirPorPadrao;
   const dormir = opcoes.dormir ?? dormirDeVerdade;
-  const classificacao: OpcoesDeClassificacao = { dependencia: opcoes.dependencia };
+  const classificacao: OpcoesDeClassificacao = { dependencia: opcoes.dependencia, deriva: opcoes.deriva };
 
   let ultimo: unknown;
   let idas = 0;

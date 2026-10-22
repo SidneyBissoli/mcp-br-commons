@@ -63,8 +63,30 @@ export interface EntregaDaOrigem {
 const INDISPONIVEL: ReadonlySet<UpstreamErrorKind> = new Set(["timeout", "network", "rate_limited", "http_5xx"]);
 const RESPONDEU: ReadonlySet<UpstreamErrorKind> = new Set(["not_found", "http_4xx"]);
 
+/**
+ * O `UpstreamError` do pacote, se `err` é um ou CARREGA um na cadeia `cause`.
+ *
+ * Os servidores do portfólio traduzem o erro do pacote para uma classe local (o
+ * senado tem o seu `UpstreamError`, o medical o `HttpError`) antes de ele chegar a
+ * quem testa o contrato — e, até a 0.5.0, essa tradução deixava o veredito em
+ * `alheio`, como se o erro fosse do nosso código. Seguir `cause` deixa o servidor
+ * manter a classe dele e ainda assim responder a pergunta certa, desde que ele
+ * passe o erro do pacote como `cause` (ES2022). A busca para no primeiro
+ * `UpstreamError` e tem teto, porque `cause` pode formar ciclo.
+ */
+function origemNaCadeia(err: unknown): UpstreamError | undefined {
+  let atual: unknown = err;
+  for (let profundidade = 0; profundidade < 16 && atual !== undefined && atual !== null; profundidade++) {
+    if (atual instanceof UpstreamError) return atual;
+    if (!(atual instanceof Error)) return undefined;
+    atual = atual.cause;
+  }
+  return undefined;
+}
+
 export function entregaDaOrigem(err: unknown): EntregaDaOrigem {
-  if (!(err instanceof UpstreamError)) {
+  const daOrigem = origemNaCadeia(err);
+  if (daOrigem === undefined) {
     const texto = err instanceof Error ? err.message : String(err);
     return {
       veredito: "alheio",
@@ -74,6 +96,10 @@ export function entregaDaOrigem(err: unknown): EntregaDaOrigem {
       motivo: `erro que não veio da origem (${err instanceof Error ? err.name : typeof err}): ${texto}`,
     };
   }
+  return vereditoDoErro(daOrigem);
+}
+
+function vereditoDoErro(err: UpstreamError): EntregaDaOrigem {
   const base = { kind: err.kind, status: err.status, url: err.url };
   const tent = err.attempts === 1 ? "1 tentativa" : `${err.attempts} tentativas`;
   if (err.kind === "aborted") {

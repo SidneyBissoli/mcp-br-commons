@@ -4,6 +4,22 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.5.1] — 2026-10-22
+
+Patch: o único comportamento que muda é o de um erro que na 0.5.0 saía `alheio`.
+
+### Corrigido
+- **`entregaDaOrigem` segue a cadeia `cause`** até achar o `UpstreamError` do pacote. Os
+  servidores traduzem o erro do pacote para uma classe local antes de ele chegar ao teste
+  de contrato (o senado para o seu `UpstreamError`, o medical para `HttpError`), e na 0.5.0
+  esse erro traduzido caía em `alheio` — "defeito do nosso código" — mesmo quando a origem
+  tinha respondido 502. Basta o servidor passar o erro do pacote como `cause` (ES2022) e o
+  veredito volta a ser o da origem; a classe e a mensagem locais ficam. A busca para no
+  primeiro `UpstreamError` e tem teto de profundidade (ciclo em `cause` não trava). Erro
+  sem `UpstreamError` na cadeia continua `alheio`. É o que o repórter de teste vivo
+  (`@sbissoli/mcp-fonte-viva`) precisa para classificar sem que cada servidor reescreva
+  a tradução.
+
 ## [0.5.0] — 2026-10-22
 
 Export novo; nada do que existia muda. Minor porque a superfície publicada cresce

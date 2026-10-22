@@ -172,8 +172,14 @@ catch (e) {
 | `ambiguo` | `malformed_body` | Chegou corpo que não é o esperado: ou o formato mudou (deriva), ou a origem serviu a página de erro num pedido bom (o SGS faz isso em série que existe). Se resolve por **repetição** em outra ida, não por leitura desta. |
 | `alheio` | `aborted`, ou erro que não é `UpstreamError` | Não é a origem: o chamador abortou, ou é defeito do próprio código. Reprovar o contrato por isso culparia a fonte pelo que é nosso. |
 
+A função segue a cadeia `cause` do erro (desde a 0.5.1): o servidor que traduz o erro do
+pacote para uma classe própria mantém o veredito da origem desde que passe o erro do
+pacote como `cause` (`new MeuErro(msg, { cause: err })`). Erro sem `UpstreamError` em
+lugar nenhum da cadeia é `alheio`.
+
 O que a função **não** faz: política. Se `indisponivel` vira aviso, teste pulado ou
-código de saída é decisão de quem relata, por formato.
+código de saída é decisão de quem relata, por formato — e esse repórter é o
+[`@sbissoli/mcp-fonte-viva`](https://www.npmjs.com/package/@sbissoli/mcp-fonte-viva).
 
 ### Adaptador por AsyncLocalStorage (opcional)
 

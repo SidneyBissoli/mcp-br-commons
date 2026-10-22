@@ -59,6 +59,39 @@ describe("entregaDaOrigem: a origem entregou algo medível?", () => {
     expect(entregaDaOrigem("string solta").veredito).toBe("alheio");
   });
 
+  it("segue a cadeia `cause` até o UpstreamError do pacote (servidor que traduz para classe local)", () => {
+    // O senado embrulha o erro do pacote num `UpstreamError` LOCAL (classe própria,
+    // mensagem própria); o medical num `HttpError`. Com o erro do pacote em `cause`,
+    // o veredito é o da origem, não `alheio`.
+    class ErroLocal extends Error {
+      constructor(msg: string, cause: unknown) {
+        super(msg, { cause });
+        this.name = "UpstreamError";
+      }
+    }
+    const pacote = erro("http_5xx", { status: 502, attempts: 3 });
+    const local = new ErroLocal("[/taquigrafia/videos] Upstream retornou HTTP 502", pacote);
+    const e = entregaDaOrigem(local);
+    expect(e.veredito).toBe("indisponivel");
+    expect(e.status).toBe(502);
+    expect(e.url).toBe("https://origem.exemplo/recurso");
+
+    // Dois níveis (erro de domínio → erro local → pacote) também.
+    const dominio = new Error("captura falhou", { cause: local });
+    expect(entregaDaOrigem(dominio).veredito).toBe("indisponivel");
+
+    // `cause` que não leva a um UpstreamError continua alheio.
+    expect(entregaDaOrigem(new Error("x", { cause: new TypeError("y") })).veredito).toBe("alheio");
+    expect(entregaDaOrigem(new Error("x", { cause: "texto" })).veredito).toBe("alheio");
+  });
+
+  it("cadeia `cause` em ciclo não trava", () => {
+    const a = new Error("a");
+    const b = new Error("b", { cause: a });
+    (a as { cause?: unknown }).cause = b;
+    expect(entregaDaOrigem(a).veredito).toBe("alheio");
+  });
+
   it("todo kind do pacote tem veredito decidido — kind novo não cai em omissão", () => {
     const kinds: UpstreamErrorKind[] = [
       "timeout",

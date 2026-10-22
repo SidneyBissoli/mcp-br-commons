@@ -177,8 +177,14 @@ catch (e) {
 | `ambiguo` (ambiguous) | `malformed_body` | A body arrived that is not the expected one: either the format changed (real drift) or the origin served its error page to a sound request (the Central Bank's SGS does that for series that exist). Resolved by **repeating** on another trip, not by reading this one. |
 | `alheio` (not the origin's) | `aborted`, or an error that is not an `UpstreamError` | The caller aborted, or it is a defect in our own code. Failing the contract for it would blame the source for what is ours. |
 
+The function follows the error's `cause` chain (since 0.5.1): a server that translates
+the package error into its own class keeps the verdict of the origin as long as it passes
+the package error as `cause` (`new MyError(msg, { cause: err })`). An error with no
+`UpstreamError` anywhere in the chain is `alheio`.
+
 What the function does **not** do: policy. Whether `indisponivel` becomes a warning, a
-skipped test or an exit code is the reporter's decision, per format.
+skipped test or an exit code is the reporter's decision, per format — that reporter is
+[`@sbissoli/mcp-fonte-viva`](https://www.npmjs.com/package/@sbissoli/mcp-fonte-viva).
 
 ### AsyncLocalStorage adapter (optional)
 

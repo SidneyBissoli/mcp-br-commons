@@ -72,10 +72,17 @@ function runnerDuble() {
         else saida.push({ nome: t.nome, estado: "falhou", erro: err });
       }
     }
-    for (const fn of depois) fn();
+    for (const fn of depois) {
+      try {
+        fn();
+      } catch (err) {
+        errosDoAfterAll.push(err);
+      }
+    }
     return saida;
   }
-  return { ganchos, testes, rodar };
+  const errosDoAfterAll: unknown[] = [];
+  return { ganchos, testes, rodar, errosDoAfterAll };
 }
 
 const semEspera: OpcoesDaSuite["retentativa"] = { dormir: async () => {} };
@@ -206,6 +213,32 @@ describe("criarSuiteAoVivo — a política traduzida para teste", () => {
     expect(resumo.disjuntor).toBe(true);
     expect(s.comandos).toHaveLength(1);
     expect(s.comandos[0]).toContain(`::error title=${TITULO_FONTE_INALCANCAVEL}::`);
+    // E o arquivo FALHA (como o código 3 do script): o afterAll lança, para o retry
+    // automático re-rodar num runner novo — medido no primeiro dispatch do ibge, 22/10/2026.
+    expect(s.errosDoAfterAll).toHaveLength(1);
+    expect(String(s.errosDoAfterAll[0])).toMatch(new RegExp(`${TITULO_FONTE_INALCANCAVEL}: a origem não respondeu`));
+  });
+
+  it("falharSeInalcancavel: false deixa o arquivo verde só com a anotação", async () => {
+    const s = suite({ limiteDoDisjuntor: 1, falharSeInalcancavel: false });
+    s.aoVivo("a", async () => {
+      throw daOrigem("timeout");
+    });
+    await s.rodar();
+    expect(s.relatorio.resumo().disjuntor).toBe(true);
+    expect(s.comandos[0]).toContain(`::error title=${TITULO_FONTE_INALCANCAVEL}::`);
+    expect(s.errosDoAfterAll).toEqual([]);
+  });
+
+  it("só indisponível COM captura antes não dispara o disjuntor nem falha o arquivo", async () => {
+    const s = suite({ limiteDoDisjuntor: 1 });
+    s.aoVivo("ok", async () => {});
+    s.aoVivo("b", async () => {
+      throw daOrigem("http_5xx", 503);
+    });
+    await s.rodar();
+    expect(s.comandos).toEqual([`::warning title=${TITULO_FONTE_INDISPONIVEL}::b`]);
+    expect(s.errosDoAfterAll).toEqual([]);
   });
 
   it("uma captura antes desarma o disjuntor: a sequência é sobre os endpoints, não sobre a conexão", async () => {

@@ -5,6 +5,21 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). Os TÍTULOS das anotações (`TITULO_*`) são
 contrato com o painel do portfólio: mudar um é minor com nota de migração.
 
+## [0.2.1] — 2026-10-22
+
+Patch: o único comportamento que muda é o do arquivo vitest em que NADA foi capturado.
+
+### Corrigido
+- **Disjuntor disparado no vitest = o arquivo FALHA** (`afterAll` lança), como o código 3
+  do script de captura — opção `falharSeInalcancavel` (padrão `true`). Medido no primeiro
+  dispatch real do ibge depois do 0.2.0 (run 39850550875): os quatro arquivos saíram
+  VERDES com `::error title=Fonte inalcançável` (3 indisponíveis seguidas, nada capturado
+  em cada um) — era o runner bloqueado pela origem (regime medido em 12/09/2026, cura =
+  runner novo), e o `integration-retry.yml` só re-roda em `failure`. Verde ali perdia a
+  noite: a 0.2.0 deixava "verde com skips" porque "o runner decide a saída", mas a política
+  do dono diz que nada respondeu é vermelho. Prova de ponta a ponta nova
+  (`tests/fixtures/vitest/inalcancavel.fixture.ts`): 4 pulados, c e d sem ir à rede, saída 1.
+
 ## [0.2.0] — 2026-10-22
 
 Minor: superfície nova (subpath `./vitest`, `criarSuiteAoVivo`, predicado `deriva`,

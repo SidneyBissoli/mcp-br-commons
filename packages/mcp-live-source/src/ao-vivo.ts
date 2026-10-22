@@ -20,7 +20,8 @@ import type { Falha } from "./veredito.js";
  * O disjuntor vale: os testes de um arquivo rodam em sequência, e a partir do momento em
  * que N testes seguidos saíram indisponíveis sem NENHUMA captura, os seguintes pulam sem
  * ir à rede (`registrarNaoMedida`) — a anotação sai `Fonte inalcançável` (erro, como no
- * script), mas o processo sai verde: o runner decide a saída, não o relatório. Com
+ * script) e o `afterAll` LANÇA (`falharSeInalcancavel`, padrão): o arquivo fica vermelho,
+ * como o código 3 do script, para o retry automático re-rodar num runner novo. Com
  * `describe.concurrent` a ordem não é garantida e o disjuntor pode disparar tarde; não
  * usar.
  */
@@ -53,6 +54,13 @@ export interface OpcoesDaSuite extends OpcoesDoRelatorio {
   retentativa?: Omit<OpcoesDeRetentativa, "dependencia" | "deriva"> | undefined;
   /** Destinos do relatório no `afterAll`. Padrão: stdout, `$GITHUB_STEP_SUMMARY`. */
   destinos?: Destinos | undefined;
+  /**
+   * Disjuntor disparado (nada capturado, N indisponíveis seguidas) = o `afterAll` LANÇA e
+   * o arquivo falha — o equivalente ao código 3 do script de captura, para o retry
+   * automático re-rodar num runner novo. Padrão `true`; `false` deixa o arquivo verde
+   * só com a anotação `Fonte inalcançável`.
+   */
+  falharSeInalcancavel?: boolean | undefined;
 }
 
 export type AoVivo<Ctx extends ContextoDeTeste> = (
@@ -86,7 +94,19 @@ export function criarSuiteAoVivo<Ctx extends ContextoDeTeste>(
 
   ganchos.afterAll(() => {
     if (relatorio.resultados.length === 0) return;
-    relatorio.escrever({ ...opcoes.destinos, codigoDeSaida: false });
+    const resumo = relatorio.escrever({ ...opcoes.destinos, codigoDeSaida: false });
+    if (resumo.disjuntor && (opcoes.falharSeInalcancavel ?? true)) {
+      // O mesmo que o código 3 do script de captura: o arquivo FALHA de propósito.
+      // Medido no primeiro dispatch real (ibge, 22/10/2026): os quatro arquivos saíram
+      // verdes com `Fonte inalcançável` — o runner estava bloqueado pela origem (regime
+      // de 12/09/2026, cura = runner novo), e o retry automático só re-roda em
+      // `failure`. Verde ali perdia a noite em silêncio.
+      throw new Error(
+        `${TITULO_FONTE_INALCANCAVEL}: a origem não respondeu a nenhuma captura deste arquivo ` +
+          `(${relatorio.disjuntor.sequencia} indisponíveis seguidas); deriva NÃO medida. O arquivo ` +
+          "falha de propósito para o retry automático re-rodar num runner novo (outro IP de saída).",
+      );
+    }
   });
 
   const aoVivo: AoVivo<Ctx> = (nome, fn, o = {}) => {

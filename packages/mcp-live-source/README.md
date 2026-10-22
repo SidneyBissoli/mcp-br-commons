@@ -141,7 +141,9 @@ with no retries and a short deadline) and decides by `entregaDaOrigem`:
 | The tool answered `isError` and… | Verdict | Effect |
 |---|---|---|
 | the probe did not get what it expected (timeout, network, 429, 5xx, body refused by `aceita`) | `indisponivel` | **green** with `::warning title=Fonte indisponível::tool` |
-| the probe got it, or the source answered (4xx) | `alheio` | **red**: the tool broke with the source up; the tool's text is in the reason |
+| the source answered 4xx with an **HTML page** (gateway/WAF error page, not the resource) | `indisponivel` | green with the warning (0.3.1) |
+| the source refused (401/403) a probe that went **with a credential** (`recusaEhFora: true`) | `indisponivel` | green with the warning (0.3.1) |
+| the probe got it, or the source answered (4xx without an HTML page) | `alheio` | **red**: the tool broke with the source up; the tool's text is in the reason |
 | no probe is declared for that check | `alheio` | red: nobody measured the source |
 
 A check that throws (an assertion on the result, the endpoint's HTTP) is a deploy defect
@@ -208,8 +210,9 @@ records a check that was never attempted because one it depends on failed.
 - Post-deploy smoke: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`
   → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe? }), naoMedida(nome, motivo),
   sondar(nomes?), concluir(), relatorio }`. A `Sonda` is `{ nome, url, aceita?, cabecalhos?,
-  timeoutMs? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` returns `EstadoDaSonda[]` with
-  `veredito` `servindo` / `fora` / `nao-sondada`.
+  timeoutMs?, recusaEhFora? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` returns `EstadoDaSonda[]`
+  with `veredito` `servindo` / `fora` / `nao-sondada`. `pareceHtml(corpo)` is the test the probe
+  applies to a 4xx body (document opening: `<!doctype html`, `<html`, `<head`, `<body`).
 - `anotacao(nivel, titulo, mensagem)`, `escaparMensagem`, `escaparPropriedade`: workflow
   commands with the runner's escaping (`%`, `\r`, `\n` in the message; `:` and `,` too in
   properties). `resumoMarkdown(resumo)`, `linhasDeConclusao(resumo, { codigoDeSaida? })`,

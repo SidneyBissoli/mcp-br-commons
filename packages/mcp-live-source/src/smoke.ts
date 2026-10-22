@@ -1,4 +1,4 @@
-import { createUpstream, entregaDaOrigem, type EntregaDaOrigem } from "@sbissoli/mcp-upstream";
+import { UpstreamError, createUpstream, entregaDaOrigem, type EntregaDaOrigem } from "@sbissoli/mcp-upstream";
 import { Relatorio, type Destinos, type Resumo, type Vocabulario } from "./relatorio.js";
 import type { Falha } from "./veredito.js";
 
@@ -22,8 +22,18 @@ import type { Falha } from "./veredito.js";
  * | A tool devolveu `isError` e… | Veredito | Efeito |
  * |---|---|---|
  * | a sonda não obteve o esperado (timeout, rede, 429, 5xx, corpo não aceito) | `indisponivel` | **verde** com `::warning title=Fonte indisponível::tool` |
- * | a sonda obteve o esperado, ou a origem respondeu (4xx) | `alheio` | **vermelho** (`Falha alheia à origem`): a tool quebrou com a fonte de pé |
+ * | a origem respondeu 4xx com PÁGINA HTML (gateway/WAF, não o recurso) | `indisponivel` | verde com aviso — 0.3.1 |
+ * | a origem recusou (401/403) uma sonda que foi COM credencial (`recusaEhFora`) | `indisponivel` | verde com aviso — 0.3.1 |
+ * | a sonda obteve o esperado, ou a origem respondeu (4xx sem página HTML) | `alheio` | **vermelho** (`Falha alheia à origem`): a tool quebrou com a fonte de pé |
  * | não há sonda declarada para a verificação | `alheio` | vermelho: ninguém mediu a fonte |
+ *
+ * Por que 4xx com HTML é fora (0.3.1): medido em 22/10/2026 no pool da OIT (`sdmx.ilo.org`,
+ * 3 servidores atrás de um cookie de afinidade): dois deles respondiam 403 com a página de
+ * erro do IIS a um pedido BOM, em ~60% dos pedidos; o 502 do BCB atrás do Azure Front Door
+ * também é página HTML. Uma página de erro de gateway não é a origem respondendo ao
+ * pedido — é a origem não entregando o recurso; lê-la como "de pé" pintava de vermelho a
+ * tool que tinha falhado exatamente por isso. A `aceita` NÃO é consultada em 4xx: quem
+ * decide é a forma do corpo (HTML), porque um 404 em JSON continua sendo resposta.
  *
  * O resto do smoke não muda de natureza: a verificação que LANÇA (asserção sobre o
  * resultado, HTTP do endpoint, JSON-RPC) é defeito do deploy e sai vermelha; a tool
@@ -51,6 +61,24 @@ export interface Sonda {
   cabecalhos?: Record<string, string> | undefined;
   /** Teto da sonda, em ms, numa tentativa só. Padrão 8 000. */
   timeoutMs?: number | undefined;
+  /**
+   * A sonda vai COM credencial (bearer em `cabecalhos`): então 401/403 não é "a origem
+   * está de pé e recusou o pedido mínimo" — é a origem recusando a credencial que o
+   * servidor usa, isto é, não servindo a nós. Conta como fora (aviso), com o status no
+   * estado. Padrão `false`: sem credencial, 4xx sem página HTML é "de pé". Medido na API
+   * ICD-11 da OMS (22/10/2026): nenhum recurso dela responde sem token.
+   */
+  recusaEhFora?: boolean | undefined;
+}
+
+/**
+ * O corpo é uma página HTML (de erro de gateway/WAF), não o recurso pedido? Decide pela
+ * ABERTURA do documento (depois de espaço em branco), não por `<html` em qualquer lugar:
+ * um JSON que cite HTML num campo é JSON.
+ */
+export function pareceHtml(corpo: string | undefined): boolean {
+  if (corpo === undefined) return false;
+  return /^\s*(<!doctype\s+html|<html[\s>]|<head[\s>]|<body[\s>])/i.test(corpo.slice(0, 1024));
 }
 
 export const TEMPO_DA_SONDA_MS = 8_000;
@@ -157,10 +185,24 @@ async function sondarUma(sonda: Sonda, fetchImpl: typeof fetch | undefined): Pro
     const entrega = entregaDaOrigem(err);
     const ms = decorrido(inicio);
     if (entrega.veredito === "respondeu") {
+      const status = entrega.status ?? "4xx";
+      const corpo = err instanceof UpstreamError ? err.body : undefined;
+      if (pareceHtml(corpo)) {
+        return {
+          ...base,
+          veredito: "fora",
+          estado: `FORA (respondeu HTTP ${status} com página HTML — página de erro de gateway/WAF, não o recurso)`,
+          ms,
+          entrega,
+        };
+      }
+      if (sonda.recusaEhFora === true) {
+        return { ...base, veredito: "fora", estado: `FORA (recusou a credencial da sonda: HTTP ${status})`, ms, entrega };
+      }
       return {
         ...base,
         veredito: "servindo",
-        estado: `de pé, mas recusou o pedido mínimo (HTTP ${entrega.status ?? "4xx"}) — conferir a URL da sonda`,
+        estado: `de pé, mas recusou o pedido mínimo (HTTP ${status}) — conferir a URL da sonda`,
         ms,
         entrega,
       };

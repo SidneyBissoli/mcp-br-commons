@@ -5,6 +5,33 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). Os TÍTULOS das anotações (`TITULO_*`) são
 contrato com o painel do portfólio: mudar um é minor com nota de migração.
 
+## [0.3.1] — 2026-10-22
+
+Patch: só o veredito da SONDA do smoke muda, em dois casos que a 0.3.0 lia como "de pé";
+títulos, códigos de saída e a API existente ficam como estão. Pedido do dono na mesma noite,
+sobre os achados dos consumidores.
+
+### Corrigido
+- **4xx com página HTML é fonte fora, não "de pé".** Medido no ilo (22/10/2026, 30 pedidos):
+  o pool do SDMX da OIT (3 servidores atrás de um cookie de afinidade) responde 403 com a
+  página de erro do IIS a um pedido BOM em dois deles, ~60% dos pedidos no instante; o 502
+  do BCB atrás do Azure Front Door também é página HTML. `entregaDaOrigem` diz `respondeu`
+  a 4xx (e está certo para a tool), mas na SONDA de uma URL que existe a página de gateway
+  não é resposta — é a origem não entregando o recurso, e lê-la como "de pé" pintava de
+  vermelho a tool que falhou exatamente por isso. Agora `sondarUma` lê o corpo do erro
+  (`UpstreamError.body`) e, se `pareceHtml` (abertura do documento: `<!doctype html`,
+  `<html`, `<head`, `<body`; JSON que cite HTML é JSON), o estado é `FORA (respondeu HTTP
+  403 com página HTML …)` e a tool que falhou vira aviso. 4xx sem página (JSON, vazio)
+  continua "de pé, recusou o pedido mínimo".
+
+### Adicionado
+- **`Sonda.recusaEhFora`**: a sonda que vai COM credencial (bearer em `cabecalhos`). Então
+  401/403 não é "de pé e recusou o pedido mínimo" — é a origem recusando a credencial que o
+  servidor usa, isto é, não servindo a nós: fora (aviso), com o status no estado. Medido na
+  API ICD-11 da OMS: nenhum recurso dela responde sem token, e a sonda da 0.3.0 só conseguia
+  "esperar o 401" — cega a uma auth quebrada do lado deles. Padrão `false`.
+- `pareceHtml(corpo)` exportado.
+
 ## [0.3.0] — 2026-10-22
 
 Minor: superfície nova (`criarSmoke`, `registrarVeredito`, `vocabulario` do `Relatorio`);

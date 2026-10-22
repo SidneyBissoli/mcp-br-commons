@@ -140,7 +140,9 @@ por `entregaDaOrigem`:
 | A tool devolveu `isError` e… | Veredito | Efeito |
 |---|---|---|
 | a sonda não obteve o esperado (timeout, rede, 429, 5xx, corpo que `aceita` recusou) | `indisponivel` | **verde** com `::warning title=Fonte indisponível::tool` |
-| a sonda obteve, ou a origem respondeu (4xx) | `alheio` | **vermelho**: a tool quebrou com a fonte de pé; o texto da tool vai no motivo |
+| a origem respondeu 4xx com **página HTML** (página de erro de gateway/WAF, não o recurso) | `indisponivel` | verde com o aviso (0.3.1) |
+| a origem recusou (401/403) uma sonda que foi **com credencial** (`recusaEhFora: true`) | `indisponivel` | verde com o aviso (0.3.1) |
+| a sonda obteve, ou a origem respondeu (4xx sem página HTML) | `alheio` | **vermelho**: a tool quebrou com a fonte de pé; o texto da tool vai no motivo |
 | não há sonda declarada para a verificação | `alheio` | vermelho: ninguém mediu a fonte |
 
 Verificação que lança (asserção sobre o resultado, HTTP do endpoint) é defeito do deploy e
@@ -206,8 +208,9 @@ registra a verificação que nem foi tentada porque depende de outra que falhou.
 - Smoke pós-deploy: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`
   → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe? }), naoMedida(nome, motivo),
   sondar(nomes?), concluir(), relatorio }`. Uma `Sonda` é `{ nome, url, aceita?, cabecalhos?,
-  timeoutMs? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` devolve `EstadoDaSonda[]` com
-  `veredito` `servindo` / `fora` / `nao-sondada`.
+  timeoutMs?, recusaEhFora? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` devolve `EstadoDaSonda[]`
+  com `veredito` `servindo` / `fora` / `nao-sondada`. `pareceHtml(corpo)` é o teste que a sonda
+  aplica ao corpo de um 4xx (abertura do documento: `<!doctype html`, `<html`, `<head`, `<body`).
 - `anotacao(nivel, titulo, mensagem)`, `escaparMensagem`, `escaparPropriedade`: comandos
   de workflow com o escape do runner (`%`, `\r`, `\n` na mensagem; `:` e `,` também nas
   propriedades). `resumoMarkdown(resumo)`, `linhasDeConclusao(resumo, { codigoDeSaida? })`,

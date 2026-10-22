@@ -126,6 +126,12 @@ Para o `mcp-surface`, há uma prova mais direta: capturar os sete endpoints no a
 - **Build antes de typecheck.** Em clone limpo não há `dist/`, e o template que importa um
   irmão pelo nome falha com TS2307 (derrubou a primeira execução do CI, 30/08/2026 —
   comentário do `ci.yml`).
+- **`npm run build --workspaces` segue a ordem ALFABÉTICA das pastas**, não a das
+  dependências. `mcp-upstream` depende de `mcp-provenance` e funcionava por sorte (p < u);
+  `mcp-fonte-viva` depende de `mcp-upstream` e vem antes (f < u) — em clone limpo o CI
+  reprovou com TS2307 em 22/10/2026 (#56). O `build` da raiz compila primeiro os dois
+  pacotes-base (`-w packages/mcp-provenance -w packages/mcp-upstream`) e só então todos.
+  Pacote novo que depende de outro irmão: conferir a ordem, não a sorte.
 - **Proveniência não é retroativa.** A atestação prende-se no ato de publicar: versão já
   publicada sem ela só se conserta com versão nova (#15).
 - **O npm publica de forma assíncrona**: a versão pode levar minutos para aparecer em

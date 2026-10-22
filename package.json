@@ -1,26 +1,26 @@
-{
-  "name": "mcp-br-commons",
-  "private": true,
-  "description": "Componentes compartilhados do portfólio de servidores MCP (Fase 0)",
-  "engines": {
-    "node": ">=22"
-  },
-  "workspaces": [
-    "packages/*",
-    "templates/*"
-  ],
-  "scripts": {
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm test --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present"
-  },
-  "devDependencies": {
-    "@types/node": "^26.6.2",
-    "typescript": "^7.0.2",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2"
-  },
-  "overrides": {
-    "sharp": "^0.35.4"
-  }
-}
+{
+  "name": "mcp-br-commons",
+  "private": true,
+  "description": "Componentes compartilhados do portfólio de servidores MCP (Fase 0)",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "templates/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "build": "npm run build -w packages/mcp-provenance -w packages/mcp-upstream && npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  },
+  "overrides": {
+    "sharp": "^0.35.4"
+  }
+}

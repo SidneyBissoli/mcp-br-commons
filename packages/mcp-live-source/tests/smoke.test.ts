@@ -8,6 +8,7 @@ import {
   TITULO_FONTE_INDISPONIVEL,
   VOCABULARIO_DO_SMOKE,
   criarSmoke,
+  pareceHtml,
   resumoMarkdown,
   type Destinos,
   type Sonda,
@@ -120,6 +121,66 @@ describe("criarSmoke — a política do smoke pós-deploy", () => {
     expect(resumo.alheias[0]!.falha.motivo).toContain("a tool disse: Parâmetro X inválido");
     expect(d.comandos).toEqual([`::error title=${TITULO_ALHEIO}::ibge_sidra`]);
     expect(d.linhas.some((l) => l.startsWith("  [FALHA] ibge_sidra — "))).toBe(true);
+  });
+
+  it("4xx com PÁGINA HTML é página de erro de gateway/WAF, não resposta: fonte fora, aviso (pool da OIT, 22/10/2026)", async () => {
+    const PAGINA_IIS = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"><html><head><title>403 - Forbidden</title></head><body>…</body></html>';
+    const d = coletor();
+    const smoke = criarSmoke({
+      sondas: [SIDRA],
+      destinos: d,
+      fetchImpl: fetchDe({ [SIDRA.url]: () => new Response(PAGINA_IIS, { status: 403, headers: { "content-type": "text/html" } }) }),
+    });
+    const [estado] = await smoke.sondar();
+    expect(estado!.veredito).toBe("fora");
+    expect(estado!.estado).toContain("HTTP 403 com página HTML");
+    await smoke.verificar("ilo_get_data", async () => erroDaTool("ILOSTAT respondeu 403"));
+    const resumo = smoke.concluir();
+    expect(resumo.codigoDeSaida).toBe(SAIDA_OK);
+    expect(resumo.naoMedidas[0]!.falha.kind).toBe("http_4xx");
+    expect(resumo.naoMedidas[0]!.falha.status).toBe(403);
+    expect(d.comandos).toEqual([`::warning title=${TITULO_FONTE_INDISPONIVEL}::ilo_get_data`]);
+  });
+
+  it("4xx SEM página HTML (JSON, vazio) continua sendo resposta: de pé", async () => {
+    for (const corpo of ['{"error":"not found"}', ""]) {
+      const smoke = criarSmoke({
+        sondas: [SIDRA],
+        destinos: coletor(),
+        fetchImpl: fetchDe({ [SIDRA.url]: () => new Response(corpo, { status: 404 }) }),
+      });
+      const [estado] = await smoke.sondar();
+      expect(estado!.veredito).toBe("servindo");
+    }
+  });
+
+  it("sonda COM credencial (`recusaEhFora`): 401 é a origem recusando a credencial — fora, aviso; 2xx continua servindo", async () => {
+    const OMS: Sonda = {
+      nome: "who-api",
+      url: "https://origem.exemplo/icd/entity",
+      cabecalhos: { Authorization: "Bearer x" },
+      recusaEhFora: true,
+    };
+    const d = coletor();
+    const smoke = criarSmoke({ sondas: [OMS], destinos: d, fetchImpl: fetchDe({ [OMS.url]: () => new Response("", { status: 401 }) }) });
+    const [estado] = await smoke.sondar();
+    expect(estado!.veredito).toBe("fora");
+    expect(estado!.estado).toBe("FORA (recusou a credencial da sonda: HTTP 401)");
+    await smoke.verificar("icd11_search", async () => erroDaTool("WHO API 401"));
+    expect(smoke.concluir().codigoDeSaida).toBe(SAIDA_OK);
+
+    const ok = criarSmoke({ sondas: [OMS], destinos: coletor(), fetchImpl: fetchDe({ [OMS.url]: () => new Response('{"title":"x"}', { status: 200 }) }) });
+    expect((await ok.sondar())[0]!.veredito).toBe("servindo");
+  });
+
+  it("pareceHtml reconhece a página pelos primeiros bytes, não pelo content-type", () => {
+    expect(pareceHtml("<!DOCTYPE html><html>")).toBe(true);
+    expect(pareceHtml("  <html lang=\"en\">")).toBe(true);
+    expect(pareceHtml("<HTML>")).toBe(true);
+    expect(pareceHtml('{"erro":"<html> no texto"}')).toBe(false); // JSON que cita HTML é JSON: decide a abertura do documento
+    expect(pareceHtml('{"error":"not found"}')).toBe(false);
+    expect(pareceHtml("")).toBe(false);
+    expect(pareceHtml(undefined)).toBe(false);
   });
 
   it("origem que RECUSA a sonda (4xx) está de pé: a falha da tool é nossa, e o estado manda conferir a URL", async () => {

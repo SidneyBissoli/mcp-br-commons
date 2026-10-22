@@ -45,6 +45,7 @@ export {
   TEMPO_DA_SONDA_MS,
   VOCABULARIO_DO_SMOKE,
   criarSmoke,
+  pareceHtml,
   type EstadoDaSonda,
   type OpcoesDeVerificacao,
   type OpcoesDoSmoke,

@@ -5,6 +5,26 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). Os TÍTULOS das anotações (`TITULO_*`) são
 contrato com o painel do portfólio: mudar um é minor com nota de migração.
 
+## [0.1.1] — 2026-10-22
+
+Primeira versão publicada pelo workflow (trusted publishing, com atestação); a 0.1.0 saiu
+à mão. Patch: superfície só cresce com opções novas, nada do que existia muda.
+
+### Adicionado
+- **`aoDesistir(idas, falha)`** em `capturarComRetentativa` e **`idas`** em
+  `registrarFalha(nome, err, ms, { idas })` / `ResultadoFalho`: quantas vezes o SCRIPT
+  tentou a captura. O `motivo` da origem conta as tentativas de UMA ida (um timeout é
+  "1 tentativa" no mcp-upstream), e na primeira rodada em CI (senado, 22/10/2026) a
+  linha dizia "em 1 tentativa" depois de três idas de 36 s. A linha do log passa a trazer
+  `(36008ms, 3 idas)` e a tabela do resumo ganha a coluna "Idas" — quando o script
+  informa; sem informar, nada muda.
+
+### Medido
+- Primeira rodada real em CI (senado `contract-tests`, dispatch de 22/10/2026 18:38 UTC):
+  62 de 64 capturadas, 2 timeouts, código 0, `::warning title=Fonte indisponível::
+  comissao-detalhe, processo-relatoria` legível em `check-runs/{job}/annotations`, resumo
+  no job. É o contrato que o painel do portfólio passa a ler (peça 3).
+
 ## [0.1.0] — 2026-10-22
 
 Primeira versão. Extraída do `scripts/contract/outage.ts` + `refresh-fixtures.ts` do

@@ -141,6 +141,19 @@ describe("capturarComRetentativa", () => {
     expect(nf).toHaveBeenCalledTimes(1);
   });
 
+  it("aoDesistir diz quantas idas o script fez — 3 no esgotamento, 1 quando não vale repetir", async () => {
+    const desistiu: number[] = [];
+    const sempre = vi.fn(async () => {
+      throw daOrigem("timeout");
+    });
+    await expect(capturarComRetentativa(sempre, { ...semEspera, aoDesistir: (n) => desistiu.push(n) })).rejects.toBeDefined();
+    const nf = vi.fn(async () => {
+      throw daOrigem("not_found", 404);
+    });
+    await expect(capturarComRetentativa(nf, { ...semEspera, aoDesistir: (n) => desistiu.push(n) })).rejects.toBeDefined();
+    expect(desistiu).toEqual([3, 1]);
+  });
+
   it("espera cresce com a tentativa (2 s · n por padrão)", async () => {
     const esperas: number[] = [];
     const fn = vi.fn(async () => {
@@ -288,10 +301,17 @@ describe("Relatorio: a política", () => {
     expect(anexos2).toEqual([]);
   });
 
-  it("linha de resultado como o script imprime ao vivo", () => {
+  it("linha de resultado como o script imprime ao vivo — com as idas do script quando informadas", () => {
     const r = new Relatorio();
     expect(linhaDeResultado(r.registrarCaptura("a", 120))).toBe("ok (120ms)");
     const falha = r.registrarFalha("b", daOrigem("http_5xx", 502), 36_000);
     expect(linhaDeResultado(falha)).toMatch(/^FALHOU \[indisponivel\] \(36000ms\): a origem respondeu HTTP 502/);
+    // O motivo da origem conta as tentativas de UMA ida ("1 tentativa" num timeout);
+    // as idas do script são outro número e aparecem ao lado (CI de 22/10/2026).
+    const comIdas = r.registrarFalha("c", daOrigem("timeout", undefined, 1), 36_000, { idas: 3 });
+    expect(linhaDeResultado(comIdas)).toMatch(/^FALHOU \[indisponivel\] \(36000ms, 3 idas\): .*1 tentativa/);
+    expect(linhaDeResultado(r.registrarFalha("d", daOrigem("not_found", 404), 10, { idas: 1 }))).toContain("(10ms, 1 ida)");
+    expect(resumoMarkdown(r.resumo())).toContain("| `c` | — | 3 | a origem não respondeu");
+    expect(resumoMarkdown(r.resumo())).toContain("| `b` | 502 | — | ");
   });
 });

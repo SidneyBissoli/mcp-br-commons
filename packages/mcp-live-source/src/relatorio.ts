@@ -30,6 +30,8 @@ export interface ResultadoFalho {
   ok: false;
   falha: Falha;
   ms: number;
+  /** Idas que o script fez (de `capturarComRetentativa`), quando informado. */
+  idas?: number | undefined;
 }
 export type Resultado = ResultadoOk | ResultadoFalho;
 
@@ -110,9 +112,9 @@ export class Relatorio {
     return r;
   }
 
-  registrarFalha(nome: string, err: unknown, ms: number): ResultadoFalho {
+  registrarFalha(nome: string, err: unknown, ms: number, opcoes: { idas?: number | undefined } = {}): ResultadoFalho {
     const falha = classificarFalha(err, this.#classificacao);
-    const r: ResultadoFalho = { nome, ok: false, falha, ms };
+    const r: ResultadoFalho = { nome, ok: false, falha, ms, idas: opcoes.idas };
     this.#resultados.push(r);
     this.#disjuntor.registrarFalha(falha.veredito);
     return r;
@@ -192,7 +194,13 @@ export class Relatorio {
 /** A linha de log de uma captura, como o script a imprime ao vivo. */
 export function linhaDeResultado(r: Resultado): string {
   if (r.ok) return `ok (${r.ms}ms)`;
-  return `FALHOU [${r.falha.veredito}] (${r.ms}ms): ${r.falha.motivo}`;
+  return `FALHOU [${r.falha.veredito}] (${r.ms}ms${idasTexto(r)}): ${r.falha.motivo}`;
+}
+
+/** ", 3 idas" quando o script informou quantas vezes tentou; vazio quando não. */
+function idasTexto(r: ResultadoFalho): string {
+  if (r.idas === undefined) return "";
+  return r.idas === 1 ? ", 1 ida" : `, ${r.idas} idas`;
 }
 
 export function linhasDeConclusao(resumo: Resumo): string[] {
@@ -240,9 +248,11 @@ export function resumoMarkdown(resumo: Resumo): string {
   }
   const tabela = (titulo: string, itens: ResultadoFalho[]) => {
     if (itens.length === 0) return;
-    partes.push(`#### ${titulo}`, "", "| Endpoint | HTTP | Motivo |", "|---|---|---|");
+    partes.push(`#### ${titulo}`, "", "| Endpoint | HTTP | Idas | Motivo |", "|---|---|---|---|");
     for (const r of itens) {
-      partes.push(`| \`${r.nome}\` | ${r.falha.status ?? "—"} | ${r.falha.motivo.replaceAll("|", "\\|")} |`);
+      partes.push(
+        `| \`${r.nome}\` | ${r.falha.status ?? "—"} | ${r.idas ?? "—"} | ${r.falha.motivo.replaceAll("|", "\\|")} |`,
+      );
     }
     partes.push("");
   };

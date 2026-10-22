@@ -13,6 +13,14 @@ export interface OpcoesDeRetentativa extends OpcoesDeClassificacao {
   repetir?: ((falha: Falha) => boolean) | undefined;
   /** Chamado a cada falha que vai ser repetida — para o log do script. */
   aoRepetir?: ((tentativa: number, falha: Falha) => void) | undefined;
+  /**
+   * Chamado uma vez, antes de relançar o último erro, com quantas idas o script fez.
+   * É o número que o `Relatorio` mostra (`registrarFalha(..., { idas })`): o `motivo`
+   * da origem conta as tentativas de UMA ida (um timeout é "1 tentativa" no pacote),
+   * e sem este número a linha do log dizia "em 1 tentativa" depois de três idas —
+   * medido na primeira rodada em CI, 22/10/2026.
+   */
+  aoDesistir?: ((idas: number, falha: Falha) => void) | undefined;
   /** Injetável nos testes. */
   dormir?: ((ms: number) => Promise<void>) | undefined;
 }
@@ -40,14 +48,18 @@ export async function capturarComRetentativa<T>(fn: () => Promise<T>, opcoes: Op
   const classificacao: OpcoesDeClassificacao = { dependencia: opcoes.dependencia };
 
   let ultimo: unknown;
+  let idas = 0;
   for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+    idas = tentativa;
     try {
       return await fn();
     } catch (err) {
       ultimo = err;
-      if (tentativa === tentativas) break;
       const falha = classificarFalha(err, classificacao);
-      if (!repetir(falha)) break;
+      if (tentativa === tentativas || !repetir(falha)) {
+        opcoes.aoDesistir?.(idas, falha);
+        break;
+      }
       opcoes.aoRepetir?.(tentativa, falha);
       await dormir(esperaMs(tentativa));
     }

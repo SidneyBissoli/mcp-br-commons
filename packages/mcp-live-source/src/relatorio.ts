@@ -63,6 +63,11 @@ export interface Destinos {
   env?: Record<string, string | undefined> | undefined;
   /** Grava o markdown no arquivo do resumo. Padrão `appendFileSync`. */
   anexar?: ((caminho: string, texto: string) => void) | undefined;
+  /**
+   * Imprimir a linha "código de saída: N". Padrão `true`. `false` quando quem decide a
+   * saída do processo é o runner (vitest), não o código do relatório.
+   */
+  codigoDeSaida?: boolean | undefined;
 }
 
 /**
@@ -94,7 +99,7 @@ export class Relatorio {
 
   constructor(opcoes: OpcoesDoRelatorio = {}) {
     this.#disjuntor = new Disjuntor(opcoes.limiteDoDisjuntor ?? LIMITE_PADRAO_DO_DISJUNTOR);
-    this.#classificacao = { dependencia: opcoes.dependencia };
+    this.#classificacao = { dependencia: opcoes.dependencia, deriva: opcoes.deriva };
   }
 
   get disjuntor(): Disjuntor {
@@ -117,6 +122,18 @@ export class Relatorio {
     const r: ResultadoFalho = { nome, ok: false, falha, ms, idas: opcoes.idas };
     this.#resultados.push(r);
     this.#disjuntor.registrarFalha(falha.veredito);
+    return r;
+  }
+
+  /**
+   * Captura que nem foi tentada porque o disjuntor já tinha disparado (num runner de
+   * testes, que não para o laço, cada teste seguinte pula sem ir à rede). Conta como
+   * não medida, sem mexer no disjuntor.
+   */
+  registrarNaoMedida(nome: string, motivo: string): ResultadoFalho {
+    const falha: Falha = { veredito: "dependencia", motivo, kind: undefined, status: undefined, url: undefined };
+    const r: ResultadoFalho = { nome, ok: false, falha, ms: 0 };
+    this.#resultados.push(r);
     return r;
   }
 
@@ -183,7 +200,7 @@ export class Relatorio {
     const anexar = destinos.anexar ?? ((caminho: string, texto: string) => appendFileSync(caminho, texto, "utf8"));
     const resumo = this.resumo();
 
-    for (const linha of linhasDeConclusao(resumo)) log(linha);
+    for (const linha of linhasDeConclusao(resumo, { codigoDeSaida: destinos.codigoDeSaida ?? true })) log(linha);
     for (const a of this.anotacoes(resumo)) comando(a);
     const arquivo = env["GITHUB_STEP_SUMMARY"];
     if (arquivo !== undefined && arquivo !== "") anexar(arquivo, resumoMarkdown(resumo));
@@ -203,7 +220,7 @@ function idasTexto(r: ResultadoFalho): string {
   return r.idas === 1 ? ", 1 ida" : `, ${r.idas} idas`;
 }
 
-export function linhasDeConclusao(resumo: Resumo): string[] {
+export function linhasDeConclusao(resumo: Resumo, opcoes: { codigoDeSaida?: boolean | undefined } = {}): string[] {
   const linhas: string[] = [];
   const lista = (titulo: string, itens: ResultadoFalho[]) => {
     if (itens.length === 0) return;
@@ -221,7 +238,7 @@ export function linhasDeConclusao(resumo: Resumo): string[] {
   lista("Deriva de formato (a origem recusou o pedido)", resumo.derivas);
   lista("Ambíguo (formato mudou OU página de erro; persistiu nas tentativas)", resumo.ambiguas);
   lista("Falha alheia à origem (defeito nosso)", resumo.alheias);
-  linhas.push(`código de saída: ${resumo.codigoDeSaida}`);
+  if (opcoes.codigoDeSaida ?? true) linhas.push(`código de saída: ${resumo.codigoDeSaida}`);
   return linhas;
 }
 

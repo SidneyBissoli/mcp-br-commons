@@ -13,6 +13,18 @@ export {
   type NivelDeAnotacao,
 } from "./actions.js";
 export {
+  criarSuiteAoVivo,
+  ehAssercao,
+  repetirAoVivo,
+  type AoVivo,
+  type ContextoDeTeste,
+  type GanchosDoRunner,
+  type OpcoesAoVivo,
+  type OpcoesDaSuite,
+  type OpcoesDeTeste,
+  type SuiteAoVivo,
+} from "./ao-vivo.js";
+export {
   Relatorio,
   SAIDA_FALHA,
   SAIDA_FONTE_INALCANCAVEL,

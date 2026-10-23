@@ -24,7 +24,8 @@ import type { Falha } from "./veredito.js";
  * | a sonda não obteve o esperado (timeout, rede, 429, 5xx, corpo não aceito) | `indisponivel` | **verde** com `::warning title=Fonte indisponível::tool` |
  * | a origem respondeu 4xx com PÁGINA HTML (gateway/WAF, não o recurso) | `indisponivel` | verde com aviso — 0.3.1 |
  * | a origem recusou (401/403) uma sonda que foi COM credencial (`recusaEhFora`) | `indisponivel` | verde com aviso — 0.3.1 |
- * | a sonda obteve o esperado, ou a origem respondeu (4xx sem página HTML) | `alheio` | **vermelho** (`Falha alheia à origem`): a tool quebrou com a fonte de pé |
+ * | a sonda obteve o esperado (fonte de pé) e a tool RESPONDEU na 2ª chamada | `indisponivel` | verde com aviso: soluço da origem — 0.4.0 |
+ * | a sonda obteve o esperado, ou a origem respondeu (4xx sem página HTML), e a tool falhou nas 2 chamadas | `alheio` | **vermelho** (`Falha alheia à origem`): a tool quebrou com a fonte de pé |
  * | não há sonda declarada para a verificação | `alheio` | vermelho: ninguém mediu a fonte |
  *
  * Por que 4xx com HTML é fora (0.3.1): medido em 22/10/2026 no pool da OIT (`sdmx.ilo.org`,
@@ -119,7 +120,17 @@ export interface OpcoesDoSmoke {
   tamanhoDoTexto?: number | undefined;
   /** Injeção para teste offline: o `fetch` das sondas. */
   fetchImpl?: typeof fetch | undefined;
+  /**
+   * Quantas vezes, no total, uma tool que falhou COM A FONTE DE PÉ é chamada antes de ser
+   * julgada (cada `verificar` pode sobrepor). Padrão `CHAMADAS_PADRAO` (2): a suspeita se
+   * resolve por repetição — passou na 2ª = soluço da origem (aviso); falhou de novo =
+   * defeito (vermelho). Fonte fora na sonda não repete (já é aviso); `esperaErro` e
+   * verificação que lança não repetem. `1` = julgar na primeira.
+   */
+  chamadas?: number | undefined;
 }
+
+export const CHAMADAS_PADRAO = 2;
 
 export interface OpcoesDeVerificacao {
   /** A tool TEM de recusar (erro pedagógico): `isError` é o resultado certo. */
@@ -136,6 +147,8 @@ export interface OpcoesDeVerificacao {
    * tool. Padrão: o pacote cronometra `fn`.
    */
   ms?: number | null | undefined;
+  /** Quantas chamadas, no total, antes de julgar a falha com a fonte de pé. Padrão: o do smoke. */
+  chamadas?: number | undefined;
 }
 
 export interface Smoke {
@@ -269,58 +282,97 @@ export function criarSmoke(opcoes: OpcoesDoSmoke): Smoke {
 
   const alheia = (motivo: string): Falha => ({ veredito: "alheio", motivo, kind: undefined, status: undefined, url: undefined });
 
+  const descrever = (lista: EstadoDaSonda[]) => lista.map((e) => `${e.nome}: ${e.estado}`).join("; ");
+
   const verificar = async <T>(nome: string, fn: () => Promise<T>, o: OpcoesDeVerificacao = {}): Promise<T | undefined> => {
-    const inicio = performance.now();
-    let resultado: T;
-    try {
-      resultado = await fn();
-    } catch (err) {
-      const ms = decorrido(inicio);
-      const texto = err instanceof Error ? err.message : String(err);
-      if (opcoes.dependencia?.(err) === true) {
-        naoMedida(nome, `depende de verificação que falhou (${texto})`);
+    // Com `ms` informado a chamada aconteceu FORA de `fn`: `fn` só devolve o resultado e
+    // repeti-lo repetiria a mesma resposta — então não há repetição possível.
+    const chamadas = o.ms !== undefined ? 1 : Math.max(1, o.chamadas ?? opcoes.chamadas ?? CHAMADAS_PADRAO);
+    let anterior: string | undefined; // o que a tool disse na chamada anterior, quando falhou com a fonte de pé
+    for (let chamada = 1; ; chamada++) {
+      const inicio = performance.now();
+      let resultado: T;
+      try {
+        resultado = await fn();
+      } catch (err) {
+        const ms = decorrido(inicio);
+        const texto = err instanceof Error ? err.message : String(err);
+        if (opcoes.dependencia?.(err) === true) {
+          naoMedida(nome, `depende de verificação que falhou (${texto})`);
+          return undefined;
+        }
+        registrar(nome, alheia(`a verificação lançou ${err instanceof Error ? err.name : typeof err}: ${texto}`), ms);
         return undefined;
       }
-      registrar(nome, alheia(`a verificação lançou ${err instanceof Error ? err.name : typeof err}: ${texto}`), ms);
-      return undefined;
-    }
-    const ms = o.ms === undefined ? decorrido(inicio) : (o.ms ?? 0);
-    const comErro = ehResultadoNoFio(resultado) && resultado.isError === true;
+      const ms = o.ms === undefined ? decorrido(inicio) : (o.ms ?? 0);
+      const comErro = ehResultadoNoFio(resultado) && resultado.isError === true;
 
-    if (o.esperaErro === true) {
-      if (comErro) return ok(nome, resultado, ms, o);
-      registrar(nome, alheia("a tool devia recusar o pedido e respondeu sem erro"), ms);
-      return undefined;
-    }
-    if (!comErro) return ok(nome, resultado, ms, o);
+      if (o.esperaErro === true) {
+        if (comErro) return ok(nome, resultado, ms, o);
+        registrar(nome, alheia("a tool devia recusar o pedido e respondeu sem erro"), ms);
+        return undefined;
+      }
+      if (!comErro) {
+        if (anterior === undefined) return ok(nome, resultado, ms, o);
+        // Passou na repetição: a 1ª falha foi soluço da origem, não defeito. Aviso, não
+        // OK — a rodada diz que a fonte oscilou —, e o resultado volta ao roteiro.
+        relatorio.registrarVeredito(
+          nome,
+          {
+            veredito: "indisponivel",
+            motivo: `a tool falhou na 1ª chamada com a fonte de pé e respondeu na ${chamada}ª: soluço da origem, não defeito; a 1ª disse: ${anterior}`,
+            kind: undefined,
+            status: undefined,
+            url: undefined,
+          },
+          ms,
+        );
+        log(`  [AVISO] ${nome} (${ms} ms) — passou na ${chamada}ª chamada; a 1ª disse: ${anterior}`);
+        return resultado;
+      }
 
-    const texto = textoDoResultado(resultado as ResultadoNoFio).slice(0, tamanho);
-    const disse = texto === "" ? "a tool não disse por quê" : `a tool disse: ${texto}`;
-    const estados = await sondar(o.sondas);
-    const fora = estados.filter((e) => e.veredito === "fora");
-    const descrever = (lista: EstadoDaSonda[]) => lista.map((e) => `${e.nome}: ${e.estado}`).join("; ");
-    if (estados.length === 0) {
-      registrar(nome, alheia(`a tool devolveu erro e não há sonda declarada para dizer se a fonte estava no ar; ${disse}`), ms);
-      return undefined;
-    }
-    if (fora.length > 0) {
-      const primeira = fora[0]!;
-      relatorio.registrarVeredito(
+      const texto = textoDoResultado(resultado as ResultadoNoFio).slice(0, tamanho);
+      const disse = texto === "" ? "a tool não disse por quê" : `a tool disse: ${texto}`;
+      const estados = await sondar(o.sondas);
+      const fora = estados.filter((e) => e.veredito === "fora");
+      if (estados.length === 0) {
+        registrar(nome, alheia(`a tool devolveu erro e não há sonda declarada para dizer se a fonte estava no ar; ${disse}`), ms);
+        return undefined;
+      }
+      if (fora.length > 0) {
+        const primeira = fora[0]!;
+        relatorio.registrarVeredito(
+          nome,
+          {
+            veredito: "indisponivel",
+            motivo: `a tool devolveu erro e a fonte sondada está fora — ${descrever(fora)}; ${disse}`,
+            kind: primeira.entrega?.kind,
+            status: primeira.entrega?.status,
+            url: primeira.url,
+          },
+          ms,
+        );
+        log(`  [AVISO] ${nome} — fonte fora (${descrever(fora)}); ${disse}`);
+        return undefined;
+      }
+      // A fonte serviu a sonda e a tool falhou: a suspeita se resolve por REPETIÇÃO, como
+      // nos outros dois formatos e no próprio servidor do bcb (página de erro do SGS numa
+      // série que existe). Medido em 22/10/2026 (~21h, quatro rodadas do smoke do bcb): o
+      // SGS oscilava, a sonda mínima respondia do cache em 0,2 s e pedidos pesados caíam
+      // por timeout; as rodadas seguintes passaram 107/107. Uma chamada a mais, só quando
+      // algo falhou, separa soluço de defeito pela própria tool, não pelo contexto.
+      if (chamada < chamadas) {
+        anterior = texto === "" ? "(sem texto)" : texto;
+        log(`        ${nome}: falhou com a fonte de pé (${descrever(estados)}); repetindo a chamada (${chamada + 1}ª de ${chamadas})`);
+        continue;
+      }
+      registrar(
         nome,
-        {
-          veredito: "indisponivel",
-          motivo: `a tool devolveu erro e a fonte sondada está fora — ${descrever(fora)}; ${disse}`,
-          kind: primeira.entrega?.kind,
-          status: primeira.entrega?.status,
-          url: primeira.url,
-        },
+        alheia(`a tool devolveu erro com a fonte no ar (${descrever(estados)}) em ${chamadas === 1 ? "1 chamada" : `${chamadas} chamadas`}; ${disse}`),
         ms,
       );
-      log(`  [AVISO] ${nome} — fonte fora (${descrever(fora)}); ${disse}`);
       return undefined;
     }
-    registrar(nome, alheia(`a tool devolveu erro com a fonte no ar (${descrever(estados)}); ${disse}`), ms);
-    return undefined;
   };
 
   const ok = <T>(nome: string, resultado: T, ms: number, o: OpcoesDeVerificacao): T => {

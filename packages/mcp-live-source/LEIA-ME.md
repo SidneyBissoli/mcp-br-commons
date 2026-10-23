@@ -142,12 +142,16 @@ por `entregaDaOrigem`:
 | a sonda não obteve o esperado (timeout, rede, 429, 5xx, corpo que `aceita` recusou) | `indisponivel` | **verde** com `::warning title=Fonte indisponível::tool` |
 | a origem respondeu 4xx com **página HTML** (página de erro de gateway/WAF, não o recurso) | `indisponivel` | verde com o aviso (0.3.1) |
 | a origem recusou (401/403) uma sonda que foi **com credencial** (`recusaEhFora: true`) | `indisponivel` | verde com o aviso (0.3.1) |
-| a sonda obteve, ou a origem respondeu (4xx sem página HTML) | `alheio` | **vermelho**: a tool quebrou com a fonte de pé; o texto da tool vai no motivo |
+| a sonda obteve (fonte de pé) e a tool **respondeu na 2ª chamada** | `indisponivel` | verde com o aviso: soluço da origem (0.4.0) |
+| a sonda obteve, ou a origem respondeu (4xx sem página HTML), e a tool falhou nas duas chamadas | `alheio` | **vermelho**: a tool quebrou com a fonte de pé; o texto da tool vai no motivo |
 | não há sonda declarada para a verificação | `alheio` | vermelho: ninguém mediu a fonte |
 
-Verificação que lança (asserção sobre o resultado, HTTP do endpoint) é defeito do deploy e
-sai vermelha sem sondar; `esperaErro: true` exige a recusa. O disjuntor não vale: toda tool
-falhando com a fonte fora é verde com aviso, nunca código 3.
+Fonte de pé e tool falhou = a verificação é **chamada de novo uma vez** antes de ser julgada
+(`chamadas`, padrão 2, por smoke ou por verificação): a suspeita se resolve por repetição,
+como nos outros dois formatos. Verificação que lança (asserção sobre o resultado, HTTP do
+endpoint) é defeito do deploy e sai vermelha sem sondar; `esperaErro: true` exige a recusa;
+nenhuma das duas repete. O disjuntor não vale: toda tool falhando com a fonte fora é verde
+com aviso, nunca código 3.
 
 ```js
 import { criarSmoke } from "@sbissoli/mcp-live-source";
@@ -205,10 +209,11 @@ registra a verificação que nem foi tentada porque depende de outra que falhou.
   existe; `codigoDeSaida: false` tira a linha "código de saída" quando a saída é do runner).
   `vocabulario` (`{ titulo, capturadas, naoMedidas }`) é o que muda de palavra com o
   formato: `VOCABULARIO_DA_CAPTURA` (padrão) e `VOCABULARIO_DO_SMOKE`.
-- Smoke pós-deploy: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`
-  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe?, ms? }), naoMedida(nome, motivo),
-  sondar(nomes?), concluir(), relatorio }` (`ms`: a duração da chamada quando ela aconteceu fora
-  de `fn`; `null` = asserção sem chamada, impressa sem tempo). Uma `Sonda` é `{ nome, url,
+- Smoke pós-deploy: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl?, chamadas? })`
+  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe?, ms?, chamadas? }), naoMedida(nome, motivo),
+  sondar(nomes?), concluir(), relatorio }` (`chamadas`: total de chamadas antes de julgar uma falha
+  com a fonte de pé, `CHAMADAS_PADRAO` = 2; `ms`: a duração da chamada quando ela aconteceu fora
+  de `fn`, o que também desliga a repetição; `null` = asserção sem chamada, impressa sem tempo). Uma `Sonda` é `{ nome, url,
   aceita?, cabecalhos?, timeoutMs?, recusaEhFora? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` devolve `EstadoDaSonda[]`
   com `veredito` `servindo` / `fora` / `nao-sondada`. `pareceHtml(corpo)` é o teste que a sonda
   aplica ao corpo de um 4xx (abertura do documento: `<!doctype html`, `<html`, `<head`, `<body`).

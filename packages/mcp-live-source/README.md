@@ -143,12 +143,16 @@ with no retries and a short deadline) and decides by `entregaDaOrigem`:
 | the probe did not get what it expected (timeout, network, 429, 5xx, body refused by `aceita`) | `indisponivel` | **green** with `::warning title=Fonte indisponível::tool` |
 | the source answered 4xx with an **HTML page** (gateway/WAF error page, not the resource) | `indisponivel` | green with the warning (0.3.1) |
 | the source refused (401/403) a probe that went **with a credential** (`recusaEhFora: true`) | `indisponivel` | green with the warning (0.3.1) |
-| the probe got it, or the source answered (4xx without an HTML page) | `alheio` | **red**: the tool broke with the source up; the tool's text is in the reason |
+| the probe got it (source up) and the tool **answered on the 2nd call** | `indisponivel` | green with the warning: a hiccup of the source (0.4.0) |
+| the probe got it, or the source answered (4xx without an HTML page), and the tool failed on both calls | `alheio` | **red**: the tool broke with the source up; the tool's text is in the reason |
 | no probe is declared for that check | `alheio` | red: nobody measured the source |
 
-A check that throws (an assertion on the result, the endpoint's HTTP) is a deploy defect
-and goes red without probing; `esperaErro: true` requires the refusal. The breaker does
-not apply: every tool failing with the source down is green with a warning, never exit 3.
+Source up and tool failed = the check is **called again once** before being judged
+(`chamadas`, default 2, per smoke or per check): the suspicion is resolved by repetition,
+as in the other two formats. A check that throws (an assertion on the result, the
+endpoint's HTTP) is a deploy defect and goes red without probing; `esperaErro: true`
+requires the refusal; neither repeats. The breaker does not apply: every tool failing with
+the source down is green with a warning, never exit 3.
 
 ```js
 import { criarSmoke } from "@sbissoli/mcp-live-source";
@@ -207,10 +211,11 @@ records a check that was never attempted because one it depends on failed.
   exists; `codigoDeSaida: false` drops the "código de saída" line when the runner owns the
   exit code). `vocabulario` (`{ titulo, capturadas, naoMedidas }`) is the wording that
   changes with the format: `VOCABULARIO_DA_CAPTURA` (default) and `VOCABULARIO_DO_SMOKE`.
-- Post-deploy smoke: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`
-  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe?, ms? }), naoMedida(nome, motivo),
-  sondar(nomes?), concluir(), relatorio }` (`ms`: the call's duration when it happened outside
-  `fn`; `null` = an assertion with no call, printed without a time). A `Sonda` is `{ nome, url,
+- Post-deploy smoke: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl?, chamadas? })`
+  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe?, ms?, chamadas? }), naoMedida(nome, motivo),
+  sondar(nomes?), concluir(), relatorio }` (`chamadas`: total calls before judging a failure with
+  the source up, `CHAMADAS_PADRAO` = 2; `ms`: the call's duration when it happened outside `fn`,
+  which also disables repetition; `null` = an assertion with no call, printed without a time). A `Sonda` is `{ nome, url,
   aceita?, cabecalhos?, timeoutMs?, recusaEhFora? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` returns `EstadoDaSonda[]`
   with `veredito` `servindo` / `fora` / `nao-sondada`. `pareceHtml(corpo)` is the test the probe
   applies to a 4xx body (document opening: `<!doctype html`, `<html`, `<head`, `<body`).

@@ -42,6 +42,7 @@ export {
   type Vocabulario,
 } from "./relatorio.js";
 export {
+  CHAMADAS_PADRAO,
   TEMPO_DA_SONDA_MS,
   VOCABULARIO_DO_SMOKE,
   criarSmoke,

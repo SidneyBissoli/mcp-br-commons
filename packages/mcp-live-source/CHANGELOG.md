@@ -5,6 +5,30 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). Os TÍTULOS das anotações (`TITULO_*`) são
 contrato com o painel do portfólio: mudar um é minor com nota de migração.
 
+## [0.4.0] — 2026-10-23
+
+Minor: o comportamento PADRÃO de `verificar` muda — uma tool que falhou com a fonte de pé é
+chamada DUAS vezes antes de ser julgada. Decisão do dono em 22/10/2026 (noite), entre três
+caminhos, sobre uma medição no bcb; cada consumidor faz o bump explícito. Títulos, códigos
+de saída e o resto da API ficam como estão.
+
+### Mudado
+- **Fonte de pé + tool falhou = repetir uma vez antes de julgar.** Medido no bcb (22/10, ~21h,
+  quatro rodadas seguidas do smoke em produção): o SGS oscilava — a sonda mínima (433
+  `ultimos/1`) respondia do cache em 0,2 s enquanto pedidos pesados (10–15 anos diários) e
+  séries específicas (432, 1178) caíam por timeout; os checks saíam `Falha alheia à origem`
+  "com a fonte no ar" e as rodadas seguintes passavam 107/107. A sonda responde "a origem
+  serve ESTE pedido mínimo", não "está saudável". Agora, quando a sonda diz "servindo" e a
+  tool devolveu `isError`, `verificar` chama `fn` de novo (`chamadas`, padrão
+  `CHAMADAS_PADRAO` = 2; por smoke ou por verificação): **passou na 2ª** = soluço da origem,
+  `indisponivel` (aviso `Fonte indisponível`, linha `[AVISO] … passou na 2ª chamada; a 1ª
+  disse: …`) e o resultado volta ao roteiro; **falhou de novo** = `alheio` (vermelho, "em 2
+  chamadas"). É o mesmo princípio dos outros dois formatos (o script de captura repete o
+  `ambiguo`; o vitest repete `indisponivel` e `ambiguo`) e do servidor do bcb (página de erro
+  do SGS numa série que existe se resolve repetindo). Não repete: fonte FORA na sonda (já é
+  aviso), `esperaErro`, verificação que lança, e `ms` informado (a chamada aconteceu fora de
+  `fn`; repetir repetiria a mesma resposta). `chamadas: 1` = o comportamento da 0.3.x.
+
 ## [0.3.2] — 2026-10-22
 
 Patch: uma opção nova e opcional em `verificar`; nada do que existia muda.

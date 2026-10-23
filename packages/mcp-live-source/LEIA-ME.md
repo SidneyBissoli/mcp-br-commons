@@ -206,9 +206,10 @@ registra a verificação que nem foi tentada porque depende de outra que falhou.
   `vocabulario` (`{ titulo, capturadas, naoMedidas }`) é o que muda de palavra com o
   formato: `VOCABULARIO_DA_CAPTURA` (padrão) e `VOCABULARIO_DO_SMOKE`.
 - Smoke pós-deploy: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`
-  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe? }), naoMedida(nome, motivo),
-  sondar(nomes?), concluir(), relatorio }`. Uma `Sonda` é `{ nome, url, aceita?, cabecalhos?,
-  timeoutMs?, recusaEhFora? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` devolve `EstadoDaSonda[]`
+  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe?, ms? }), naoMedida(nome, motivo),
+  sondar(nomes?), concluir(), relatorio }` (`ms`: a duração da chamada quando ela aconteceu fora
+  de `fn`; `null` = asserção sem chamada, impressa sem tempo). Uma `Sonda` é `{ nome, url,
+  aceita?, cabecalhos?, timeoutMs?, recusaEhFora? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` devolve `EstadoDaSonda[]`
   com `veredito` `servindo` / `fora` / `nao-sondada`. `pareceHtml(corpo)` é o teste que a sonda
   aplica ao corpo de um 4xx (abertura do documento: `<!doctype html`, `<html`, `<head`, `<body`).
 - `anotacao(nivel, titulo, mensagem)`, `escaparMensagem`, `escaparPropriedade`: comandos

@@ -292,6 +292,24 @@ describe("criarSmoke — a política do smoke pós-deploy", () => {
     expect(d.linhas).toHaveLength(2);
   });
 
+  it("`ms` do roteiro: chamada feita fora de `fn` leva o tempo medido por quem chamou; `null` = asserção sem chamada, linha sem tempo", async () => {
+    const d = coletor();
+    const smoke = criarSmoke({ sondas: [SIDRA], destinos: d, fetchImpl: fetchDe({}) });
+    const resultado = { content: [], structuredContent: {} }; // já obtido pelo roteiro, em 1234 ms
+    await smoke.verificar("bcb_serie_ultimos 433", async () => resultado, { ms: 1234 });
+    await smoke.verificar("  → tem 1 observação", async () => true, { ms: null, detalhe: () => "1" });
+    await smoke.verificar("medida pelo pacote", async () => true);
+    expect(d.linhas[0]).toBe("  [OK  ] bcb_serie_ultimos 433 (1234 ms)");
+    expect(d.linhas[1]).toBe("  [OK  ]   → tem 1 observação — 1");
+    expect(d.linhas[2]).toMatch(/^ {2}\[OK {2}\] medida pelo pacote \(\d+ ms\)$/);
+    const r = smoke.relatorio.resultados;
+    expect(r[0]!.ms).toBe(1234);
+    expect(r[1]!.ms).toBe(0);
+    // A falha também leva o tempo do roteiro.
+    await smoke.verificar("falha com tempo", async () => erroDaTool(), { ms: 777 });
+    expect(smoke.relatorio.resultados[3]!.ms).toBe(777);
+  });
+
   it("o texto da tool entra no motivo até o tamanho pedido, com espaços normalizados", async () => {
     const smoke = criarSmoke({ sondas: [SIDRA], destinos: coletor(), fetchImpl: fetchDe({}), tamanhoDoTexto: 12 });
     await smoke.verificar("t", async () => erroDaTool("linha um\n\n  linha dois e mais texto"));

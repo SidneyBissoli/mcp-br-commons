@@ -208,9 +208,10 @@ records a check that was never attempted because one it depends on failed.
   exit code). `vocabulario` (`{ titulo, capturadas, naoMedidas }`) is the wording that
   changes with the format: `VOCABULARIO_DA_CAPTURA` (default) and `VOCABULARIO_DO_SMOKE`.
 - Post-deploy smoke: `criarSmoke({ sondas, dependencia?, destinos?, tamanhoDoTexto?, fetchImpl? })`
-  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe? }), naoMedida(nome, motivo),
-  sondar(nomes?), concluir(), relatorio }`. A `Sonda` is `{ nome, url, aceita?, cabecalhos?,
-  timeoutMs?, recusaEhFora? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` returns `EstadoDaSonda[]`
+  → `{ verificar(nome, fn, { esperaErro?, sondas?, detalhe?, ms? }), naoMedida(nome, motivo),
+  sondar(nomes?), concluir(), relatorio }` (`ms`: the call's duration when it happened outside
+  `fn`; `null` = an assertion with no call, printed without a time). A `Sonda` is `{ nome, url,
+  aceita?, cabecalhos?, timeoutMs?, recusaEhFora? }` (`TEMPO_DA_SONDA_MS` = 8 000); `sondar` returns `EstadoDaSonda[]`
   with `veredito` `servindo` / `fora` / `nao-sondada`. `pareceHtml(corpo)` is the test the probe
   applies to a 4xx body (document opening: `<!doctype html`, `<html`, `<head`, `<body`).
 - `anotacao(nivel, titulo, mensagem)`, `escaparMensagem`, `escaparPropriedade`: workflow

@@ -205,7 +205,8 @@ describe("criarSmoke — a política do smoke pós-deploy", () => {
       fetchImpl: fetchDe({ [SIDRA.url]: okJson }, chamadas), // localidades FORA, sidra servindo
     });
     await smoke.verificar("ibge_sidra", async () => erroDaTool(), { sondas: ["sidra"] });
-    expect(chamadas).toEqual([SIDRA.url]);
+    expect(chamadas.length).toBeGreaterThan(0);
+    expect(chamadas.every((u) => u === SIDRA.url)).toBe(true);
     expect(smoke.concluir().codigoDeSaida).toBe(SAIDA_FALHA);
   });
 
@@ -308,6 +309,59 @@ describe("criarSmoke — a política do smoke pós-deploy", () => {
     // A falha também leva o tempo do roteiro.
     await smoke.verificar("falha com tempo", async () => erroDaTool(), { ms: 777 });
     expect(smoke.relatorio.resultados[3]!.ms).toBe(777);
+  });
+
+  it("fonte de pé + tool falhou: REPETE uma vez; passou na 2ª = soluço da origem (aviso, resultado volta ao roteiro)", async () => {
+    const d = coletor();
+    const chamadasASonda: string[] = [];
+    const smoke = criarSmoke({ sondas: [SIDRA], destinos: d, fetchImpl: fetchDe({ [SIDRA.url]: okJson }, chamadasASonda) });
+    let vezes = 0;
+    const r = await smoke.verificar("ibge_sidra", async () => {
+      vezes++;
+      return vezes === 1 ? erroDaTool("SGS respondeu HTML") : { content: [], structuredContent: { n: 27 } };
+    });
+    expect(vezes).toBe(2);
+    expect(chamadasASonda).toEqual([SIDRA.url]); // sondou só na 1ª falha
+    expect((r as { structuredContent: { n: number } }).structuredContent.n).toBe(27);
+    expect(d.linhas.some((l) => l.includes("repetindo a chamada (2ª de 2)"))).toBe(true);
+    expect(d.linhas.at(-1)).toMatch(/^ {2}\[AVISO\] ibge_sidra \(\d+ ms\) — passou na 2ª chamada; a 1ª disse: SGS respondeu HTML$/);
+    const resumo = smoke.concluir();
+    expect(resumo.codigoDeSaida).toBe(SAIDA_OK);
+    expect(resumo.naoMedidas[0]!.falha.motivo).toContain("soluço da origem, não defeito");
+    expect(d.comandos).toEqual([`::warning title=${TITULO_FONTE_INDISPONIVEL}::ibge_sidra`]);
+  });
+
+  it("falhou nas 2 chamadas com a fonte de pé = defeito: vermelho, e o motivo conta as chamadas", async () => {
+    const d = coletor();
+    const smoke = criarSmoke({ sondas: [SIDRA], destinos: d, fetchImpl: fetchDe({ [SIDRA.url]: okJson }) });
+    let vezes = 0;
+    await smoke.verificar("ibge_sidra", async () => {
+      vezes++;
+      return erroDaTool(`falha ${vezes}`);
+    });
+    expect(vezes).toBe(2);
+    const resumo = smoke.concluir();
+    expect(resumo.codigoDeSaida).toBe(SAIDA_FALHA);
+    expect(resumo.alheias[0]!.falha.motivo).toContain("em 2 chamadas; a tool disse: falha 2");
+  });
+
+  it("não repete: fonte FORA na sonda, `esperaErro`, verificação que lança, `ms` do roteiro, `chamadas: 1`", async () => {
+    const conta = async (opcoesSmoke: Partial<Parameters<typeof criarSmoke>[0]>, fn: () => Promise<unknown>, o = {}) => {
+      let vezes = 0;
+      const smoke = criarSmoke({ sondas: [SIDRA], destinos: coletor(), fetchImpl: fetchDe({ [SIDRA.url]: okJson }), ...opcoesSmoke });
+      await smoke.verificar("t", async () => {
+        vezes++;
+        return fn();
+      }, o);
+      return vezes;
+    };
+    expect(await conta({ fetchImpl: fetchDe({}) }, async () => erroDaTool())).toBe(1); // sonda FORA
+    expect(await conta({}, async () => ({ content: [] }), { esperaErro: true })).toBe(1);
+    expect(await conta({}, async () => { throw new Error("x"); })).toBe(1);
+    expect(await conta({}, async () => erroDaTool(), { ms: 50 })).toBe(1);
+    expect(await conta({}, async () => erroDaTool(), { chamadas: 1 })).toBe(1);
+    expect(await conta({ chamadas: 1 }, async () => erroDaTool())).toBe(1);
+    expect(await conta({ chamadas: 3 }, async () => erroDaTool())).toBe(3);
   });
 
   it("o texto da tool entra no motivo até o tamanho pedido, com espaços normalizados", async () => {

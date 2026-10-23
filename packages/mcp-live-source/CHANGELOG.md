@@ -5,6 +5,19 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). Os TÍTULOS das anotações (`TITULO_*`) são
 contrato com o painel do portfólio: mudar um é minor com nota de migração.
 
+## [0.3.2] — 2026-10-22
+
+Patch: uma opção nova e opcional em `verificar`; nada do que existia muda.
+
+### Adicionado
+- **`OpcoesDeVerificacao.ms`**: a duração da chamada quando ela aconteceu FORA de `fn` — o
+  roteiro já tinha o resultado em mãos e `fn` só o devolve (é como o smoke do bcb está
+  escrito, em ~40 blocos). Número em ms, medido por quem chamou, vai à linha `[OK  ]` e ao
+  relatório; `null` = verificação sem chamada nenhuma (asserção sobre um resultado já
+  obtido): a linha sai sem tempo, em vez de um "(0 ms)" que media a asserção e parecia medir
+  a tool (apontado no fechamento de 22/10/2026, pedido do dono). Padrão: o pacote cronometra
+  `fn`, como antes.
+
 ## [0.3.1] — 2026-10-22
 
 Patch: só o veredito da SONDA do smoke muda, em dois casos que a 0.3.0 lia como "de pé";

@@ -128,6 +128,14 @@ export interface OpcoesDeVerificacao {
   sondas?: string[] | undefined;
   /** Detalhe impresso na linha `[OK  ]`, a partir do resultado. */
   detalhe?: ((resultado: unknown) => string) | undefined;
+  /**
+   * A duração da chamada, quando ela aconteceu FORA de `fn` (o roteiro já tinha o
+   * resultado em mãos e `fn` só o devolve): número em ms, medido por quem chamou. `null`
+   * = verificação sem chamada nenhuma (asserção sobre um resultado já obtido): a linha
+   * `[OK  ]` sai sem tempo, em vez de um "(0 ms)" que mede a asserção e parece medir a
+   * tool. Padrão: o pacote cronometra `fn`.
+   */
+  ms?: number | null | undefined;
 }
 
 export interface Smoke {
@@ -276,7 +284,7 @@ export function criarSmoke(opcoes: OpcoesDoSmoke): Smoke {
       registrar(nome, alheia(`a verificação lançou ${err instanceof Error ? err.name : typeof err}: ${texto}`), ms);
       return undefined;
     }
-    const ms = decorrido(inicio);
+    const ms = o.ms === undefined ? decorrido(inicio) : (o.ms ?? 0);
     const comErro = ehResultadoNoFio(resultado) && resultado.isError === true;
 
     if (o.esperaErro === true) {
@@ -318,7 +326,8 @@ export function criarSmoke(opcoes: OpcoesDoSmoke): Smoke {
   const ok = <T>(nome: string, resultado: T, ms: number, o: OpcoesDeVerificacao): T => {
     relatorio.registrarCaptura(nome, ms);
     const detalhe = o.detalhe?.(resultado);
-    log(`  [OK  ] ${nome} (${ms} ms)${detalhe === undefined || detalhe === "" ? "" : ` — ${detalhe}`}`);
+    const tempo = o.ms === null ? "" : ` (${ms} ms)`;
+    log(`  [OK  ] ${nome}${tempo}${detalhe === undefined || detalhe === "" ? "" : ` — ${detalhe}`}`);
     return resultado;
   };
 

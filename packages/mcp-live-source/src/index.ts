@@ -13,8 +13,10 @@ export {
   type NivelDeAnotacao,
 } from "./actions.js";
 export {
+  VARIAVEL_DO_ORCAMENTO,
   criarSuiteAoVivo,
   ehAssercao,
+  orcamentoDoAmbiente,
   repetirAoVivo,
   type AoVivo,
   type ContextoDeTeste,

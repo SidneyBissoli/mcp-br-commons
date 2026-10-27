@@ -115,6 +115,13 @@ when the only non-passing tests are skipped:
 | `respondeu` (404/4xx **or the test's own assertion**) | fails | `::error title=Deriva de formato::a` |
 | `alheio` (a `TypeError` of ours) | fails | `::error title=Falha alheia à origem::a` |
 | circuit breaker (N unavailable in a row, nothing captured) | the following tests skip **without touching the network**; the file **fails** in `afterAll` (`falharSeInalcancavel`, default) so the automatic retry reruns on a fresh runner — the script's exit code 3 | `::error title=Fonte inalcançável::…` |
+| run budget spent (`orcamentoMs`, or `AO_VIVO_ORCAMENTO_S` in seconds via `./vitest`) | the following tests skip **without touching the network**; the file **fails** in `afterAll` (same switch) | `::error title=Fonte inalcançável::orçamento da rodada (N s) esgotado …` |
+
+The breaker only covers a source that answers **nothing**. A source that answers the first
+captures and stops mid-run walks every remaining test through all its attempts; without a
+budget the job is cut from outside by `timeout-minutes`, which GitHub reports as `cancelled`
+(not `timed_out`) — no label, and a retry keyed on `failure` never fires. Declare the budget
+in the workflow next to the job ceiling: ceiling − one test's `timeout` − job setup, with slack.
 
 Only `indisponivel` and `ambiguo` are retried (`repetirAoVivo`); an assertion failure is the
 drift the test exists to measure, so it is not retried and is labelled drift, not "our
@@ -225,9 +232,11 @@ records a check that was never attempted because one it depends on failed.
   `linhaDeResultado(r)`.
 - Exit codes: `SAIDA_OK` (0), `SAIDA_FALHA` (1), `SAIDA_FONTE_INALCANCAVEL` (3).
 - Test runners: `criarSuiteAoVivo(ganchos, { retentativa?, destinos?, dependencia?, deriva?,
-  limiteDoDisjuntor? })` → `{ aoVivo, relatorio }`; `aoVivo(nome, fn, { endpoint?, timeout?,
-  tentativas?, esperaMs?, repetir?, … })`; `repetirAoVivo`, `ehAssercao`. Bound to vitest in
-  `@sbissoli/mcp-live-source/vitest` as `suiteAoVivo(opcoes?)`.
+  limiteDoDisjuntor?, falharSeInalcancavel?, orcamentoMs?, agora? })` → `{ aoVivo, relatorio }`;
+  `aoVivo(nome, fn, { endpoint?, timeout?, tentativas?, esperaMs?, repetir?, … })`;
+  `repetirAoVivo`, `ehAssercao`, `orcamentoDoAmbiente(env)` (`VARIAVEL_DO_ORCAMENTO`). Bound to
+  vitest in `@sbissoli/mcp-live-source/vitest` as `suiteAoVivo(opcoes?)`, which reads the budget
+  from `AO_VIVO_ORCAMENTO_S` when `orcamentoMs` is not given.
 
 ## Glossary
 

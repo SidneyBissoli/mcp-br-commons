@@ -61,6 +61,22 @@ export interface OpcoesDaSuite extends OpcoesDoRelatorio {
    * só com a anotação `Fonte inalcançável`.
    */
   falharSeInalcancavel?: boolean | undefined;
+  /**
+   * Orçamento de PAREDE do arquivo, em ms, contado do início do primeiro `aoVivo`. Esgotado,
+   * os testes seguintes pulam sem ir à rede (`Fonte inalcançável`, como o disjuntor) e o
+   * `afterAll` lança — sujeito a `falharSeInalcancavel`.
+   *
+   * Por que existe (bcb-br-mcp, 26/10/2026): o disjuntor só cobre a origem que não responde
+   * a NADA. Se ela responde às primeiras capturas e para no meio, cada endpoint restante
+   * gasta as três idas inteiras (~141 s no bcb), e 135 séries passam de 5 h — o job era
+   * cortado pelo `timeout-minutes` de fora, sem rótulo, e o GitHub reporta esse corte
+   * como `cancelled`, que o retry automático não re-roda. O orçamento faz o arquivo
+   * terminar com veredito ANTES do teto do job. Escolha: teto do job − timeout de um teste
+   * − preparo do job, com folga. Sem orçamento (padrão), nenhum limite.
+   */
+  orcamentoMs?: number | undefined;
+  /** Relógio em ms (injetável nos testes). Padrão `performance.now`. */
+  agora?: (() => number) | undefined;
 }
 
 export type AoVivo<Ctx extends ContextoDeTeste> = (
@@ -72,6 +88,24 @@ export type AoVivo<Ctx extends ContextoDeTeste> = (
 export interface SuiteAoVivo<Ctx extends ContextoDeTeste> {
   aoVivo: AoVivo<Ctx>;
   relatorio: Relatorio;
+}
+
+/** A variável de ambiente que o workflow declara AO LADO do `timeout-minutes` do job. */
+export const VARIAVEL_DO_ORCAMENTO = "AO_VIVO_ORCAMENTO_S";
+
+/**
+ * O orçamento declarado no ambiente, em ms; `undefined` sem a variável (ou vazia). Valor
+ * que não é número de segundos > 0 LANÇA: um orçamento digitado errado que virasse
+ * "sem orçamento" devolveria em silêncio o defeito que ele existe para impedir.
+ */
+export function orcamentoDoAmbiente(env: Record<string, string | undefined>): number | undefined {
+  const bruto = env[VARIAVEL_DO_ORCAMENTO]?.trim();
+  if (bruto === undefined || bruto === "") return undefined;
+  const s = Number(bruto);
+  if (!Number.isFinite(s) || s <= 0) {
+    throw new RangeError(`mcp-live-source: ${VARIAVEL_DO_ORCAMENTO} deve ser segundos > 0 (recebido "${bruto}")`);
+  }
+  return s * 1000;
 }
 
 /** Num teste, só vale repetir o que pode ter sido um soluço da origem. */
@@ -91,10 +125,24 @@ export function criarSuiteAoVivo<Ctx extends ContextoDeTeste>(
   const deriva = opcoes.deriva ?? ehAssercao;
   const relatorio = new Relatorio({ ...opcoes, deriva });
   const padrao = opcoes.retentativa ?? {};
+  const orcamentoMs = opcoes.orcamentoMs;
+  if (orcamentoMs !== undefined && !(Number.isFinite(orcamentoMs) && orcamentoMs > 0)) {
+    throw new RangeError(`mcp-live-source: orcamentoMs deve ser um número > 0 (recebido ${String(orcamentoMs)})`);
+  }
+  const agora = opcoes.agora ?? (() => performance.now());
+  let inicioDaSuite: number | undefined;
 
   ganchos.afterAll(() => {
     if (relatorio.resultados.length === 0) return;
     const resumo = relatorio.escrever({ ...opcoes.destinos, codigoDeSaida: false });
+    if (resumo.orcamentoEsgotado && !resumo.disjuntor && (opcoes.falharSeInalcancavel ?? true)) {
+      throw new Error(
+        `${TITULO_FONTE_INALCANCAVEL}: orçamento da rodada esgotado com ${resumo.capturadas} de ` +
+          `${resumo.total} capturadas; deriva NÃO medida no resto. O arquivo falha de propósito para ` +
+          "o retry automático re-rodar num runner novo (outro IP de saída), em vez de o job ser " +
+          "cortado de fora pelo teto (cancelled, que o retry não re-roda).",
+      );
+    }
     if (resumo.disjuntor && (opcoes.falharSeInalcancavel ?? true)) {
       // O mesmo que o código 3 do script de captura: o arquivo FALHA de propósito.
       // Medido no primeiro dispatch real (ibge, 22/10/2026): os quatro arquivos saíram
@@ -116,6 +164,13 @@ export function criarSuiteAoVivo<Ctx extends ContextoDeTeste>(
       async (ctx) => {
         if (relatorio.deveParar) {
           const motivo = `${TITULO_FONTE_INALCANCAVEL}: a origem não respondeu a nenhuma captura; não medido`;
+          relatorio.registrarNaoMedida(endpoint, motivo);
+          ctx.skip(motivo);
+        }
+        inicioDaSuite ??= agora();
+        if (relatorio.orcamentoEsgotado || (orcamentoMs !== undefined && agora() - inicioDaSuite >= orcamentoMs)) {
+          relatorio.marcarOrcamentoEsgotado(orcamentoMs!);
+          const motivo = `${TITULO_FONTE_INALCANCAVEL}: orçamento da rodada esgotado; não medido`;
           relatorio.registrarNaoMedida(endpoint, motivo);
           ctx.skip(motivo);
         }

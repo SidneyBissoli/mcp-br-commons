@@ -11,7 +11,7 @@
  * ```
  */
 import { afterAll, it, type TestContext } from "vitest";
-import { criarSuiteAoVivo, type OpcoesDaSuite, type SuiteAoVivo } from "./ao-vivo.js";
+import { criarSuiteAoVivo, orcamentoDoAmbiente, type OpcoesDaSuite, type SuiteAoVivo } from "./ao-vivo.js";
 
 export type {
   AoVivo,
@@ -45,6 +45,10 @@ export function suiteAoVivo(opcoes: OpcoesDaSuite = {}): SuiteAoVivo<TestContext
         afterAll(fn);
       },
     },
-    { ...opcoes, destinos: { log: escreverNoStdout, comando: escreverNoStdout, ...opcoes.destinos } },
+    {
+      ...opcoes,
+      orcamentoMs: opcoes.orcamentoMs ?? orcamentoDoAmbiente(process.env),
+      destinos: { log: escreverNoStdout, comando: escreverNoStdout, ...opcoes.destinos },
+    },
   );
 }

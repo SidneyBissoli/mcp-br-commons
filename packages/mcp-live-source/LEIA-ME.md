@@ -113,6 +113,13 @@ sai 0 quando os únicos testes que não passaram foram pulados:
 | `respondeu` (404/4xx **ou a asserção do próprio teste**) | falha | `::error title=Deriva de formato::a` |
 | `alheio` (um `TypeError` nosso) | falha | `::error title=Falha alheia à origem::a` |
 | disjuntor (N indisponíveis seguidos, nada capturado) | os testes seguintes pulam **sem ir à rede**; o arquivo **falha** no `afterAll` (`falharSeInalcancavel`, padrão) para o retry automático re-rodar num runner novo — o código 3 do script | `::error title=Fonte inalcançável::…` |
+| orçamento da rodada esgotado (`orcamentoMs`, ou `AO_VIVO_ORCAMENTO_S` em segundos pelo `./vitest`) | os testes seguintes pulam **sem ir à rede**; o arquivo **falha** no `afterAll` (mesma chave) | `::error title=Fonte inalcançável::orçamento da rodada (N s) esgotado …` |
+
+O disjuntor só cobre a fonte que não responde a **nada**. A que responde às primeiras capturas
+e para no meio faz cada teste restante gastar todas as idas; sem orçamento, o job é cortado de
+fora pelo `timeout-minutes`, que o GitHub reporta como `cancelled` (não `timed_out`) — sem
+rótulo, e o retry que olha `failure` nunca dispara. Declare o orçamento no workflow ao lado do
+teto do job: teto − `timeout` de um teste − preparo do job, com folga.
 
 Só `indisponivel` e `ambiguo` são repetidos (`repetirAoVivo`); a asserção que falha é a
 deriva que o teste existe para medir, então não se repete e sai rotulada como deriva, não
@@ -223,9 +230,11 @@ registra a verificação que nem foi tentada porque depende de outra que falhou.
   `linhaDeResultado(r)`.
 - Códigos de saída: `SAIDA_OK` (0), `SAIDA_FALHA` (1), `SAIDA_FONTE_INALCANCAVEL` (3).
 - Runners de teste: `criarSuiteAoVivo(ganchos, { retentativa?, destinos?, dependencia?,
-  deriva?, limiteDoDisjuntor? })` → `{ aoVivo, relatorio }`; `aoVivo(nome, fn, { endpoint?,
-  timeout?, tentativas?, esperaMs?, repetir?, … })`; `repetirAoVivo`, `ehAssercao`. Ligado ao
-  vitest em `@sbissoli/mcp-live-source/vitest` como `suiteAoVivo(opcoes?)`.
+  deriva?, limiteDoDisjuntor?, falharSeInalcancavel?, orcamentoMs?, agora? })` → `{ aoVivo,
+  relatorio }`; `aoVivo(nome, fn, { endpoint?, timeout?, tentativas?, esperaMs?, repetir?, … })`;
+  `repetirAoVivo`, `ehAssercao`, `orcamentoDoAmbiente(env)` (`VARIAVEL_DO_ORCAMENTO`). Ligado ao
+  vitest em `@sbissoli/mcp-live-source/vitest` como `suiteAoVivo(opcoes?)`, que lê o orçamento de
+  `AO_VIVO_ORCAMENTO_S` quando `orcamentoMs` não vem.
 
 ## Licença
 

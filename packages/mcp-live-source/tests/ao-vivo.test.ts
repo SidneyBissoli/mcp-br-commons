@@ -4,8 +4,10 @@ import {
   TITULO_DERIVA,
   TITULO_FONTE_INALCANCAVEL,
   TITULO_FONTE_INDISPONIVEL,
+  VARIAVEL_DO_ORCAMENTO,
   criarSuiteAoVivo,
   ehAssercao,
+  orcamentoDoAmbiente,
   repetirAoVivo,
   type ContextoDeTeste,
   type GanchosDoRunner,
@@ -281,6 +283,97 @@ describe("criarSuiteAoVivo — a política traduzida para teste", () => {
     expect(s.testes[0]?.opcoes).toEqual({ timeout: 123_000 });
     await s.rodar();
     expect(chamadas).toBe(2);
+  });
+
+  it("orçamento esgotado no meio: os seguintes pulam SEM ir à rede, anotação de erro e o arquivo FALHA", async () => {
+    // O caso de 26/10/2026 no bcb: a origem respondeu às primeiras e parou no meio. O
+    // disjuntor fica desarmado (houve captura) e, sem orçamento, a rodada andava até o
+    // teto do job e terminava `cancelled`, sem rótulo e sem retry.
+    let relogio = 0;
+    const s = suite({ orcamentoMs: 10_000, agora: () => relogio });
+    const chamadas: string[] = [];
+    s.aoVivo("ok", async () => {
+      chamadas.push("ok");
+      relogio += 1_000;
+    });
+    s.aoVivo("lento", async () => {
+      chamadas.push("lento");
+      relogio += 9_500; // acaba DEPOIS do orçamento: o teste em curso termina
+      throw daOrigem("timeout");
+    });
+    for (const nome of ["c", "d"]) {
+      s.aoVivo(nome, async () => {
+        chamadas.push(nome);
+      });
+    }
+    const r = await s.rodar();
+    expect(chamadas).toEqual(["ok", "lento", "lento", "lento"]);
+    expect(r.map((x) => x.estado)).toEqual(["ok", "pulado", "pulado", "pulado"]);
+    expect(r[2]?.nota).toMatch(new RegExp(`^${TITULO_FONTE_INALCANCAVEL}: orçamento da rodada esgotado`));
+    const resumo = s.relatorio.resumo();
+    expect(resumo.orcamentoEsgotado).toBe(true);
+    expect(resumo.disjuntor).toBe(false);
+    expect(resumo.codigoDeSaida).toBe(3);
+    expect(resumo.naoMedidas.map((x) => x.nome)).toEqual(["lento", "c", "d"]);
+    expect(s.comandos).toEqual([
+      `::error title=${TITULO_FONTE_INALCANCAVEL}::orçamento da rodada (10 s) esgotado com 1 de 4 capturadas; ` +
+        "deriva NÃO medida em: lento, c, d — não é deriva de formato",
+    ]);
+    expect(s.anexos.join("")).toContain("### Fonte inalcançável");
+    expect(s.log.some((l) => l.startsWith("PARANDO CEDO: orçamento da rodada (10 s)"))).toBe(true);
+    expect(s.errosDoAfterAll).toHaveLength(1);
+    expect(String(s.errosDoAfterAll[0])).toMatch(new RegExp(`${TITULO_FONTE_INALCANCAVEL}: orçamento da rodada esgotado`));
+  });
+
+  it("orçamento folgado: rodada saudável não muda (verde, sem anotação)", async () => {
+    let relogio = 0;
+    const s = suite({ orcamentoMs: 10_000, agora: () => relogio });
+    for (const nome of ["a", "b", "c"]) {
+      s.aoVivo(nome, async () => {
+        relogio += 1_000;
+      });
+    }
+    const r = await s.rodar();
+    expect(r.map((x) => x.estado)).toEqual(["ok", "ok", "ok"]);
+    expect(s.relatorio.resumo().orcamentoEsgotado).toBe(false);
+    expect(s.comandos).toEqual([]);
+    expect(s.errosDoAfterAll).toEqual([]);
+  });
+
+  it("o relógio do orçamento começa no PRIMEIRO teste, não na coleta", async () => {
+    let relogio = 50_000; // a coleta e o preparo do job não contam
+    const s = suite({ orcamentoMs: 10_000, agora: () => relogio });
+    s.aoVivo("a", async () => {
+      relogio += 1_000;
+    });
+    const r = await s.rodar();
+    expect(r[0]?.estado).toBe("ok");
+  });
+
+  it("orçamento esgotado com falharSeInalcancavel: false — anotação sem falhar o arquivo", async () => {
+    let relogio = 0;
+    const s = suite({ orcamentoMs: 1_000, agora: () => relogio, falharSeInalcancavel: false });
+    s.aoVivo("a", async () => {
+      relogio += 2_000;
+    });
+    s.aoVivo("b", async () => {});
+    await s.rodar();
+    expect(s.relatorio.resumo().orcamentoEsgotado).toBe(true);
+    expect(s.errosDoAfterAll).toEqual([]);
+  });
+
+  it("orcamentoMs inválido lança na criação da suíte", () => {
+    expect(() => suite({ orcamentoMs: 0 })).toThrow(RangeError);
+    expect(() => suite({ orcamentoMs: Number.NaN })).toThrow(RangeError);
+  });
+
+  it("orcamentoDoAmbiente: segundos da variável em ms; ausente = sem orçamento; lixo LANÇA", () => {
+    expect(orcamentoDoAmbiente({})).toBeUndefined();
+    expect(orcamentoDoAmbiente({ [VARIAVEL_DO_ORCAMENTO]: "" })).toBeUndefined();
+    expect(orcamentoDoAmbiente({ [VARIAVEL_DO_ORCAMENTO]: "600" })).toBe(600_000);
+    expect(orcamentoDoAmbiente({ [VARIAVEL_DO_ORCAMENTO]: " 1.5 " })).toBe(1_500);
+    expect(() => orcamentoDoAmbiente({ [VARIAVEL_DO_ORCAMENTO]: "10m" })).toThrow(RangeError);
+    expect(() => orcamentoDoAmbiente({ [VARIAVEL_DO_ORCAMENTO]: "0" })).toThrow(RangeError);
   });
 
   it("helpers: repetirAoVivo só repete indisponível e ambíguo; ehAssercao só AssertionError", () => {

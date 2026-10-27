@@ -5,6 +5,30 @@ semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre
 seguinte — cada servidor faz bump explícito). Os TÍTULOS das anotações (`TITULO_*`) são
 contrato com o painel do portfólio: mudar um é minor com nota de migração.
 
+## [0.5.0] — 2026-10-26
+
+Minor: superfície nova (aditiva). Sem a opção nem a variável, nada muda; títulos, códigos de
+saída e o comportamento padrão ficam como estão. Cada consumidor faz o bump e declara o
+orçamento no workflow.
+
+### Adicionado
+- **Orçamento de parede da suíte ao vivo** (`orcamentoMs` em `criarSuiteAoVivo`; no
+  `./vitest`, também `AO_VIVO_ORCAMENTO_S`, em segundos — `orcamentoDoAmbiente`,
+  `VARIAVEL_DO_ORCAMENTO`). Contado do início do primeiro teste; esgotado, os testes seguintes
+  pulam sem ir à rede, a anotação sai `Fonte inalcançável` ("orçamento da rodada (N s)
+  esgotado com X de Y capturadas"), o código é 3 e o `afterAll` lança (sujeito a
+  `falharSeInalcancavel`). `Resumo` ganha `orcamentoEsgotado` e `orcamentoMs`; `Relatorio`,
+  `marcarOrcamentoEsgotado(ms)` e `orcamentoEsgotado`. Valor inválido LANÇA — orçamento
+  digitado errado não vira "sem orçamento" em silêncio.
+- **Por quê (bcb-br-mcp, 26/10/2026):** o contrato do catálogo SGS rodou 908 s sem imprimir
+  um resultado e foi cortado pelo `timeout-minutes: 15` do job; rodada saudável leva 150–165 s.
+  O disjuntor só cobre a origem que não responde a NADA: se ela responde às primeiras e para
+  no meio, cada série restante gasta as três idas (~141 s) e 135 séries passam de 5 h. O
+  corte de fora sai `cancelled` — o GitHub não usa `timed_out` para `timeout-minutes` (a
+  anotação do job diz "exceeded the maximum execution time") — e o retry automático, que só
+  olha `failure`/`timed_out`, nunca re-rodou. Com o orçamento, o arquivo termina com
+  veredito e vermelho ANTES do teto, e o retry o pega.
+
 ## [0.4.0] — 2026-10-23
 
 Minor: o comportamento PADRÃO de `verificar` muda — uma tool que falhou com a fonte de pé é

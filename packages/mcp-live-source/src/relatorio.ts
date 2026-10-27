@@ -47,6 +47,14 @@ export interface Resumo {
   /** `alheio`: defeito nosso (código, harness, disco). */
   alheias: ResultadoFalho[];
   disjuntor: boolean;
+  /**
+   * O orçamento de tempo da suíte acabou e os endpoints que faltavam não foram à rede.
+   * Mesma política do disjuntor (código 3, `Fonte inalcançável`): a deriva não foi
+   * medida até o fim, e o vermelho existe para o retry re-rodar num runner novo.
+   */
+  orcamentoEsgotado: boolean;
+  /** O orçamento que se esgotou, em ms (`undefined` quando não se esgotou). */
+  orcamentoMs: number | undefined;
   codigoDeSaida: number;
 }
 
@@ -118,6 +126,7 @@ export class Relatorio {
   readonly #resultados: Resultado[] = [];
   readonly #disjuntor: Disjuntor;
   readonly #classificacao: OpcoesDeClassificacao;
+  #orcamentoEsgotadoMs: number | undefined;
   readonly vocabulario: Vocabulario;
 
   constructor(opcoes: OpcoesDoRelatorio = {}) {
@@ -169,6 +178,18 @@ export class Relatorio {
     return r;
   }
 
+  /**
+   * O orçamento de tempo da rodada (`orcamentoMs`, em ms) acabou: daqui em diante as
+   * capturas são `registrarNaoMedida`. Idempotente; guarda o orçamento para a mensagem.
+   */
+  marcarOrcamentoEsgotado(orcamentoMs: number): void {
+    this.#orcamentoEsgotadoMs ??= orcamentoMs;
+  }
+
+  get orcamentoEsgotado(): boolean {
+    return this.#orcamentoEsgotadoMs !== undefined;
+  }
+
   /** `true` quando o laço deve parar: a origem não respondeu a nada. */
   get deveParar(): boolean {
     return this.#disjuntor.disparou;
@@ -182,7 +203,8 @@ export class Relatorio {
     const ambiguas = por("ambiguo");
     const alheias = por("alheio");
     const disjuntor = this.#disjuntor.disparou;
-    const codigoDeSaida = disjuntor
+    const orcamentoEsgotado = this.orcamentoEsgotado;
+    const codigoDeSaida = disjuntor || orcamentoEsgotado
       ? SAIDA_FONTE_INALCANCAVEL
       : derivas.length + ambiguas.length + alheias.length > 0
         ? SAIDA_FALHA
@@ -195,6 +217,8 @@ export class Relatorio {
       ambiguas,
       alheias,
       disjuntor,
+      orcamentoEsgotado,
+      orcamentoMs: this.#orcamentoEsgotadoMs,
       codigoDeSaida,
     };
   }
@@ -213,6 +237,14 @@ export class Relatorio {
           "error",
           TITULO_FONTE_INALCANCAVEL,
           `nenhuma captura respondeu (${this.#disjuntor.sequencia} indisponíveis seguidas); deriva NÃO medida — não é deriva de formato`,
+        ),
+      );
+    } else if (resumo.orcamentoEsgotado) {
+      saida.push(
+        anotacao(
+          "error",
+          TITULO_FONTE_INALCANCAVEL,
+          `${fraseDoOrcamento(resumo)}; deriva NÃO medida em: ${nomes(resumo.naoMedidas)} — não é deriva de formato`,
         ),
       );
     } else if (resumo.naoMedidas.length > 0) {
@@ -247,6 +279,12 @@ function semIndefinidos<T extends object>(o: T): Partial<T> {
   return saida;
 }
 
+/** "orçamento da rodada (600 s) esgotado com 12 de 135 capturadas" — log, anotação e resumo. */
+function fraseDoOrcamento(resumo: Resumo): string {
+  const s = resumo.orcamentoMs === undefined ? "?" : String(Math.round(resumo.orcamentoMs / 1000));
+  return `orçamento da rodada (${s} s) esgotado com ${resumo.capturadas} de ${resumo.total} capturadas`;
+}
+
 /** A linha de log de uma captura, como o script a imprime ao vivo. */
 export function linhaDeResultado(r: Resultado): string {
   if (r.ok) return `ok (${r.ms}ms)`;
@@ -275,6 +313,11 @@ export function linhasDeConclusao(
       "PARANDO CEDO: a origem não respondeu a nenhuma captura. Isto NÃO é deriva de formato — " +
         "a deriva não foi medida nesta rodada. Re-rodar o job cai em outro IP de saída.",
     );
+  } else if (resumo.orcamentoEsgotado) {
+    linhas.push(
+      `PARANDO CEDO: ${fraseDoOrcamento(resumo)}. A origem ficou lenta ou parou de responder no meio — ` +
+        "a deriva não foi medida até o fim. Re-rodar o job cai em outro IP de saída.",
+    );
   }
   linhas.push(`${resumo.capturadas} de ${resumo.total} ${v.capturadas}.`);
   lista("Fonte indisponível — deriva NÃO medida", resumo.naoMedidas);
@@ -294,6 +337,13 @@ export function resumoMarkdown(resumo: Resumo, opcoes: { vocabulario?: Vocabular
     partes.push(
       "Nenhuma captura respondeu; o disjuntor parou a rodada. **A deriva de formato NÃO foi " +
         "medida nesta noite** — isto não é deriva. Re-rodar o job cai em outro IP de saída.",
+      "",
+    );
+  } else if (resumo.orcamentoEsgotado) {
+    partes.push("### Fonte inalcançável", "");
+    partes.push(
+      `O ${fraseDoOrcamento(resumo)}; os endpoints que faltavam não foram à rede. **A deriva de ` +
+        "formato NÃO foi medida até o fim** — isto não é deriva. Re-rodar o job cai em outro IP de saída.",
       "",
     );
   } else {

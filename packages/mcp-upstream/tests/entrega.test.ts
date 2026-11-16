@@ -43,6 +43,15 @@ describe("entregaDaOrigem: a origem entregou algo medível?", () => {
     expect(entregaDaOrigem(erro("http_4xx", { status: 406 })).veredito).toBe("respondeu");
   });
 
+  it("304 sem corpo é indisponível, não recusa do pedido (SGS 4390 e 1, 16/11/2026)", () => {
+    const e = entregaDaOrigem(erro("http_4xx", { status: 304, body: "" }));
+    expect(e.veredito).toBe("indisponivel");
+    expect(e.kind).toBe("http_4xx");
+    expect(e.status).toBe(304);
+    expect(e.motivo).toContain("HTTP 304");
+    expect(e.motivo).toContain("não é deriva");
+  });
+
   it("corpo que não é o esperado é ambíguo — deriva OU página de erro num pedido bom (SGS 432, 24/09/2026)", () => {
     const e = entregaDaOrigem(erro("malformed_body", { status: 200, body: "<html>requisição inválida</html>" }));
     expect(e.veredito).toBe("ambiguo");

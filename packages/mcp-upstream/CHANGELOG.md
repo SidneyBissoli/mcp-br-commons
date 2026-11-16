@@ -4,6 +4,21 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/). Versões s
 semver; em 0.x, superfície publicada que muda é minor (caret `^0.x` não cobre o minor
 seguinte — cada servidor faz bump explícito).
 
+## [0.5.2] — 2026-11-16
+
+Patch: o único comportamento que muda é o veredito de um erro que na 0.5.1 saía
+`respondeu`.
+
+### Corrigido
+- **`entregaDaOrigem`: HTTP 304 é `indisponivel`, não `respondeu`.** O SGS do BCB
+  respondeu `304 Not Modified`, sem corpo, a GET sem cabeçalho condicional em 09/11 e
+  16/11/2026. Na segunda vez, as mesmas duas URLs deram 304 nas três tentativas de um run
+  de contrato, ao longo de 5 minutos, e depois voltaram a 200. Como `respondeu`, o
+  repórter de teste vivo (`@sbissoli/mcp-live-source`) contava isso como deriva, e o
+  painel abria "a fonte mudou". Nenhum consumidor manda pedido condicional, então um 304
+  não traz o recurso: nada medível chegou. O `kind` segue `http_4xx` (o vocabulário de
+  anomalias é fechado) e não se repete; só o veredito e a frase mudam.
+
 ## [0.5.1] — 2026-10-22
 
 Patch: o único comportamento que muda é o de um erro que na 0.5.0 saía `alheio`.

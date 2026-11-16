@@ -27,7 +27,9 @@ import { UpstreamError, type UpstreamErrorKind } from "./errors.js";
  *   429, 5xx. Deriva não foi medida nesta ida; não é deriva. O 5xx entra aqui mesmo
  *   tendo "chegado uma resposta": o que chegou é a página de erro do gateway, não o
  *   recurso pedido, e compará-la com a fixture afirmaria deriva de um corpo que a
- *   origem nunca pretendeu servir.
+ *   origem nunca pretendeu servir. Também entra aqui o `304` (Not Modified, sem
+ *   corpo): o pacote só manda pedido condicional se o chamador mandar, e nenhum
+ *   consumidor manda — um 304 é a origem servindo resposta guardada, não o recurso.
  * - `respondeu` — a origem respondeu ao pedido, e a resposta é a recusa dele: 404 ou
  *   outro 4xx. É território de contrato (rota, chave, parâmetro): quem decide o que a
  *   recusa significa é o consumidor, lendo `status`/`body`. Não é indisponibilidade.
@@ -118,6 +120,18 @@ function vereditoDoErro(err: UpstreamError): EntregaDaOrigem {
       veredito: "indisponivel",
       ...base,
       motivo: `a origem ${como} em ${tent}; nada medível chegou — não é deriva`,
+    };
+  }
+  // 304 sem corpo: nenhum consumidor do portfólio manda pedido condicional, então
+  // não há cópia local a que ele se refira — nada medível chegou. Medido no SGS em
+  // 09/11 e 16/11/2026 (bcb-br-mcp): as mesmas URLs davam 304 por minutos e depois
+  // 200, enquanto as vizinhas respondiam dado. O `kind` segue `http_4xx` (o
+  // vocabulário de anomalias é fechado e o 304 não se repete); só o veredito muda.
+  if (err.kind === "http_4xx" && err.status === 304) {
+    return {
+      veredito: "indisponivel",
+      ...base,
+      motivo: `a origem respondeu HTTP 304 sem corpo a um pedido não condicional em ${tent}; nada medível chegou — não é deriva`,
     };
   }
   if (RESPONDEU.has(err.kind)) {
